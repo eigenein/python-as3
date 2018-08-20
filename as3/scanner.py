@@ -38,7 +38,8 @@ class Scanner(Iterator[Token]):
         self.raise_syntax_error('unrecognized token')
 
     def read_identifier(self) -> Token:
-        return Token(type_=TokenType.IDENTIFIER, value=self.read_while_in(identifier_chars))
+        value = self.read_while_in(identifier_chars)
+        return Token(type_=keyword_to_token.get(value, TokenType.IDENTIFIER), value=value)
 
     def read_integer(self) -> Token:
         return Token(type_=TokenType.INTEGER, value=int(self.read_while_in(digits)))
@@ -58,25 +59,38 @@ class Scanner(Iterator[Token]):
 
 
 class TokenType(Enum):
-    IDENTIFIER = auto()
+    # Brackets.
     CURLY_BRACKET_OPEN = auto()
     CURLY_BRACKET_CLOSE = auto()
     BRACKET_OPEN = auto()
     BRACKET_CLOSE = auto()
     PARENTHESIS_OPEN = auto()
     PARENTHESIS_CLOSE = auto()
+
+    # Punctuation.
     COLON = auto()
     SEMICOLON = auto()
     COMMA = auto()
-    BINARY_OPERATOR = auto()
+    DOT = auto()
+
+    # Literals.
     INTEGER = auto()
     FLOAT = auto()
+
+    # Binary operators.
     PLUS = auto()
     MINUS = auto()
     DIVIDE = auto()
     STAR = auto()
     LESS = auto()
     ASSIGN = auto()
+
+    # Identifiers.
+    IDENTIFIER = auto()
+    BREAK = auto()
+    PACKAGE = auto()
+    PUBLIC = auto()
+    CLASS = auto()
 
 
 identifier_first_chars = {*string.ascii_letters, '_'}
@@ -100,4 +114,12 @@ character_to_token_type = {
     '*': TokenType.STAR,
     '<': TokenType.LESS,
     '=': TokenType.ASSIGN,
+    '.': TokenType.DOT,
+}
+
+keyword_to_token = {
+    'break': TokenType.BREAK,
+    'package': TokenType.PACKAGE,
+    'public': TokenType.PUBLIC,
+    'class': TokenType.CLASS,
 }

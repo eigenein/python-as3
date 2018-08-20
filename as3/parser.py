@@ -14,7 +14,20 @@ class Parser:
         self.tokens = peekable(tokens)
 
     def parse_script(self) -> ast.AST:
+        """
+        Parse *.as script.
+        """
+        self.expect_and_skip(TokenType.PACKAGE)
+        self.parse_package_name()
+        self.expect_and_skip(TokenType.CURLY_BRACKET_OPEN)
         ...
+        return ast.Module(body=[])
+
+    def parse_package_name(self):
+        self.expect_and_skip(TokenType.IDENTIFIER)
+        while self.is_peeked_type_in(TokenType.DOT):
+            self.tokens.next()
+            self.expect_and_skip(TokenType.IDENTIFIER)
 
     def parse_expression(self) -> ast.AST:
         node = self.parse_term()
@@ -42,20 +55,33 @@ class Parser:
             token: Token = self.tokens.next()
             return ast.Num(token.value)
 
-    def to_ast(self, token: Token) -> ast.AST:
-        ...
+    def expect_and_skip(self, *types: TokenType):
+        """
+        Check current token type and skip it.
+        """
+        self.raise_if_not_types(*types)
+        self.tokens.next()
 
     def is_peeked_type_in(self, *types: TokenType) -> bool:
+        """
+        Check current token type.
+        """
         return self.tokens and self.tokens.peek().type_ in types
 
     def raise_if_not_types(self, *types: TokenType):
+        """
+        Check current token type and raise if unexpected.
+        """
         if not self.tokens:
             self.raise_syntax_error(f'unexpected end of file, expected: {types}')
         if not self.is_peeked_type_in(*types):
             self.raise_syntax_error(f'unexpected {self.tokens.peek().type_}, expected: {types}')
 
     def raise_syntax_error(self, message: str) -> NoReturn:
-        raise ASSyntaxError(f'syntax error: {message} near: "{"".join(take(5, self.tokens))}"')
+        """
+        Raise syntax error with some context message.
+        """
+        raise ASSyntaxError(f'syntax error: {message} near: "{" ".join(map(str, take(5, self.tokens)))}"')
 
 
 token_type_to_operation = {

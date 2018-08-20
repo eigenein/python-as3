@@ -10,10 +10,6 @@ from as3.scanner import Token, TokenType
 from as3.parser import Parser
 
 
-def test_empty_file():
-    Parser([]).parse_script()
-
-
 @pytest.mark.parametrize('tokens, expected', [
     ([Token(TokenType.INTEGER, 5)], 'Num(n=5)'),
     ([
@@ -34,6 +30,7 @@ def test_expression(tokens: List[Token], expected: str):
 
 
 @pytest.mark.parametrize('tokens', [
+    [],
     [Token(TokenType.INTEGER, 42), Token(TokenType.PLUS, '+')],
 ])
 def test_expression_syntax_error(tokens: List[Token]):

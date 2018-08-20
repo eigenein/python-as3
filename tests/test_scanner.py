@@ -12,7 +12,7 @@ def test_empty():
 
 
 @pytest.mark.parametrize('input_, expected', [
-    ('package', Token(type_=TokenType.IDENTIFIER, value='package')),
+    ('package', Token(type_=TokenType.PACKAGE, value='package')),
     ('{', Token(type_=TokenType.CURLY_BRACKET_OPEN, value='{')),
     ('(', Token(type_=TokenType.PARENTHESIS_OPEN, value='(')),
     ('[', Token(type_=TokenType.BRACKET_OPEN, value='[')),
@@ -37,7 +37,7 @@ def test_scanner_get_elemental_penetration():
         }
     '''
     assert list(Scanner(StringIO(text))) == [
-        Token(type_=TokenType.IDENTIFIER, value='public'),
+        Token(type_=TokenType.PUBLIC, value='public'),
         Token(type_=TokenType.IDENTIFIER, value='static'),
         Token(type_=TokenType.IDENTIFIER, value='function'),
         Token(type_=TokenType.IDENTIFIER, value='getElementalPenetration'),
