@@ -11,7 +11,7 @@ setuptools.setup(
     url='https://github.com/eigenein/python-as3',
     packages=setuptools.find_packages(exclude=['tests']),
     python_requires='>=3.7',
-    install_requires=[],
+    install_requires=['more-itertools>=4.3.0,<5.0.0'],
     extras_require={},
     classifiers=[
         'Development Status :: 1 - Planning',
