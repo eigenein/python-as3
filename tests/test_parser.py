@@ -11,7 +11,7 @@ from as3.parser import Parser
 
 
 def test_empty_file():
-    Parser([]).parse()
+    Parser([]).parse_script()
 
 
 @pytest.mark.parametrize('tokens, expected', [

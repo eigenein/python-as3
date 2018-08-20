@@ -13,7 +13,7 @@ class Parser:
     def __init__(self, tokens: Iterable[Token]):
         self.tokens = peekable(tokens)
 
-    def parse(self) -> ast.AST:
+    def parse_script(self) -> ast.AST:
         ...
 
     def parse_expression(self) -> ast.AST:

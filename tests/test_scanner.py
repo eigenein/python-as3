@@ -26,7 +26,7 @@ def test_single_token(input_: str, expected: Token):
 
 
 def test_scanner_get_elemental_penetration():
-    text = """
+    text = '''
         public static function getElementalPenetration(param1:Number, param2:Number) : int
         {
             if(param2 < 0)
@@ -35,7 +35,7 @@ def test_scanner_get_elemental_penetration():
             }
             return int(param1 / (Number(1 + param2 / 300000)));
         }
-    """
+    '''
     assert list(Scanner(StringIO(text))) == [
         Token(type_=TokenType.IDENTIFIER, value='public'),
         Token(type_=TokenType.IDENTIFIER, value='static'),
