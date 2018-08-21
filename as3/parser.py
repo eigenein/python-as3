@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Iterable, NoReturn, Optional, Dict
+from typing import Iterable, NoReturn, Optional, Dict, Tuple
 
 from more_itertools import peekable
 
@@ -29,26 +29,22 @@ class Parser:
 
     def parse_package(self):
         self.skip(TokenType.PACKAGE)
-        package_name = tuple(self.parse_package_name())
+        package_name = tuple(self.parse_fully_qualified_name())
         self.skip(TokenType.CURLY_BRACKET_OPEN)
         self.parse_package_body()
         # TODO: self.skip(TokenType.CURLY_BRACKET_CLOSE)
 
-    def parse_package_name(self) -> Iterable[str]:
+    def parse_fully_qualified_name(self) -> Iterable[str]:
         """
-        Parse package name and return its parts.
+        Parse fully-qualified name and return its parts.
         """
-        self.skip(TokenType.IDENTIFIER)
+        yield self.skip(TokenType.IDENTIFIER).value
         while self.skip_if_type_in(TokenType.DOT):
             yield self.skip(TokenType.IDENTIFIER).value
 
     def parse_package_body(self):
-        if self.is_type_in(TokenType.STATIC, TokenType.PUBLIC):
-            modifiers = tuple(self.parse_modifiers())
-        elif self.is_type_in(TokenType.IMPORT):
-            ...
-        else:
-            self.raise_expected_error(TokenType.STATIC, TokenType.PUBLIC, TokenType.IMPORT)
+        imports = tuple(self.parse_imports())
+        definitions = tuple(self.parse_topmost_package_definitions())
 
     def parse_modifiers(self) -> Iterable[TokenType]:
         """
@@ -56,6 +52,32 @@ class Parser:
         """
         while self.is_type_in(TokenType.STATIC, TokenType.PUBLIC):
             yield self.tokens.next().type_
+
+    def parse_imports(self) -> Iterable[Tuple[str]]:
+        while self.is_type_in(TokenType.IMPORT):
+            yield tuple(self.parse_import())
+
+    def parse_import(self) -> Iterable[str]:
+        self.skip(TokenType.IMPORT)
+        yield from self.parse_fully_qualified_name()
+        self.skip(TokenType.SEMICOLON)
+
+    def parse_topmost_package_definitions(self) -> Iterable[ast.AST]:
+        while not self.is_type_in(TokenType.CURLY_BRACKET_CLOSE):
+            modifiers = tuple(self.parse_modifiers())
+            if self.is_type_in(TokenType.CLASS):
+                yield self.parse_class()
+            else:
+                self.raise_expected_error(TokenType.CLASS)
+
+    def parse_class(self) -> ast.AST:
+        raise NotImplementedError(TokenType.CLASS)
+
+    def parse_function(self) -> ast.AST:
+        raise NotImplementedError(TokenType.FUNCTION)
+
+    def parse_variable(self) -> ast.AST:
+        raise NotImplementedError(TokenType.VAR)
 
     def parse_expression(self) -> ast.AST:
         return self.parse_additive()
