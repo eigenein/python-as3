@@ -38,8 +38,8 @@ def test_scanner_get_elemental_penetration():
     '''
     assert list(Scanner(StringIO(text))) == [
         Token(type_=TokenType.PUBLIC, value='public', line_number=2, position=9),
-        Token(type_=TokenType.IDENTIFIER, value='static', line_number=2, position=16),
-        Token(type_=TokenType.IDENTIFIER, value='function', line_number=2, position=23),
+        Token(type_=TokenType.STATIC, value='static', line_number=2, position=16),
+        Token(type_=TokenType.FUNCTION, value='function', line_number=2, position=23),
         Token(type_=TokenType.IDENTIFIER, value='getElementalPenetration', line_number=2, position=32),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=2, position=55),
         Token(type_=TokenType.IDENTIFIER, value='param1', line_number=2, position=56),
@@ -71,18 +71,18 @@ def test_scanner_get_elemental_penetration():
 
         Token(type_=TokenType.CURLY_BRACKET_CLOSE, value='}', line_number=7, position=13),
 
-        Token(type_=TokenType.IDENTIFIER, value='return', line_number=8, position=13),
+        Token(type_=TokenType.RETURN, value='return', line_number=8, position=13),
         Token(type_=TokenType.IDENTIFIER, value='int', line_number=8, position=20),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=8, position=23),
         Token(type_=TokenType.IDENTIFIER, value='param1', line_number=8, position=24),
-        Token(type_=TokenType.DIVIDE, value='/', line_number=8, position=31),
+        Token(type_=TokenType.SLASH, value='/', line_number=8, position=31),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=8, position=33),
         Token(type_=TokenType.IDENTIFIER, value='Number', line_number=8, position=34),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=8, position=40),
         Token(type_=TokenType.INTEGER, value=1, line_number=8, position=41),
         Token(type_=TokenType.PLUS, value='+', line_number=8, position=43),
         Token(type_=TokenType.IDENTIFIER, value='param2', line_number=8, position=45),
-        Token(type_=TokenType.DIVIDE, value='/', line_number=8, position=52),
+        Token(type_=TokenType.SLASH, value='/', line_number=8, position=52),
         Token(type_=TokenType.INTEGER, value=300000, line_number=8, position=54),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=8, position=60),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=8, position=61),

@@ -87,37 +87,42 @@ class Scanner(Iterator[Token]):
 
 class TokenType(Enum):
     # Brackets.
-    CURLY_BRACKET_OPEN = auto()
-    CURLY_BRACKET_CLOSE = auto()
-    BRACKET_OPEN = auto()
     BRACKET_CLOSE = auto()
-    PARENTHESIS_OPEN = auto()
+    BRACKET_OPEN = auto()
+    CURLY_BRACKET_CLOSE = auto()
+    CURLY_BRACKET_OPEN = auto()
     PARENTHESIS_CLOSE = auto()
+    PARENTHESIS_OPEN = auto()
 
     # Punctuation.
     COLON = auto()
-    SEMICOLON = auto()
     COMMA = auto()
     DOT = auto()
+    SEMICOLON = auto()
 
     # Literals.
-    INTEGER = auto()
     FLOAT = auto()
+    INTEGER = auto()
 
     # Binary operators.
-    PLUS = auto()
-    MINUS = auto()
-    DIVIDE = auto()
-    STAR = auto()
-    LESS = auto()
     ASSIGN = auto()
+    LESS = auto()
+    MINUS = auto()
+    PLUS = auto()
+    SLASH = auto()
+    STAR = auto()
 
     # Identifiers.
-    IDENTIFIER = auto()
     BREAK = auto()
+    CLASS = auto()
+    FUNCTION = auto()
+    IDENTIFIER = auto()
+    IMPORT = auto()
     PACKAGE = auto()
     PUBLIC = auto()
-    CLASS = auto()
+    RETURN = auto()
+    STATIC = auto()
+    VAR = auto()
 
 
 identifier_first_chars = {*string.ascii_letters, '_'}
@@ -137,7 +142,7 @@ character_to_token_type = {
     ',': TokenType.COMMA,
     '+': TokenType.PLUS,
     '-': TokenType.MINUS,
-    '/': TokenType.DIVIDE,
+    '/': TokenType.SLASH,
     '*': TokenType.STAR,
     '<': TokenType.LESS,
     '=': TokenType.ASSIGN,
@@ -146,7 +151,12 @@ character_to_token_type = {
 
 keyword_to_token = {
     'break': TokenType.BREAK,
+    'class': TokenType.CLASS,
+    'function': TokenType.FUNCTION,
+    'import': TokenType.IMPORT,
     'package': TokenType.PACKAGE,
     'public': TokenType.PUBLIC,
-    'class': TokenType.CLASS,
+    'return': TokenType.RETURN,
+    'static': TokenType.STATIC,
+    'var': TokenType.VAR,
 }
