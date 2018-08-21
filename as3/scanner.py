@@ -3,10 +3,9 @@ from __future__ import annotations
 import string
 from dataclasses import dataclass
 from enum import Enum, auto
-from itertools import chain
-from typing import Any, Iterator, TextIO, NoReturn, Container, Iterable
+from typing import Any, Container, Iterable, Iterator, NoReturn, TextIO
 
-from more_itertools import peekable, take, consume
+from more_itertools import consume, peekable, side_effect
 
 from as3.exceptions import ASSyntaxError
 
@@ -15,11 +14,26 @@ from as3.exceptions import ASSyntaxError
 class Token:
     type_: TokenType
     value: Any
+    line_number: int
+    position: int
 
 
 class Scanner(Iterator[Token]):
     def __init__(self, io: TextIO):
-        self.chars = peekable(chain.from_iterable(line for line in io))
+        self.chars = peekable(
+            char
+            for line in side_effect(self.increment_line, io)
+            for char in side_effect(self.increment_position, line)
+        )
+        self.line_number = 0
+        self.position = 0
+
+    def increment_line(self, _: str):
+        self.line_number += 1
+        self.position = 0
+
+    def increment_position(self, _: str):
+        self.position += 1
 
     def __iter__(self) -> Iterator[Token]:
         return self
@@ -38,14 +52,27 @@ class Scanner(Iterator[Token]):
         self.raise_syntax_error('unrecognized token')
 
     def read_identifier(self) -> Token:
+        line_number, position = self.line_number, self.position
         value = self.read_while_in(identifier_chars)
-        return Token(type_=keyword_to_token.get(value, TokenType.IDENTIFIER), value=value)
+        return Token(
+            type_=keyword_to_token.get(value, TokenType.IDENTIFIER),
+            value=value,
+            line_number=line_number,
+            position=position,
+        )
 
     def read_integer(self) -> Token:
-        return Token(type_=TokenType.INTEGER, value=int(self.read_while_in(digits)))
+        line_number, position = self.line_number, self.position
+        return Token(
+            type_=TokenType.INTEGER,
+            value=int(self.read_while_in(digits)),
+            line_number=line_number,
+            position=position,
+        )
 
     def read_single(self, type_: TokenType) -> Token:
-        return Token(type_=type_, value=self.chars.next())
+        line_number, position = self.line_number, self.position
+        return Token(type_=type_, value=self.chars.next(), line_number=line_number, position=position)
 
     def read_while_in(self, chars: Container[str]) -> str:
         return ''.join(self.iterate_while_in(chars))
@@ -55,7 +82,7 @@ class Scanner(Iterator[Token]):
             yield self.chars.next()
 
     def raise_syntax_error(self, message: str) -> NoReturn:
-        raise ASSyntaxError(f'syntax error: {message} near: "{"".join(take(80, self.chars))}"')
+        raise ASSyntaxError(f'syntax error: {message} at line {self.line_number} position {self.position}')
 
 
 class TokenType(Enum):

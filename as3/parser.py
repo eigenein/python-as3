@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import ast
-from typing import Iterable, NoReturn
+from typing import Iterable, NoReturn, Optional
 
-from more_itertools import peekable, take
+from more_itertools import peekable
 
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Token, TokenType
@@ -17,6 +17,7 @@ class Parser:
         """
         Parse *.as script.
         """
+        # TODO: multiple classes: https://stackoverflow.com/a/15389018/359730
         self.expect_and_skip(TokenType.PACKAGE)
         self.parse_package_name()
         self.expect_and_skip(TokenType.CURLY_BRACKET_OPEN)
@@ -73,15 +74,24 @@ class Parser:
         Check current token type and raise if unexpected.
         """
         if not self.tokens:
-            self.raise_syntax_error(f'unexpected end of file, expected: {types}')
+            self.raise_syntax_error(f'unexpected end of file, expected one of: {self.types_string(*types)}')
         if not self.is_peeked_type_in(*types):
-            self.raise_syntax_error(f'unexpected {self.tokens.peek().type_}, expected: {types}')
+            token: Token = self.tokens.peek()
+            self.raise_syntax_error(f'unexpected {token.type_}, expected one of: {self.types_string(*types)}', token)
 
-    def raise_syntax_error(self, message: str) -> NoReturn:
+    @staticmethod
+    def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
         """
-        Raise syntax error with some context message.
+        Raise syntax error with some helper message.
         """
-        raise ASSyntaxError(f'syntax error: {message} near: "{" ".join(map(str, take(5, self.tokens)))}"')
+        if token:
+            raise ASSyntaxError(f'syntax error: {message} at line {token.line_number} position {token.position}')
+        else:
+            raise ASSyntaxError(f'syntax error: {message}')
+
+    @staticmethod
+    def types_string(*types: TokenType) -> str:
+        return ', '.join(_.name for _ in types)
 
 
 token_type_to_operation = {
