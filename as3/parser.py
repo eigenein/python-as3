@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import ast
-from typing import Iterable, NoReturn, Optional, Dict, Tuple, Callable
+from typing import Callable, Dict, Iterable, NoReturn, Optional
 
-from more_itertools import peekable
+from more_itertools import consume, peekable
 
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Token, TokenType
@@ -21,73 +21,19 @@ class Parser:
         Parse *.as script.
         """
         while self.tokens.peek():
-            if self.is_type(TokenType.PACKAGE):
-                self.parse_package()
-            else:
-                self.parse_definition()
+            self.parse_statement()
 
     def parse_package(self) -> ast.AST:
         self.expect(TokenType.PACKAGE)
         package_name = tuple(self.parse_qualified_name())
-        self.expect(TokenType.CURLY_BRACKET_OPEN)
-        imports = tuple(self.parse_imports())
-        definitions = tuple(self.parse_definitions())
-        self.expect(TokenType.CURLY_BRACKET_CLOSE)
-
-    def parse_qualified_name(self) -> Iterable[str]:
-        """
-        Parse qualified name and return its parts.
-        """
-        yield self.expect(TokenType.IDENTIFIER).value
-        while self.skip(TokenType.DOT):
-            yield self.expect(TokenType.IDENTIFIER).value
-
-    def parse_modifiers(self) -> Iterable[TokenType]:
-        """
-        Parse modifiers like `public` and `static`.
-        """
-        while self.is_type(TokenType.STATIC, TokenType.PUBLIC):
-            yield self.tokens.next().type_
-
-    def parse_imports(self) -> Iterable[Tuple[str]]:
-        while self.is_type(TokenType.IMPORT):
-            yield tuple(self.parse_import())
-
-    def parse_import(self) -> Iterable[str]:
-        self.expect(TokenType.IMPORT)
-        yield from self.parse_qualified_name()
-        self.expect(TokenType.SEMICOLON)
-
-    def parse_definitions(self) -> Iterable[ast.AST]:
-        while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
-            yield self.parse_definition()
-
-    def parse_definition(self) -> ast.AST:
-        modifiers = tuple(self.parse_modifiers())
-        if self.is_type(TokenType.CLASS):
-            return self.parse_class()
-        if self.is_type(TokenType.FUNCTION):
-            return self.parse_function()
-        if self.is_type(TokenType.VAR):
-            return self.parse_variable()
-        self.raise_expected_error(TokenType.CLASS, TokenType.FUNCTION, TokenType.VAR)
+        self.parse_code_block()
 
     def parse_class(self) -> ast.AST:
         self.expect(TokenType.CLASS)
         class_name = self.expect(TokenType.IDENTIFIER).value
-
         if self.skip(TokenType.EXTENDS):
             extends_name = tuple(self.parse_qualified_name())
-
-        self.expect(TokenType.CURLY_BRACKET_OPEN)
-        while not self.skip(TokenType.CURLY_BRACKET_CLOSE):
-            modifiers = tuple(self.parse_modifiers())
-            if self.is_type(TokenType.VAR):
-                self.parse_variable()
-            elif self.is_type(TokenType.FUNCTION):
-                self.parse_function()
-            else:
-                self.raise_expected_error(TokenType.VAR, TokenType.FUNCTION)
+        self.parse_code_block()
 
     def parse_function(self) -> ast.AST:
         self.expect(TokenType.FUNCTION)
@@ -111,11 +57,46 @@ class Parser:
             self.parse_statement()
 
     def parse_statement(self) -> ast.AST:
-        if self.is_type(TokenType.SEMICOLON):
-            return ast.Pass()
+        consume(self.parse_modifiers())  # FIXME
+        if self.is_type(TokenType.PACKAGE):
+            return self.parse_package()
+        if self.is_type(TokenType.IMPORT):
+            return self.parse_import()
+        if self.is_type(TokenType.CLASS):
+            return self.parse_class()
+        if self.is_type(TokenType.FUNCTION):
+            return self.parse_function()
         if self.is_type(TokenType.IF):
             return self.parse_if()
-        self.raise_expected_error(TokenType.SEMICOLON, TokenType.IF)
+        if self.is_type(TokenType.SEMICOLON):
+            return ast.Pass()
+        self.raise_expected_error(
+            TokenType.PACKAGE,
+            TokenType.IMPORT,
+            TokenType.CLASS,
+            TokenType.IF,
+            TokenType.SEMICOLON,
+        )
+
+    def parse_qualified_name(self) -> Iterable[str]:
+        """
+        Parse qualified name and return its parts.
+        """
+        yield self.expect(TokenType.IDENTIFIER).value
+        while self.skip(TokenType.DOT):
+            yield self.expect(TokenType.IDENTIFIER).value
+
+    def parse_modifiers(self) -> Iterable[TokenType]:
+        """
+        Parse modifiers like `public` and `static`.
+        """
+        while self.is_type(TokenType.STATIC, TokenType.PUBLIC):
+            yield self.tokens.next().type_
+
+    def parse_import(self) -> ast.AST:
+        self.expect(TokenType.IMPORT)
+        qualified_name = tuple(self.parse_qualified_name())
+        self.expect(TokenType.SEMICOLON)
 
     def parse_if(self) -> ast.AST:
         self.expect(TokenType.IF)
