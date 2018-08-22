@@ -50,6 +50,8 @@ class Scanner(Iterator[Token]):
             return self.read_identifier()
         if char in character_to_token_type:
             return self.read_single(character_to_token_type[char])
+        if char == '<':
+            return self.read_less()
         if char in digits:
             return self.read_integer()
 
@@ -77,6 +79,26 @@ class Scanner(Iterator[Token]):
     def read_single(self, type_: TokenType) -> Token:
         line_number, position = self.line_number, self.position
         return Token(type_=type_, value=self.chars.next(), line_number=line_number, position=position)
+
+    def read_less(self) -> Token:
+        line_number, position = self.line_number, self.position
+        self.expect('<')
+        if self.skip('<'):
+            return Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=line_number, position=position)
+        return Token(type_=TokenType.LESS, value='<', line_number=line_number, position=position)
+
+    def expect(self, char: str):
+        if not self.chars:
+            self.raise_syntax_error('unexpected end of file')
+        if self.chars.peek() != char:
+            self.raise_syntax_error(f'expected: "{char}", found: "{self.chars.peek()}"')
+        self.chars.next()
+
+    def skip(self, char: str) -> bool:
+        if self.chars and self.chars.peek() == char:
+            self.chars.next()
+            return True
+        return False
 
     def read_while_in(self, chars: Container[str]) -> str:
         return ''.join(self.iterate_while_in(chars))
@@ -110,6 +132,7 @@ class TokenType(Enum):
 
     # Binary operators.
     ASSIGN = auto()
+    LEFT_SHIFT = auto()
     LESS = auto()
     MINUS = auto()
     PLUS = auto()
@@ -151,7 +174,6 @@ character_to_token_type = {
     '-': TokenType.MINUS,
     '/': TokenType.SLASH,
     '*': TokenType.STAR,
-    '<': TokenType.LESS,
     '=': TokenType.ASSIGN,
     '.': TokenType.DOT,
 }

@@ -20,6 +20,8 @@ def test_empty():
     (':', Token(type_=TokenType.COLON, value=':', line_number=1, position=1)),
     ('+', Token(type_=TokenType.PLUS, value='+', line_number=1, position=1)),
     ('-', Token(type_=TokenType.MINUS, value='-', line_number=1, position=1)),
+    ('<', Token(type_=TokenType.LESS, value='<', line_number=1, position=1)),
+    ('<<', Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=1, position=1)),
 ])
 def test_single_token(input_: str, expected: Token):
     assert list(Scanner(StringIO(input_))) == [expected]
