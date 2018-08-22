@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import ast
-from typing import Iterable, NoReturn, Optional, Dict, Tuple
+from typing import Iterable, NoReturn, Optional, Dict, Tuple, Callable
 
 from more_itertools import peekable
 
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Token, TokenType
 
-
-# See also: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/operators.html#articlecontentAdobe_numberedheader_1
 
 class Parser:
     def __init__(self, tokens: Iterable[Token]):
@@ -22,126 +20,196 @@ class Parser:
         """
         Parse *.as script.
         """
-        if self.is_type_in(TokenType.PACKAGE):
-            self.parse_package()
-            return ast.Module(body=[])
-        self.raise_expected_error(TokenType.PACKAGE)  # may also be a variable, a function or a namespace
+        while self.tokens.peek():
+            if self.is_type(TokenType.PACKAGE):
+                self.parse_package()
+            else:
+                self.parse_definition()
 
-    def parse_package(self):
-        self.skip(TokenType.PACKAGE)
-        package_name = tuple(self.parse_fully_qualified_name())
-        self.skip(TokenType.CURLY_BRACKET_OPEN)
-        self.parse_package_body()
-        # TODO: self.skip(TokenType.CURLY_BRACKET_CLOSE)
-
-    def parse_fully_qualified_name(self) -> Iterable[str]:
-        """
-        Parse fully-qualified name and return its parts.
-        """
-        yield self.skip(TokenType.IDENTIFIER).value
-        while self.skip_if_type_in(TokenType.DOT):
-            yield self.skip(TokenType.IDENTIFIER).value
-
-    def parse_package_body(self):
+    def parse_package(self) -> ast.AST:
+        self.expect(TokenType.PACKAGE)
+        package_name = tuple(self.parse_qualified_name())
+        self.expect(TokenType.CURLY_BRACKET_OPEN)
         imports = tuple(self.parse_imports())
-        definitions = tuple(self.parse_topmost_package_definitions())
+        definitions = tuple(self.parse_definitions())
+        self.expect(TokenType.CURLY_BRACKET_CLOSE)
+
+    def parse_qualified_name(self) -> Iterable[str]:
+        """
+        Parse qualified name and return its parts.
+        """
+        yield self.expect(TokenType.IDENTIFIER).value
+        while self.skip(TokenType.DOT):
+            yield self.expect(TokenType.IDENTIFIER).value
 
     def parse_modifiers(self) -> Iterable[TokenType]:
         """
         Parse modifiers like `public` and `static`.
         """
-        while self.is_type_in(TokenType.STATIC, TokenType.PUBLIC):
+        while self.is_type(TokenType.STATIC, TokenType.PUBLIC):
             yield self.tokens.next().type_
 
     def parse_imports(self) -> Iterable[Tuple[str]]:
-        while self.is_type_in(TokenType.IMPORT):
+        while self.is_type(TokenType.IMPORT):
             yield tuple(self.parse_import())
 
     def parse_import(self) -> Iterable[str]:
-        self.skip(TokenType.IMPORT)
-        yield from self.parse_fully_qualified_name()
-        self.skip(TokenType.SEMICOLON)
+        self.expect(TokenType.IMPORT)
+        yield from self.parse_qualified_name()
+        self.expect(TokenType.SEMICOLON)
 
-    def parse_topmost_package_definitions(self) -> Iterable[ast.AST]:
-        while not self.is_type_in(TokenType.CURLY_BRACKET_CLOSE):
-            modifiers = tuple(self.parse_modifiers())
-            if self.is_type_in(TokenType.CLASS):
-                yield self.parse_class()
-            else:
-                self.raise_expected_error(TokenType.CLASS)
+    def parse_definitions(self) -> Iterable[ast.AST]:
+        while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
+            yield self.parse_definition()
+
+    def parse_definition(self) -> ast.AST:
+        modifiers = tuple(self.parse_modifiers())
+        if self.is_type(TokenType.CLASS):
+            return self.parse_class()
+        if self.is_type(TokenType.FUNCTION):
+            return self.parse_function()
+        if self.is_type(TokenType.VAR):
+            return self.parse_variable()
+        self.raise_expected_error(TokenType.CLASS, TokenType.FUNCTION, TokenType.VAR)
 
     def parse_class(self) -> ast.AST:
-        raise NotImplementedError(TokenType.CLASS)
+        self.expect(TokenType.CLASS)
+        class_name = self.expect(TokenType.IDENTIFIER).value
+
+        if self.skip(TokenType.EXTENDS):
+            extends_name = tuple(self.parse_qualified_name())
+
+        self.expect(TokenType.CURLY_BRACKET_OPEN)
+        while not self.skip(TokenType.CURLY_BRACKET_CLOSE):
+            modifiers = tuple(self.parse_modifiers())
+            if self.is_type(TokenType.VAR):
+                self.parse_variable()
+            elif self.is_type(TokenType.FUNCTION):
+                self.parse_function()
+            else:
+                self.raise_expected_error(TokenType.VAR, TokenType.FUNCTION)
 
     def parse_function(self) -> ast.AST:
-        raise NotImplementedError(TokenType.FUNCTION)
+        self.expect(TokenType.FUNCTION)
+        name = self.expect(TokenType.IDENTIFIER).value
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        while not self.skip(TokenType.PARENTHESIS_CLOSE):
+            self.parse_parameter()
+        self.parse_code_block()
+
+    def parse_parameter(self) -> ast.AST:
+        parameter_name = self.expect(TokenType.IDENTIFIER).value
+        self.expect(TokenType.COLON)
+        type_name = tuple(self.parse_qualified_name())
+        if self.skip(TokenType.ASSIGN):
+            default_value = self.parse_expression()
+        self.skip(TokenType.COMMA)
+
+    def parse_code_block(self) -> ast.AST:
+        self.expect(TokenType.CURLY_BRACKET_OPEN)
+        while not self.skip(TokenType.CURLY_BRACKET_CLOSE):
+            self.parse_statement()
+
+    def parse_statement(self) -> ast.AST:
+        if self.is_type(TokenType.SEMICOLON):
+            return ast.Pass()
+        if self.is_type(TokenType.IF):
+            return self.parse_if()
+        self.raise_expected_error(TokenType.SEMICOLON, TokenType.IF)
+
+    def parse_if(self) -> ast.AST:
+        self.expect(TokenType.IF)
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        self.parse_expression()
+        self.expect(TokenType.PARENTHESIS_CLOSE)
+        if self.is_type(TokenType.CURLY_BRACKET_OPEN):
+            self.parse_code_block()
+        else:
+            self.parse_statement()
 
     def parse_variable(self) -> ast.AST:
         raise NotImplementedError(TokenType.VAR)
+
+    # Expression rules.
+    # Methods are ordered according to reversed precedence.
+    # https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/operators.html#articlecontentAdobe_numberedheader_1
+    # ------------------------------------------------------------------------------------------------------------------
 
     def parse_expression(self) -> ast.AST:
         return self.parse_additive()
 
     def parse_additive(self) -> ast.AST:
-        node = self.parse_multiplicative()
-        while self.is_type_in(TokenType.PLUS, TokenType.MINUS):
-            token: Token = self.tokens.next()
-            node = ast.BinOp(
-                left=node,
-                op=token_type_to_ast[token.type_],
-                right=self.parse_multiplicative(),
-                lineno=token.line_number,
-                col_offset=token.position,
-            )
-        return node
+        return self.parse_binary_operation(self.parse_multiplicative, TokenType.PLUS, TokenType.MINUS)
 
     def parse_multiplicative(self) -> ast.AST:
-        node = self.parse_literal_or_parenthesized()
-        while self.is_type_in(TokenType.STAR, TokenType.SLASH):
-            token: Token = self.tokens.next()
-            node = ast.BinOp(
-                left=node,
-                op=token_type_to_ast[token.type_],
-                right=self.parse_literal_or_parenthesized(),
-                lineno=token.line_number,
-                col_offset=token.position,
-            )
-        return node
+        return self.parse_binary_operation(self.parse_unary, TokenType.STAR, TokenType.SLASH)
 
-    def parse_literal_or_parenthesized(self) -> ast.AST:
-        if self.is_type_in(TokenType.PARENTHESIS_OPEN, TokenType.PARENTHESIS_CLOSE):
-            self.skip(TokenType.PARENTHESIS_OPEN)
-            node = self.parse_expression()
-            self.skip(TokenType.PARENTHESIS_CLOSE)
-            return node
-        if self.is_type_in(TokenType.INTEGER):
+    def parse_unary(self) -> ast.AST:
+        if self.is_type(TokenType.PLUS):
             token: Token = self.tokens.next()
-            return ast.Num(token.value, lineno=token.line_number, col_offset=token.position)
-        self.raise_expected_error(TokenType.PARENTHESIS_OPEN, TokenType.PARENTHESIS_CLOSE, TokenType.INTEGER)
+            return ast.UnaryOp(op=ast.UAdd(), operand=self.parse_unary(), **token.ast_args)
+        if self.is_type(TokenType.MINUS):
+            token: Token = self.tokens.next()
+            return ast.UnaryOp(op=ast.USub(), operand=self.parse_unary(), **token.ast_args)
+        return self.parse_primary()
+
+    def parse_primary(self) -> ast.AST:
+        left = self.parse_terminal_or_parenthesized()
+        if self.is_type(TokenType.DOT):
+            token: Token = self.tokens.next()
+            return ast.Attribute(value=left, attr=self.expect(TokenType.IDENTIFIER).value, ctx=ast.Load(), **token.ast_args)
+        return left
+
+    def parse_terminal_or_parenthesized(self) -> ast.AST:
+        if self.skip(TokenType.PARENTHESIS_OPEN):
+            node = self.parse_expression()
+            self.expect(TokenType.PARENTHESIS_CLOSE)
+            return node
+        if self.is_type(TokenType.INTEGER):
+            token: Token = self.tokens.next()
+            return ast.Num(n=token.value, **token.ast_args)
+        if self.is_type(TokenType.IDENTIFIER):
+            token: Token = self.tokens.next()
+            return ast.Name(id=token.value, ctx=ast.Load(), **token.ast_args)
+        self.raise_expected_error(
+            TokenType.PARENTHESIS_OPEN,
+            TokenType.INTEGER,
+            TokenType.IDENTIFIER,
+        )
+
+    # Expression rule helpers.
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def parse_binary_operation(self, child_getter: Callable[[], ast.AST], *types: TokenType) -> ast.AST:
+        left = child_getter()
+        while self.is_type(*types):
+            token: Token = self.tokens.next()
+            left = ast.BinOp(left=left, op=token_type_to_operation[token.type_], right=child_getter(), **token.ast_args)
+        return left
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
-    def skip(self, *types: TokenType) -> Token:
+    def expect(self, *types: TokenType) -> Token:
         """
-        Check the current token type, skip and return it.
+        Check the current token type, return it and advance.
         Raise syntax error if the current token has an unexpected type.
         """
-        if self.is_type_in(*types):
+        if self.is_type(*types):
             return self.tokens.next()
         self.raise_expected_error(*types)
 
-    def is_type_in(self, *types: TokenType) -> bool:
+    def is_type(self, *types: TokenType) -> bool:
         """
         Check the current token type.
         """
         return self.tokens and self.tokens.peek().type_ in types
 
-    def skip_if_type_in(self, *types: TokenType) -> bool:
+    def skip(self, *types: TokenType) -> bool:
         """
         Check the current token type and skip it if matches.
         """
-        if self.is_type_in(*types):
+        if self.is_type(*types):
             self.tokens.next()
             return True
         return False
@@ -154,7 +222,7 @@ class Parser:
         if not self.tokens:
             self.raise_syntax_error(f'unexpected end of file, expected one of: {types_string}')
         token: Token = self.tokens.peek()
-        self.raise_syntax_error(f'unexpected {token.type_}, expected one of: {types_string}', token)
+        self.raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
 
     @staticmethod
     def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
@@ -167,7 +235,7 @@ class Parser:
             raise ASSyntaxError(f'syntax error: {message}')
 
 
-token_type_to_ast: Dict[TokenType, ast.AST] = {
+token_type_to_operation: Dict[TokenType, ast.AST] = {
     TokenType.MINUS: ast.Sub(),
     TokenType.PLUS: ast.Add(),
     TokenType.SLASH: ast.Div(),

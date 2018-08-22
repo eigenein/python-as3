@@ -55,7 +55,7 @@ def test_scanner_get_elemental_penetration():
 
         Token(type_=TokenType.CURLY_BRACKET_OPEN, value='{', line_number=3, position=9),
 
-        Token(type_=TokenType.IDENTIFIER, value='if', line_number=4, position=13),
+        Token(type_=TokenType.IF, value='if', line_number=4, position=13),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=4, position=15),
         Token(type_=TokenType.IDENTIFIER, value='param2', line_number=4, position=16),
         Token(type_=TokenType.LESS, value='<', line_number=4, position=23),

@@ -3,7 +3,7 @@ from __future__ import annotations
 import string
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Container, Iterable, Iterator, NoReturn, TextIO
+from typing import Any, Container, Iterable, Iterator, NoReturn, TextIO, Dict
 
 from more_itertools import consume, peekable, side_effect
 
@@ -16,6 +16,10 @@ class Token:
     value: Any
     line_number: int
     position: int
+
+    @property
+    def ast_args(self) -> Dict[str, Any]:
+        return {'lineno': self.line_number, 'col_offset': self.position}
 
 
 class Scanner(Iterator[Token]):
@@ -49,7 +53,7 @@ class Scanner(Iterator[Token]):
         if char in digits:
             return self.read_integer()
 
-        self.raise_syntax_error('unrecognized token')
+        self.raise_syntax_error(f'unrecognized token "{char}"')
 
     def read_identifier(self) -> Token:
         line_number, position = self.line_number, self.position
@@ -115,9 +119,12 @@ class TokenType(Enum):
     # Identifiers.
     BREAK = auto()
     CLASS = auto()
+    EXTENDS = auto()
     FUNCTION = auto()
     IDENTIFIER = auto()
+    IF = auto()
     IMPORT = auto()
+    OVERRIDE = auto()
     PACKAGE = auto()
     PUBLIC = auto()
     RETURN = auto()
@@ -152,8 +159,11 @@ character_to_token_type = {
 keyword_to_token = {
     'break': TokenType.BREAK,
     'class': TokenType.CLASS,
+    'extends': TokenType.EXTENDS,
     'function': TokenType.FUNCTION,
+    'if': TokenType.IF,
     'import': TokenType.IMPORT,
+    'override': TokenType.OVERRIDE,
     'package': TokenType.PACKAGE,
     'public': TokenType.PUBLIC,
     'return': TokenType.RETURN,
