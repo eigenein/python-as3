@@ -315,5 +315,3 @@ $RECYCLE.BIN/
 
 
 # End of https://www.gitignore.io/api/git,macos,linux,python,pycharm,windows,jetbrains
-
-!tests/scripts

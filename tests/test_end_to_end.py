@@ -4,15 +4,14 @@ import math
 from ast import Expression
 from collections import namedtuple
 from io import StringIO
-from pathlib import Path
 from typing import Any, Dict
 
 import pytest
 
-from as3.parser import Parser
-from as3.scanner import Scanner
 from as3 import execute_script
 from as3.exceptions import ASSyntaxError
+from as3.parser import Parser
+from as3.scanner import Scanner
 
 
 @pytest.mark.parametrize('expression, expected', [
@@ -69,15 +68,3 @@ def test_execute_script_syntax_error(script: str):
 def test_expression_syntax_error(expression: str):
     with pytest.raises(ASSyntaxError):
         Parser(Scanner(StringIO(expression))).parse_expression()
-
-
-def test_battle_core():
-    execute_script((Path(__file__).parent / 'scripts' / 'battle' / 'BattleCore.as'), 'BattleCore.as')
-
-
-def test_hero_collection():
-    execute_script((Path(__file__).parent / 'scripts' / 'battle' / 'skills' / 'HeroCollection.as'), 'HeroCollection.as')
-
-
-def test_ult_skill():
-    execute_script((Path(__file__).parent / 'scripts' / 'battle' / 'skills' / 'UltSkill.as'), 'UltSkill.as')
