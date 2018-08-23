@@ -12,6 +12,7 @@ import pytest
 from as3.parser import Parser
 from as3.scanner import Scanner
 from as3 import execute_script
+from as3.exceptions import ASSyntaxError
 
 
 @pytest.mark.parametrize('expression, expected', [
@@ -25,14 +26,27 @@ from as3 import execute_script
     ('foo.baz + foo.baz * foo.baz', 6),
     ('(foo.baz + foo.baz) * foo.baz', 8),
     ('bar(2, 42)', 44),
+    ('baz()', 42),
 ])
 def test_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression()), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar baz')(bar=42, baz=2),
         'math': math,
         'bar': lambda a, b: a + b,
+        'baz': lambda: 42,
     })
     assert actual == expected, f'actual: {actual}'
+
+
+@pytest.mark.parametrize('expression', [
+    '2 +',
+    'abs(',
+    'abs((',
+    'math..abs',
+])
+def test_expression_syntax_error(expression: str):
+    with pytest.raises(ASSyntaxError):
+        Parser(Scanner(StringIO(expression))).parse_expression()
 
 
 def test_battle_core():
