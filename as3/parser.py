@@ -66,6 +66,7 @@ class Parser:
             TokenType.VAR: self.parse_variable,
             TokenType.IF: self.parse_if,
             TokenType.SEMICOLON: self.parse_semicolon,
+            TokenType.RETURN: self.parse_return,
         })
 
     def parse_qualified_name(self) -> Iterable[str]:
@@ -104,6 +105,14 @@ class Parser:
     def parse_semicolon(self) -> ast.AST:
         token = self.expect(TokenType.SEMICOLON)
         return ast.Pass(**token.ast_args)
+
+    def parse_return(self) -> ast.AST:
+        token = self.expect(TokenType.RETURN)
+        if not self.skip(TokenType.SEMICOLON):
+            value = self.parse_expression()
+        else:
+            value = None
+        return ast.Return(value=value, **token.ast_args)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
