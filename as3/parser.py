@@ -58,25 +58,15 @@ class Parser:
 
     def parse_statement(self) -> ast.AST:
         consume(self.parse_modifiers())  # FIXME
-        if self.is_type(TokenType.PACKAGE):
-            return self.parse_package()
-        if self.is_type(TokenType.IMPORT):
-            return self.parse_import()
-        if self.is_type(TokenType.CLASS):
-            return self.parse_class()
-        if self.is_type(TokenType.FUNCTION):
-            return self.parse_function()
-        if self.is_type(TokenType.IF):
-            return self.parse_if()
-        if self.is_type(TokenType.SEMICOLON):
-            return ast.Pass()
-        self.raise_expected_error(
-            TokenType.PACKAGE,
-            TokenType.IMPORT,
-            TokenType.CLASS,
-            TokenType.IF,
-            TokenType.SEMICOLON,
-        )
+        return self.case({
+            TokenType.PACKAGE: self.parse_package,
+            TokenType.IMPORT: self.parse_import,
+            TokenType.CLASS: self.parse_class,
+            TokenType.FUNCTION: self.parse_function,
+            TokenType.VAR: self.parse_variable,
+            TokenType.IF: self.parse_if,
+            TokenType.SEMICOLON: self.parse_semicolon,
+        })
 
     def parse_qualified_name(self) -> Iterable[str]:
         """
@@ -111,6 +101,10 @@ class Parser:
     def parse_variable(self) -> ast.AST:
         raise NotImplementedError(TokenType.VAR)
 
+    def parse_semicolon(self) -> ast.AST:
+        token = self.expect(TokenType.SEMICOLON)
+        return ast.Pass(**token.ast_args)
+
     # Expression rules.
     # Methods are ordered according to reversed precedence.
     # https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/operators.html#articlecontentAdobe_numberedheader_1
@@ -126,12 +120,9 @@ class Parser:
         return self.parse_binary_operation(self.parse_unary, TokenType.STAR, TokenType.SLASH)
 
     def parse_unary(self) -> ast.AST:
-        if self.is_type(TokenType.PLUS):
+        if self.is_type(*unary_operations):
             token: Token = self.tokens.next()
-            return ast.UnaryOp(op=ast.UAdd(), operand=self.parse_unary(), **token.ast_args)
-        if self.is_type(TokenType.MINUS):
-            token: Token = self.tokens.next()
-            return ast.UnaryOp(op=ast.USub(), operand=self.parse_unary(), **token.ast_args)
+            return ast.UnaryOp(op=unary_operations[token.type_], operand=self.parse_unary(), **token.ast_args)
         return self.parse_primary()
 
     def parse_primary(self) -> ast.AST:
@@ -142,21 +133,25 @@ class Parser:
         return left
 
     def parse_terminal_or_parenthesized(self) -> ast.AST:
-        if self.skip(TokenType.PARENTHESIS_OPEN):
-            node = self.parse_expression()
-            self.expect(TokenType.PARENTHESIS_CLOSE)
-            return node
-        if self.is_type(TokenType.INTEGER):
-            token: Token = self.tokens.next()
-            return ast.Num(n=token.value, **token.ast_args)
-        if self.is_type(TokenType.IDENTIFIER):
-            token: Token = self.tokens.next()
-            return ast.Name(id=token.value, ctx=ast.Load(), **token.ast_args)
-        self.raise_expected_error(
-            TokenType.PARENTHESIS_OPEN,
-            TokenType.INTEGER,
-            TokenType.IDENTIFIER,
-        )
+        return self.case({
+            TokenType.PARENTHESIS_OPEN: self.parse_parenthesized,
+            TokenType.INTEGER: self.parse_integer,
+            TokenType.IDENTIFIER: self.parse_name,
+        })
+
+    def parse_parenthesized(self) -> ast.AST:
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        node = self.parse_expression()
+        self.expect(TokenType.PARENTHESIS_CLOSE)
+        return node
+
+    def parse_integer(self) -> ast.AST:
+        token = self.expect(TokenType.INTEGER)
+        return ast.Num(n=token.value, **token.ast_args)
+
+    def parse_name(self) -> ast.AST:
+        token = self.expect(TokenType.IDENTIFIER)
+        return ast.Name(id=token.value, ctx=ast.Load(), **token.ast_args)
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
@@ -165,11 +160,21 @@ class Parser:
         left = child_getter()
         while self.is_type(*types):
             token: Token = self.tokens.next()
-            left = ast.BinOp(left=left, op=token_type_to_operation[token.type_], right=child_getter(), **token.ast_args)
+            left = ast.BinOp(left=left, op=binary_operations[token.type_], right=child_getter(), **token.ast_args)
         return left
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
+
+    def case(self, parsers: Dict[TokenType, Callable[[], ast.AST]], default: Callable[[], ast.AST] = None) -> ast.AST:
+        try:
+            parser = parsers[self.tokens.peek().type_]
+        except (StopIteration, KeyError):
+            if default:
+                return default()
+            self.raise_expected_error(*parsers.keys())
+        else:
+            return parser()
 
     def expect(self, *types: TokenType) -> Token:
         """
@@ -216,7 +221,12 @@ class Parser:
             raise ASSyntaxError(f'syntax error: {message}')
 
 
-token_type_to_operation: Dict[TokenType, ast.AST] = {
+unary_operations: Dict[TokenType, ast.AST] = {
+    TokenType.PLUS: ast.UAdd(),
+    TokenType.MINUS: ast.USub(),
+}
+
+binary_operations: Dict[TokenType, ast.AST] = {
     TokenType.MINUS: ast.Sub(),
     TokenType.PLUS: ast.Add(),
     TokenType.SLASH: ast.Div(),
