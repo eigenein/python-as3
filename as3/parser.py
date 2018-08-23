@@ -113,16 +113,16 @@ class Parser:
         raise NotImplementedError(TokenType.VAR)
 
     def parse_semicolon(self) -> AST:
-        token = self.expect(TokenType.SEMICOLON)
-        return ast.Pass(**token.ast_args)
+        pass_token = self.expect(TokenType.SEMICOLON)
+        return ast.Pass(**pass_token.ast_args)
 
     def parse_return(self) -> AST:
-        token = self.expect(TokenType.RETURN)
+        return_token = self.expect(TokenType.RETURN)
         if not self.skip(TokenType.SEMICOLON):
             value = self.parse_expression()
         else:
             value = None
-        return ast.Return(value=value, **token.ast_args)
+        return ast.Return(value=value, **return_token.ast_args)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
@@ -144,16 +144,16 @@ class Parser:
 
     def parse_chained_assignment_expression(self, left: AST) -> AST:
         # First, assume it's not a chained assignment.
-        token = self.expect(TokenType.ASSIGN)
-        self.assign_to(left, token)
+        assignment_token = self.expect(TokenType.ASSIGN)
+        self.assign_to(left, assignment_token)
         value = self.parse_additive_expression()
-        left = ast.Assign(targets=[left], value=value, **token.ast_args)
+        left = ast.Assign(targets=[left], value=value, **assignment_token.ast_args)
         # Then, check if it's chained.
         while self.skip(TokenType.ASSIGN):
             # Yes, it is. Read a value at the right.
             value = self.parse_additive_expression()
             # Former value becomes a target.
-            self.assign_to(left.value, token)
+            self.assign_to(left.value, assignment_token)
             left.targets.append(left.value)
             # Value at the right becomes the assigned value.
             left.value = value
@@ -162,10 +162,15 @@ class Parser:
     def parse_augmented_assignment_expression(self, left: AST) -> AST:
         # FIXME: I didn't find a good way to implement chained augmented assignments like `a += b += a` in Python AST.
         # FIXME: So, only `a += b` is allowed. Sorry.
-        token = self.expect(*augmented_assign_operations)
-        self.assign_to(left, token)
+        assignment_token = self.expect(*augmented_assign_operations)
+        self.assign_to(left, assignment_token)
         value = self.parse_additive_expression()
-        return ast.AugAssign(target=left, op=augmented_assign_operations[token.type_], value=value, **token.ast_args)
+        return ast.AugAssign(
+            target=left,
+            op=augmented_assign_operations[assignment_token.type_],
+            value=value,
+            **assignment_token.ast_args,
+        )
 
     def parse_additive_expression(self) -> AST:
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
@@ -175,8 +180,12 @@ class Parser:
 
     def parse_unary_expression(self) -> AST:
         if self.is_type(*unary_operations):
-            token: Token = self.tokens.next()
-            return ast.UnaryOp(op=unary_operations[token.type_], operand=self.parse_unary_expression(), **token.ast_args)
+            operation_token: Token = self.tokens.next()
+            return ast.UnaryOp(
+                op=unary_operations[operation_token.type_],
+                operand=self.parse_unary_expression(),
+                **operation_token.ast_args,
+            )
         return self.parse_primary_expression()
 
     def parse_primary_expression(self) -> AST:
@@ -190,17 +199,22 @@ class Parser:
         return left
 
     def parse_attribute_expression(self, left: AST) -> AST:
-        token = self.expect(TokenType.DOT)
-        return ast.Attribute(value=left, attr=self.expect(TokenType.IDENTIFIER).value, ctx=ast.Load(), **token.ast_args)
+        attribute_token = self.expect(TokenType.DOT)
+        return ast.Attribute(
+            value=left,
+            attr=self.expect(TokenType.IDENTIFIER).value,
+            ctx=ast.Load(),
+            **attribute_token.ast_args,
+        )
 
     def parse_call_expression(self, left: AST) -> AST:
-        token = self.expect(TokenType.PARENTHESIS_OPEN)
+        call_token = self.expect(TokenType.PARENTHESIS_OPEN)
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             args.append(self.parse_assignment_expression())
             self.skip(TokenType.COMMA)
         # TODO: keywords.
-        return ast.Call(func=left, args=args, keywords=[], **token.ast_args)
+        return ast.Call(func=left, args=args, keywords=[], **call_token.ast_args)
 
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
@@ -211,17 +225,17 @@ class Parser:
 
     def parse_parenthesized_expression(self) -> AST:
         self.expect(TokenType.PARENTHESIS_OPEN)
-        node = self.parse_expression()
+        inner = self.parse_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        return node
+        return inner
 
     def parse_integer_expression(self) -> AST:
-        token = self.expect(TokenType.INTEGER)
-        return ast.Num(n=token.value, **token.ast_args)
+        value_token = self.expect(TokenType.INTEGER)
+        return ast.Num(n=value_token.value, **value_token.ast_args)
 
     def parse_name_expression(self) -> AST:
-        token = self.expect(TokenType.IDENTIFIER)
-        return ast.Name(id=token.value, ctx=ast.Load(), **token.ast_args)
+        name_token = self.expect(TokenType.IDENTIFIER)
+        return ast.Name(id=name_token.value, ctx=ast.Load(), **name_token.ast_args)
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
@@ -229,8 +243,13 @@ class Parser:
     def parse_binary_operations(self, child_parser: Callable[[], AST], *types: TokenType) -> AST:
         left = child_parser()
         while self.is_type(*types):
-            token: Token = self.tokens.next()
-            left = ast.BinOp(left=left, op=binary_operations[token.type_], right=child_parser(), **token.ast_args)
+            operation_token: Token = self.tokens.next()
+            left = ast.BinOp(
+                left=left,
+                op=binary_operations[operation_token.type_],
+                right=child_parser(),
+                **operation_token.ast_args,
+            )
         return left
 
     def assign_to(self, left: AST, token: Token):
