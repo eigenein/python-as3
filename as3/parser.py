@@ -134,27 +134,36 @@ class Parser:
         ...
 
     def parse_assignment_expression(self) -> AST:
-        # Unfortunately, we have to parse a chained assignment into one AST node.
-        # TODO: And to make it worse, there are also augmented assignments.
-        assign_token: Optional[Token] = None
-        # So, collect all parts of assignment.
-        parts: List[AST] = [self.parse_additive_expression()]
-        while self.is_type(TokenType.ASSIGN):
-            assign_token = self.tokens.next()
-            parts.append(self.parse_additive_expression())
-        # Now, split them into targets and value.
-        *targets, right = parts
-        # Targets must have `Store` context.
-        for target in targets:
-            if hasattr(target, 'ctx'):
-                target.ctx = ast.Store()
-            else:
-                self.raise_syntax_error("expression can't be assigned to", assign_token)
-        # If it's an assignment, create a node.
-        if targets:
-            return ast.Assign(targets=list(targets), value=right, **assign_token.ast_args)
-        # Otherwise, just return the value.
-        return right
+        left = self.parse_additive_expression()
+        return self.switch({
+            TokenType.ASSIGN: self.parse_chained_assignment_expression,
+            TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
+        }, left=left)
+
+    def parse_chained_assignment_expression(self, left: AST) -> AST:
+        # First, assume it's not a chained assignment.
+        token = self.expect(TokenType.ASSIGN)
+        self.assign_to(left, token)
+        value = self.parse_additive_expression()
+        left = ast.Assign(targets=[left], value=value, **token.ast_args)
+        # Then, check if it's chained.
+        while self.skip(TokenType.ASSIGN):
+            # Yes, it is. Read a value at the right.
+            value = self.parse_additive_expression()
+            # Former value becomes a target.
+            self.assign_to(left.value, token)
+            left.targets.append(left.value)
+            # Value at the right becomes the assigned value.
+            left.value = value
+        return left
+
+    def parse_augmented_assignment_expression(self, left: AST) -> AST:
+        # FIXME: I didn't find a good way to implement chained augmented assignments like `a += b += a` in Python AST.
+        # FIXME: So, only `a += b` is allowed. Sorry.
+        token = self.expect(*augmented_assign_operations)
+        self.assign_to(left, token)
+        value = self.parse_additive_expression()
+        return ast.AugAssign(target=left, op=augmented_assign_operations[token.type_], value=value, **token.ast_args)
 
     def parse_additive_expression(self) -> AST:
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
@@ -186,7 +195,7 @@ class Parser:
         token = self.expect(TokenType.PARENTHESIS_OPEN)
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
-            args.append(self.parse_additive_expression())
+            args.append(self.parse_assignment_expression())
             self.skip(TokenType.COMMA)
         # TODO: keywords.
         return ast.Call(func=left, args=args, keywords=[], **token.ast_args)
@@ -221,6 +230,11 @@ class Parser:
             token: Token = self.tokens.next()
             left = ast.BinOp(left=left, op=binary_operations[token.type_], right=child_parser(), **token.ast_args)
         return left
+
+    def assign_to(self, left: AST, token: Token):
+        if not hasattr(left, 'ctx'):
+            self.raise_syntax_error(f"{ast.dump(left)} can't be assigned to", token)
+        left.ctx = ast.Store()
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------

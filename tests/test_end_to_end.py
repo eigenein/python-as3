@@ -41,7 +41,7 @@ def test_expression(expression: str, expected: Any):
 @pytest.mark.parametrize('script, expected', [
     ('a = 42;', {'a': 42}),
     ('a = b = 42;', {'a': 42, 'b': 42}),
-    # TODO: ('a = 42; a += 1;', {'a': 43}),
+    ('a = 42; a += 1;', {'a': 43}),
 ])
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {}
@@ -52,6 +52,7 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
 
 @pytest.mark.parametrize('script', [
     'a = 1 = b;',
+    'a += b += a;',
 ])
 def test_execute_script_syntax_error(script: str):
     with pytest.raises(ASSyntaxError):
