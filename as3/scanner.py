@@ -50,6 +50,8 @@ class Scanner(Iterator[Token]):
             return self.read_identifier()
         if char in character_to_token_type:
             return self.read_single(character_to_token_type[char])
+        if char == '+':
+            return self.read_plus()
         if char == '<':
             return self.read_less()
         if char in digits:
@@ -83,9 +85,16 @@ class Scanner(Iterator[Token]):
     def read_less(self) -> Token:
         line_number, position = self.line_number, self.position
         self.expect('<')
-        if self.skip('<'):
-            return Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=line_number, position=position)
-        return Token(type_=TokenType.LESS, value='<', line_number=line_number, position=position)
+        if not self.skip('<'):
+            return Token(type_=TokenType.LESS, value='<', line_number=line_number, position=position)
+        return Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=line_number, position=position)
+
+    def read_plus(self) -> Token:
+        line_number, position = self.line_number, self.position
+        self.expect('+')
+        if not self.skip('='):
+            return Token(type_=TokenType.PLUS, value='+', line_number=line_number, position=position)
+        return Token(type_=TokenType.ASSIGN_ADD, value='+=', line_number=line_number, position=position)
 
     def expect(self, char: str):
         if not self.chars:
@@ -132,6 +141,7 @@ class TokenType(Enum):
 
     # Binary operators.
     ASSIGN = auto()
+    ASSIGN_ADD = auto()
     LEFT_SHIFT = auto()
     LESS = auto()
     MINUS = auto()
@@ -170,7 +180,6 @@ character_to_token_type = {
     ':': TokenType.COLON,
     ';': TokenType.SEMICOLON,
     ',': TokenType.COMMA,
-    '+': TokenType.PLUS,
     '-': TokenType.MINUS,
     '/': TokenType.SLASH,
     '*': TokenType.STAR,

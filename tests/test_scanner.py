@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import StringIO
+from typing import List
 
 import pytest
 
@@ -22,9 +23,27 @@ def test_empty():
     ('-', Token(type_=TokenType.MINUS, value='-', line_number=1, position=1)),
     ('<', Token(type_=TokenType.LESS, value='<', line_number=1, position=1)),
     ('<<', Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=1, position=1)),
+    ('+=', Token(type_=TokenType.ASSIGN_ADD, value='+=', line_number=1, position=1)),
 ])
 def test_single_token(input_: str, expected: Token):
-    assert list(Scanner(StringIO(input_))) == [expected]
+    tokens = list(Scanner(StringIO(input_)))
+    assert len(tokens) == 1
+    assert tokens[0] == expected
+
+
+@pytest.mark.parametrize('input_, expected', [
+    (
+        'a = 42;',
+        [
+            Token(type_=TokenType.IDENTIFIER, value='a', line_number=1, position=1),
+            Token(type_=TokenType.ASSIGN, value='=', line_number=1, position=3),
+            Token(type_=TokenType.INTEGER, value=42, line_number=1, position=5),
+            Token(type_=TokenType.SEMICOLON, value=';', line_number=1, position=7),
+        ],
+    ),
+])
+def test_multiple_tokens(input_: str, expected: List[Token]):
+    assert list(Scanner(StringIO(input_))) == expected
 
 
 def test_scanner_get_elemental_penetration():

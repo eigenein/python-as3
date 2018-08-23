@@ -40,12 +40,22 @@ def test_expression(expression: str, expected: Any):
 
 @pytest.mark.parametrize('script, expected', [
     ('a = 42;', {'a': 42}),
+    ('a = b = 42;', {'a': 42, 'b': 42}),
+    # TODO: ('a = 42; a += 1;', {'a': 43}),
 ])
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {}
     execute_script(script, '<ast>', globals_)
     for key, value in expected.items():
         assert globals_[key] == value, f'actual: {globals_[key]}'
+
+
+@pytest.mark.parametrize('script', [
+    'a = 1 = b;',
+])
+def test_execute_script_syntax_error(script: str):
+    with pytest.raises(ASSyntaxError):
+        execute_script(script, '<ast>')
 
 
 @pytest.mark.parametrize('expression', [

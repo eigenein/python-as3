@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from ast import AST
-from typing import Callable, Dict, Iterable, NoReturn, Optional
+from typing import Callable, Dict, Iterable, List, NoReturn, Optional
 
 from more_itertools import consume, peekable
 
@@ -21,8 +21,10 @@ class Parser:
         """
         Parse *.as script.
         """
-        while self.tokens.peek():
-            self.parse_statement()
+        statements: List[AST] = []
+        while self.tokens:
+            statements.append(self.parse_statement())
+        return ast.Module(body=statements)
 
     def parse_package(self) -> AST:
         self.expect(TokenType.PACKAGE)
@@ -71,8 +73,9 @@ class Parser:
         }, else_=self.parse_expression_statement)
 
     def parse_expression_statement(self) -> AST:
-        self.parse_expression()
+        value = self.parse_expression()
         self.expect(TokenType.SEMICOLON)
+        return value
 
     def parse_qualified_name(self) -> Iterable[str]:
         """
@@ -86,7 +89,7 @@ class Parser:
         """
         Parse modifiers like `public` and `static`.
         """
-        while self.is_type(TokenType.STATIC, TokenType.PUBLIC):
+        while self.is_type(TokenType.STATIC, TokenType.PUBLIC, TokenType.OVERRIDE):
             yield self.tokens.next().type_
 
     def parse_import(self) -> AST:
@@ -125,60 +128,87 @@ class Parser:
     # ------------------------------------------------------------------------------------------------------------------
 
     def parse_expression(self) -> AST:
-        return self.parse_additive()
+        return self.parse_assignment_expression()
 
-    def parse_additive(self) -> AST:
-        return self.parse_binary_operations(self.parse_multiplicative, TokenType.PLUS, TokenType.MINUS)
+    def parse_comma_expression(self) -> AST:
+        ...
 
-    def parse_multiplicative(self) -> AST:
-        return self.parse_binary_operations(self.parse_unary, TokenType.STAR, TokenType.SLASH)
+    def parse_assignment_expression(self) -> AST:
+        # Unfortunately, we have to parse a chained assignment into one AST node.
+        # TODO: And to make it worse, there are also augmented assignments.
+        assign_token: Optional[Token] = None
+        # So, collect all parts of assignment.
+        parts: List[AST] = [self.parse_additive_expression()]
+        while self.is_type(TokenType.ASSIGN):
+            assign_token = self.tokens.next()
+            parts.append(self.parse_additive_expression())
+        # Now, split them into targets and value.
+        *targets, right = parts
+        # Targets must have `Store` context.
+        for target in targets:
+            if hasattr(target, 'ctx'):
+                target.ctx = ast.Store()
+            else:
+                self.raise_syntax_error("expression can't be assigned to", assign_token)
+        # If it's an assignment, create a node.
+        if targets:
+            return ast.Assign(targets=list(targets), value=right, **assign_token.ast_args)
+        # Otherwise, just return the value.
+        return right
 
-    def parse_unary(self) -> AST:
+    def parse_additive_expression(self) -> AST:
+        return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
+
+    def parse_multiplicative_expression(self) -> AST:
+        return self.parse_binary_operations(self.parse_unary_expression, TokenType.STAR, TokenType.SLASH)
+
+    def parse_unary_expression(self) -> AST:
         if self.is_type(*unary_operations):
             token: Token = self.tokens.next()
-            return ast.UnaryOp(op=unary_operations[token.type_], operand=self.parse_unary(), **token.ast_args)
-        return self.parse_primary()
+            return ast.UnaryOp(op=unary_operations[token.type_], operand=self.parse_unary_expression(), **token.ast_args)
+        return self.parse_primary_expression()
 
-    def parse_primary(self) -> AST:
+    def parse_primary_expression(self) -> AST:
         left = self.parse_terminal_or_parenthesized()
         cases = {
-            TokenType.DOT: self.parse_attribute,
-            TokenType.PARENTHESIS_OPEN: self.parse_call,
+            TokenType.DOT: self.parse_attribute_expression,
+            TokenType.PARENTHESIS_OPEN: self.parse_call_expression,
         }
         while self.is_type(*cases):
             left = self.switch(cases, left=left)
         return left
 
-    def parse_attribute(self, left: AST) -> AST:
+    def parse_attribute_expression(self, left: AST) -> AST:
         token = self.expect(TokenType.DOT)
         return ast.Attribute(value=left, attr=self.expect(TokenType.IDENTIFIER).value, ctx=ast.Load(), **token.ast_args)
 
-    def parse_call(self, left: AST) -> AST:
+    def parse_call_expression(self, left: AST) -> AST:
         token = self.expect(TokenType.PARENTHESIS_OPEN)
-        args = []
+        args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
-            args.append(self.parse_expression())  # FIXME: expression may capture all comma's
+            args.append(self.parse_additive_expression())
             self.skip(TokenType.COMMA)
+        # TODO: keywords.
         return ast.Call(func=left, args=args, keywords=[], **token.ast_args)
 
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
-            TokenType.PARENTHESIS_OPEN: self.parse_parenthesized,
-            TokenType.INTEGER: self.parse_integer,
-            TokenType.IDENTIFIER: self.parse_name,
+            TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
+            TokenType.INTEGER: self.parse_integer_expression,
+            TokenType.IDENTIFIER: self.parse_name_expression,
         })
 
-    def parse_parenthesized(self) -> AST:
+    def parse_parenthesized_expression(self) -> AST:
         self.expect(TokenType.PARENTHESIS_OPEN)
         node = self.parse_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return node
 
-    def parse_integer(self) -> AST:
+    def parse_integer_expression(self) -> AST:
         token = self.expect(TokenType.INTEGER)
         return ast.Num(n=token.value, **token.ast_args)
 
-    def parse_name(self) -> AST:
+    def parse_name_expression(self) -> AST:
         token = self.expect(TokenType.IDENTIFIER)
         return ast.Name(id=token.value, ctx=ast.Load(), **token.ast_args)
 
@@ -268,4 +298,8 @@ binary_operations: Dict[TokenType, AST] = {
     TokenType.PLUS: ast.Add(),
     TokenType.SLASH: ast.Div(),
     TokenType.STAR: ast.Mult(),
+}
+
+augmented_assign_operations: Dict[TokenType, AST] = {
+    TokenType.ASSIGN_ADD: ast.Add(),
 }
