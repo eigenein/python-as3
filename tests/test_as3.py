@@ -5,7 +5,7 @@ from ast import Expression
 from collections import namedtuple
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 
@@ -36,6 +36,16 @@ def test_expression(expression: str, expected: Any):
         'baz': lambda: 42,
     })
     assert actual == expected, f'actual: {actual}'
+
+
+@pytest.mark.parametrize('script, expected', [
+    ('a = 42;', {'a': 42}),
+])
+def test_execute_script(script: str, expected: Dict[str, Any]):
+    globals_ = {}
+    execute_script(script, '<ast>', globals_)
+    for key, value in expected.items():
+        assert globals_[key] == value, f'actual: {globals_[key]}'
 
 
 @pytest.mark.parametrize('expression', [
