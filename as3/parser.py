@@ -36,7 +36,7 @@ class Parser:
             extends_name = tuple(self.parse_qualified_name())
         self.parse_code_block()
 
-    def parse_function(self) -> AST:
+    def parse_function_definition(self) -> AST:
         self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
         self.expect(TokenType.PARENTHESIS_OPEN)
@@ -58,13 +58,13 @@ class Parser:
             self.parse_statement()
 
     def parse_statement(self) -> AST:
-        consume(self.parse_modifiers())  # FIXME
-        return self.case({
+        consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
+        return self.switch({
             TokenType.PACKAGE: self.parse_package,
             TokenType.IMPORT: self.parse_import,
             TokenType.CLASS: self.parse_class,
-            TokenType.FUNCTION: self.parse_function,
-            TokenType.VAR: self.parse_variable,
+            TokenType.FUNCTION: self.parse_function_definition,  # FIXME: one can define anonymous function inside an expression
+            TokenType.VAR: self.parse_variable_definition,
             TokenType.IF: self.parse_if,
             TokenType.SEMICOLON: self.parse_semicolon,
             TokenType.RETURN: self.parse_return,
@@ -104,7 +104,7 @@ class Parser:
         else:
             self.parse_statement()
 
-    def parse_variable(self) -> AST:
+    def parse_variable_definition(self) -> AST:
         raise NotImplementedError(TokenType.VAR)
 
     def parse_semicolon(self) -> AST:
@@ -128,10 +128,10 @@ class Parser:
         return self.parse_additive()
 
     def parse_additive(self) -> AST:
-        return self.parse_binary_operation(self.parse_multiplicative, TokenType.PLUS, TokenType.MINUS)
+        return self.parse_binary_operations(self.parse_multiplicative, TokenType.PLUS, TokenType.MINUS)
 
     def parse_multiplicative(self) -> AST:
-        return self.parse_binary_operation(self.parse_unary, TokenType.STAR, TokenType.SLASH)
+        return self.parse_binary_operations(self.parse_unary, TokenType.STAR, TokenType.SLASH)
 
     def parse_unary(self) -> AST:
         if self.is_type(*unary_operations):
@@ -141,10 +141,13 @@ class Parser:
 
     def parse_primary(self) -> AST:
         left = self.parse_terminal_or_parenthesized()
-        return self.case({
+        cases = {
             TokenType.DOT: self.parse_attribute,
             TokenType.PARENTHESIS_OPEN: self.parse_call,
-        }, left=left, default=left)
+        }
+        while self.is_type(*cases):
+            left = self.switch(cases, left=left)
+        return left
 
     def parse_attribute(self, left: AST) -> AST:
         token = self.expect(TokenType.DOT)
@@ -156,11 +159,10 @@ class Parser:
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             args.append(self.parse_expression())  # FIXME: expression may capture all comma's
             self.skip(TokenType.COMMA)
-        self.expect(TokenType.SEMICOLON)
         return ast.Call(func=left, args=args, keywords=[], **token.ast_args)
 
     def parse_terminal_or_parenthesized(self) -> AST:
-        return self.case({
+        return self.switch({
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized,
             TokenType.INTEGER: self.parse_integer,
             TokenType.IDENTIFIER: self.parse_name,
@@ -183,7 +185,7 @@ class Parser:
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
-    def parse_binary_operation(self, child_parser: Callable[[], AST], *types: TokenType) -> AST:
+    def parse_binary_operations(self, child_parser: Callable[[], AST], *types: TokenType) -> AST:
         left = child_parser()
         while self.is_type(*types):
             token: Token = self.tokens.next()
@@ -195,22 +197,19 @@ class Parser:
 
     TParser = Callable[..., AST]
 
-    def case(self, parsers: Dict[TokenType, TParser], else_: TParser = None, default: AST = None, **kwargs) -> AST:
+    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, **kwargs) -> AST:
         """
         Behaves like a `switch` (`case`) operator and tries to match against different token types.
         If match is found, then the corresponding parser is called.
-        Otherwise, `else_` is called or `default` value is returned.
+        Otherwise, `else_` is called if defined.
         Otherwise, syntax error is raised.
         """
-        assert else_ is None or default is None, 'else_ cannot be used together with default'
         try:
-            parser = parsers[self.tokens.peek().type_]
+            parser = cases[self.tokens.peek().type_]
         except (StopIteration, KeyError):
-            if default:
-                return default
             if else_:
                 return else_(**kwargs)
-            self.raise_expected_error(*parsers.keys())
+            self.raise_expected_error(*cases.keys())
         else:
             return parser(**kwargs)
 
