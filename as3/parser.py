@@ -45,6 +45,8 @@ class Parser:
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             self.parse_parameter_definition()
             self.skip(TokenType.COMMA)
+        if self.skip(TokenType.COLON):
+            return_type_name = tuple(self.parse_qualified_name())
         self.parse_code_block()
 
     def parse_parameter_definition(self) -> AST:
@@ -52,7 +54,7 @@ class Parser:
         self.expect(TokenType.COLON)
         type_name = tuple(self.parse_qualified_name())
         if self.skip(TokenType.ASSIGN):
-            default_value = self.parse_expression()
+            default_value = self.parse_additive_expression()
 
     def parse_code_block(self) -> AST:
         self.expect(TokenType.CURLY_BRACKET_OPEN)
@@ -138,7 +140,7 @@ class Parser:
         return self.switch({
             TokenType.ASSIGN: self.parse_chained_assignment_expression,
             TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
-        }, left=left)
+        }, default=left, left=left)
 
     def parse_chained_assignment_expression(self, left: AST) -> AST:
         # First, assume it's not a chained assignment.
@@ -241,18 +243,22 @@ class Parser:
 
     TParser = Callable[..., AST]
 
-    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, **kwargs) -> AST:
+    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, default: AST = None, **kwargs) -> AST:
         """
-        Behaves like a `switch` (`case`) operator and tries to match against different token types.
+        Behaves like a `switch` (`case`) operator and tries to match the current token against specified token types.
         If match is found, then the corresponding parser is called.
         Otherwise, `else_` is called if defined.
+        Otherwise, `default` is returned if defined.
         Otherwise, syntax error is raised.
         """
+        assert not else_ or not default, "`else_` and `default` can't be used together"
         try:
             parser = cases[self.tokens.peek().type_]
         except (StopIteration, KeyError):
             if else_:
                 return else_(**kwargs)
+            if default:
+                return default
             self.raise_expected_error(*cases.keys())
         else:
             return parser(**kwargs)

@@ -39,6 +39,7 @@ def test_expression(expression: str, expected: Any):
 
 
 @pytest.mark.parametrize('script, expected', [
+    ('a = 1 + 1;', {}),
     ('a = 42;', {'a': 42}),
     ('a = b = 42;', {'a': 42, 'b': 42}),
     ('a = 42; a += 1;', {'a': 43}),
