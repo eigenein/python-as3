@@ -3,7 +3,7 @@ from __future__ import annotations
 import string
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Container, Iterable, Iterator, NoReturn, TextIO, Dict
+from typing import Any, Callable, Dict, Iterable, Iterator, NoReturn, TextIO
 
 from more_itertools import consume, peekable, side_effect
 
@@ -43,7 +43,7 @@ class Scanner(Iterator[Token]):
         return self
 
     def __next__(self) -> Token:
-        consume(self.iterate_while_in(whitespaces))
+        consume(self.iterate_while(lambda char_: char_ in whitespaces))
 
         char = self.chars.peek()
         if char in identifier_first_chars:
@@ -54,6 +54,8 @@ class Scanner(Iterator[Token]):
             return self.read_plus()
         if char == '<':
             return self.read_less()
+        if char == '/':
+            return self.read_slash()
         if char in digits:
             return self.read_integer()
 
@@ -61,7 +63,7 @@ class Scanner(Iterator[Token]):
 
     def read_identifier(self) -> Token:
         line_number, position = self.line_number, self.position
-        value = self.read_while_in(identifier_chars)
+        value = ''.join(self.iterate_while(lambda char: char in identifier_chars))
         return Token(
             type_=keyword_to_token.get(value, TokenType.IDENTIFIER),
             value=value,
@@ -73,7 +75,7 @@ class Scanner(Iterator[Token]):
         line_number, position = self.line_number, self.position
         return Token(
             type_=TokenType.INTEGER,
-            value=int(self.read_while_in(digits)),
+            value=int(''.join(self.iterate_while(lambda char: char in digits))),
             line_number=line_number,
             position=position,
         )
@@ -96,6 +98,36 @@ class Scanner(Iterator[Token]):
             return Token(type_=TokenType.PLUS, value='+', line_number=line_number, position=position)
         return Token(type_=TokenType.ASSIGN_ADD, value='+=', line_number=line_number, position=position)
 
+    def read_slash(self) -> Token:
+        line_number, position = self.line_number, self.position
+        self.expect('/')
+
+        # Single-line comment.
+        if self.skip('/'):
+            return Token(
+                type_=TokenType.COMMENT,
+                value=''.join(self.iterate_while(lambda char: char not in '\r\n')),
+                line_number=line_number,
+                position=position,
+            )
+
+        # Multi-line comment.
+        if self.skip('*'):
+            chars = []
+            while self.chars:
+                if self.skip('*') and self.skip('/'):
+                    return Token(
+                        type_=TokenType.COMMENT,
+                        value=''.join(chars),
+                        line_number=line_number,
+                        position=position,
+                    )
+                chars.append(self.chars.next())
+            self.raise_syntax_error('unexpected end of file inside a block comment')
+
+        # Just normal division.
+        return Token(type_=TokenType.DIVIDE, value='/', line_number=line_number, position=position)
+
     def expect(self, char: str):
         if not self.chars:
             self.raise_syntax_error('unexpected end of file')
@@ -109,11 +141,8 @@ class Scanner(Iterator[Token]):
             return True
         return False
 
-    def read_while_in(self, chars: Container[str]) -> str:
-        return ''.join(self.iterate_while_in(chars))
-
-    def iterate_while_in(self, chars: Container[str]) -> Iterable[str]:
-        while self.chars and self.chars.peek() in chars:
+    def iterate_while(self, predicate: Callable[[str], bool]) -> Iterable[str]:
+        while self.chars and predicate(self.chars.peek()):
             yield self.chars.next()
 
     def raise_syntax_error(self, message: str) -> NoReturn:
@@ -121,6 +150,9 @@ class Scanner(Iterator[Token]):
 
 
 class TokenType(Enum):
+    # Comments.
+    COMMENT = auto()
+
     # Brackets.
     BRACKET_CLOSE = auto()
     BRACKET_OPEN = auto()
@@ -142,12 +174,12 @@ class TokenType(Enum):
     # Binary operators.
     ASSIGN = auto()
     ASSIGN_ADD = auto()
+    DIVIDE = auto()
     LEFT_SHIFT = auto()
     LESS = auto()
     MINUS = auto()
     PLUS = auto()
-    SLASH = auto()
-    STAR = auto()
+    MULTIPLY = auto()
 
     # Identifiers.
     BREAK = auto()
@@ -181,8 +213,7 @@ character_to_token_type = {
     ';': TokenType.SEMICOLON,
     ',': TokenType.COMMA,
     '-': TokenType.MINUS,
-    '/': TokenType.SLASH,
-    '*': TokenType.STAR,
+    '*': TokenType.MULTIPLY,
     '=': TokenType.ASSIGN,
     '.': TokenType.DOT,
 }

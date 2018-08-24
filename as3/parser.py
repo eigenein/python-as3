@@ -12,7 +12,11 @@ from as3.scanner import Token, TokenType
 
 class Parser:
     def __init__(self, tokens: Iterable[Token]):
-        self.tokens = peekable(tokens)
+        self.tokens = peekable(self.filter_tokens(tokens))
+
+    @staticmethod
+    def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
+        return (token for token in tokens if token.type_ != TokenType.COMMENT)
 
     # Rules.
     # ------------------------------------------------------------------------------------------------------------------
@@ -176,7 +180,7 @@ class Parser:
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
 
     def parse_multiplicative_expression(self) -> AST:
-        return self.parse_binary_operations(self.parse_unary_expression, TokenType.STAR, TokenType.SLASH)
+        return self.parse_binary_operations(self.parse_unary_expression, TokenType.MULTIPLY, TokenType.DIVIDE)
 
     def parse_unary_expression(self) -> AST:
         if self.is_type(*unary_operations):
@@ -335,8 +339,8 @@ unary_operations: Dict[TokenType, AST] = {
 binary_operations: Dict[TokenType, AST] = {
     TokenType.MINUS: ast.Sub(),
     TokenType.PLUS: ast.Add(),
-    TokenType.SLASH: ast.Div(),
-    TokenType.STAR: ast.Mult(),
+    TokenType.DIVIDE: ast.Div(),
+    TokenType.MULTIPLY: ast.Mult(),
 }
 
 augmented_assign_operations: Dict[TokenType, AST] = {

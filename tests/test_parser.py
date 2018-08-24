@@ -13,8 +13,8 @@ from as3.scanner import Token, TokenType
 
 @pytest.mark.parametrize('tokens, expected', [
     (
-        # `5`
-        [Token(TokenType.INTEGER, 5, 0, 0)],
+        # `5 /* five */`
+        [Token(TokenType.INTEGER, 5, 0, 0), Token(TokenType.COMMENT, ' five ', 0, 0)],
         5,
     ),
     (
@@ -32,7 +32,7 @@ from as3.scanner import Token, TokenType
             Token(TokenType.INTEGER, 2, 0, 0),
             Token(TokenType.PLUS, '+', 0, 0),
             Token(TokenType.INTEGER, 2, 0, 0),
-            Token(TokenType.STAR, '*', 0, 0),
+            Token(TokenType.MULTIPLY, '*', 0, 0),
             Token(TokenType.INTEGER, 2, 0, 0),
         ],
         6,
@@ -45,7 +45,7 @@ from as3.scanner import Token, TokenType
             Token(TokenType.PLUS, '+', 0, 0),
             Token(TokenType.INTEGER, 2, 0, 0),
             Token(TokenType.PARENTHESIS_CLOSE, ')', 0, 0),
-            Token(TokenType.STAR, '*', 0, 0),
+            Token(TokenType.MULTIPLY, '*', 0, 0),
             Token(TokenType.INTEGER, 2, 0, 0),
         ],
         8,
