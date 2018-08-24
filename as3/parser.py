@@ -32,7 +32,7 @@ class Parser:
 
     def parse_package(self) -> AST:
         self.expect(TokenType.PACKAGE)
-        package_name = tuple(self.parse_qualified_name())
+        package_name = tuple(self.parse_qualified_name()) if self.is_type(TokenType.IDENTIFIER) else ()
         self.parse_code_block()
 
     def parse_class(self) -> AST:
