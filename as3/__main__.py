@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Tuple
 
-from click import Path, argument, command, echo, option, style
+import click
 from prompt_toolkit import PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments_cls
@@ -14,9 +14,9 @@ from as3 import execute_script
 from as3.stdlib import default_globals
 
 
-@command()
-@option('--shell', is_flag=True,  help='Start interactive shell.')
-@argument('scripts', type=Path(exists=True, dir_okay=False), nargs=-1)
+@click.command()
+@click.option('--shell', is_flag=True,  help='Start interactive shell.')
+@click.argument('scripts', type=click.Path(exists=True, dir_okay=False), nargs=-1)
 def main(shell: bool, scripts: Tuple[str]):
     """
     Execute ActionScript files.
@@ -24,23 +24,27 @@ def main(shell: bool, scripts: Tuple[str]):
     globals_ = dict(default_globals)
     for script in scripts:
         path = Path(script)
-        execute_script(path.open('rt', encoding='utf-8'), path.name, globals_)
+        # noinspection PyBroadException
+        try:
+            execute_script(path.open('rt', encoding='utf-8'), path.name, globals_)
+        except Exception as e:
+            click.echo(f'{click.style("Error", fg="red")}: {click.style(str(path), fg="blue")}: {e}')
     if shell:
         run_shell(globals_)
 
 
 def run_shell(globals_: dict):
     session = PromptSession()
-    prompt_style = style_from_pygments_cls(NativeStyle)
+    style = style_from_pygments_cls(NativeStyle)
 
-    echo(f'{style("ActionScript shell", fg="green")}')
+    click.echo(f'{click.style("ActionScript shell", fg="green")}')
     while True:
-        line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=prompt_style)
+        line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)
         # noinspection PyBroadException
         try:
             execute_script(line, '<shell>', globals_)
         except Exception as e:
-            echo(f'{style("Error:", fg="red")} {e}')
+            click.echo(f'{click.style("Error", fg="red")}: {e}')
 
 
 if __name__ == '__main__':
