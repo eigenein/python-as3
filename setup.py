@@ -11,8 +11,15 @@ setuptools.setup(
     url='https://github.com/eigenein/python-as3',
     packages=setuptools.find_packages(exclude=['tests']),
     python_requires='>=3.7',
-    install_requires=['more-itertools>=4.3.0,<5.0.0'],
+    install_requires=[
+        'more-itertools>=4.3.0,<5.0.0',
+        'click>=6.7,<7.0',
+        'prompt-toolkit>=2.0.4,<2.1.0',
+    ],
     extras_require={},
+    entry_points={
+        'console_scripts': ['as3 = as3.__main__:main'],
+    },
     classifiers=[
         'Development Status :: 1 - Planning',
         'Intended Audience :: Developers',

@@ -42,9 +42,12 @@ def test_expression(expression: str, expected: Any):
     ('a = 42;', {'a': 42}),
     ('a = b = 42;', {'a': 42, 'b': 42}),
     ('a = 42; a += 1;', {'a': 43}),
+    ('foo(42);', {}),
 ])
 def test_execute_script(script: str, expected: Dict[str, Any]):
-    globals_ = {}
+    globals_ = {
+        'foo': lambda x: x,
+    }
     execute_script(script, '<ast>', globals_)
     for key, value in expected.items():
         assert globals_[key] == value, f'actual: {globals_[key]}'
