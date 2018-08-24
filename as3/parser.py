@@ -296,6 +296,7 @@ class Parser:
 
     def parse_name_expression(self, context: Context) -> AST:
         name_token = self.expect(TokenType.IDENTIFIER)
+        # FIXME: `this` as a separate token.
         if name_token.value == 'this' and context.type_ == ContextType.METHOD:
             name_token.value = 'self'
         return ast.Name(id=name_token.value, ctx=ast.Load(), **name_token.ast_args)

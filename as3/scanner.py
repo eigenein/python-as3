@@ -195,6 +195,9 @@ class TokenType(Enum):
     RETURN = auto()
     STATIC = auto()
     VAR = auto()
+    # TODO: true
+    # TODO: false
+    # TODO: this
 
 
 identifier_first_chars = {*string.ascii_letters, '_'}
