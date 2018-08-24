@@ -33,8 +33,9 @@ def run_shell(globals_: dict):
     session = PromptSession()
     prompt_style = style_from_pygments_cls(NativeStyle)
 
+    echo(f'{style("ActionScript shell", fg="green")}')
     while True:
-        line = session.prompt('> ', lexer=PygmentsLexer(ActionScript3Lexer), style=prompt_style)
+        line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=prompt_style)
         # noinspection PyBroadException
         try:
             execute_script(line, '<shell>', globals_)

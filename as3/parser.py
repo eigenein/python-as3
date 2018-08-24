@@ -76,10 +76,11 @@ class Parser:
 
     def parse_expression_statement(self) -> AST:
         value = self.parse_expression()
-        statement_token = self.expect(TokenType.SEMICOLON)
+        self.skip(TokenType.SEMICOLON)
         if isinstance(value, (ast.Assign, ast.AugAssign)):
+            # Assignment is not an expression in Python.
             return value
-        return ast.Expr(value=value, **statement_token.ast_args)
+        return ast.Expr(value=value, lineno=value.lineno, col_offset=0)
 
     def parse_qualified_name(self) -> Iterable[str]:
         """
