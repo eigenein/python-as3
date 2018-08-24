@@ -24,5 +24,7 @@ def execute_script(
     filename: str,
     globals_: Optional[dict] = None,
     locals_: Optional[dict] = None,
-):
-    exec(compile_script(script, filename), globals_, locals_)
+) -> CodeType:
+    code = compile_script(script, filename)
+    exec(code, globals_, locals_)
+    return code

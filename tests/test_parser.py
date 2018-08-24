@@ -7,8 +7,10 @@ from typing import Any, List
 import pytest
 
 from as3.exceptions import ASSyntaxError
-from as3.parser import Parser
+from as3.parser import Parser, ContextType, Context
 from as3.scanner import Token, TokenType
+
+context = Context(ContextType.CODE_BLOCK)
 
 
 @pytest.mark.parametrize('tokens, expected', [
@@ -83,7 +85,7 @@ from as3.scanner import Token, TokenType
     ),
 ])
 def test_expression(tokens: List[Token], expected: Any):
-    actual = eval(compile(Expression(Parser(tokens).parse_expression()), '<ast>', 'eval'), {
+    actual = eval(compile(Expression(Parser(tokens).parse_expression(context)), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar')(bar=42),
     })
     assert actual == expected, f'actual: {actual}'
@@ -100,4 +102,4 @@ def test_expression(tokens: List[Token], expected: Any):
 ])
 def test_expression_syntax_error(tokens: List[Token]):
     with pytest.raises(ASSyntaxError):
-        Parser(tokens).parse_expression()
+        Parser(tokens).parse_expression(context)

@@ -10,4 +10,16 @@ Though, you're welcome to make a pull request to improve it. Please, try to foll
 
 ## Recipes
 
-TODO
+### Interactive shell
+
+```text
+$ as3 --shell
+ActionScript shell
+>>> class X { function X() { this.a = 42 } function bar() { return this.a } }
+>>> x = X()
+>>> x
+>>> trace(x)
+<X object at 0x1080abe48>
+>>> trace(x.bar())
+42
+```

@@ -10,8 +10,10 @@ import pytest
 
 from as3 import execute_script
 from as3.exceptions import ASSyntaxError
-from as3.parser import Parser
+from as3.parser import Parser, Context, ContextType
 from as3.scanner import Scanner
+
+context = Context(ContextType.CODE_BLOCK)
 
 
 @pytest.mark.parametrize('expression, expected', [
@@ -28,7 +30,7 @@ from as3.scanner import Scanner
     ('baz()', 42),
 ])
 def test_expression(expression: str, expected: Any):
-    actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression()), '<ast>', 'eval'), {
+    actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression(context)), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar baz')(bar=42, baz=2),
         'math': math,
         'bar': lambda a, b: a + b,
@@ -44,6 +46,9 @@ def test_expression(expression: str, expected: Any):
     ('a = b = 42;', {'a': 42, 'b': 42}),
     ('a = 42; a += 1;', {'a': 43}),
     ('foo(42);', {}),
+    ('function bar() { return 42 }; a = bar()', {'a': 42}),
+    ('function bar() { function baz() { return 42 }; return baz; }; a = bar()()', {'a': 42}),
+    ('class X { function X() { this.a = 42 } function baz() { return this.a; } }; a = X().baz()', {'a': 42}),
 ])
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {
@@ -71,4 +76,4 @@ def test_execute_script_syntax_error(script: str):
 ])
 def test_expression_syntax_error(expression: str):
     with pytest.raises(ASSyntaxError):
-        Parser(Scanner(StringIO(expression))).parse_expression()
+        Parser(Scanner(StringIO(expression))).parse_expression(context)
