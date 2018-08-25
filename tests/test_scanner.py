@@ -6,9 +6,9 @@ from typing import List
 import pytest
 from more_itertools import consume
 
+from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Scanner, Token
-from as3.enums import TokenType
 
 
 def test_empty():

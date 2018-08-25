@@ -3,14 +3,14 @@ from __future__ import annotations
 import ast
 from ast import AST
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Any
+from typing import Any, Callable, Dict, Iterable, List, NoReturn, Optional
 
 from more_itertools import consume, peekable
 
-from as3.constants import unary_operations, binary_operations, augmented_assign_operations
+from as3.constants import augmented_assign_operations, binary_operations, unary_operations
+from as3.enums import ContextType, TokenType
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Token
-from as3.enums import TokenType, ContextType
 
 
 @dataclass

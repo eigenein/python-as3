@@ -1,0 +1,14 @@
+root = true
+
+[*]
+charset=utf-8
+end_of_line=lf
+insert_final_newline=true
+indent_style=space
+indent_size=4
+
+[*.py]
+line_length=120
+known_standard_library=dataclasses
+known_first_party=as3
+default_section=THIRDPARTY

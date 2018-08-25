@@ -9,9 +9,9 @@ from typing import Any, Dict
 import pytest
 
 from as3 import execute_script
-from as3.exceptions import ASSyntaxError
-from as3.parser import Parser, Context
 from as3.enums import ContextType
+from as3.exceptions import ASSyntaxError
+from as3.parser import Context, Parser
 from as3.scanner import Scanner
 
 context = Context(ContextType.CODE_BLOCK)

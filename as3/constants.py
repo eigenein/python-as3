@@ -1,6 +1,5 @@
 import ast
 import string
-from _ast import AST
 from typing import Dict
 
 from as3.enums import TokenType
@@ -41,18 +40,18 @@ keyword_to_token_type = {
     'var': TokenType.VAR,
 }
 
-unary_operations: Dict[TokenType, AST] = {
+unary_operations: Dict[TokenType, ast.AST] = {
     TokenType.PLUS: ast.UAdd(),
     TokenType.MINUS: ast.USub(),
 }
 
-binary_operations: Dict[TokenType, AST] = {
+binary_operations: Dict[TokenType, ast.AST] = {
     TokenType.MINUS: ast.Sub(),
     TokenType.PLUS: ast.Add(),
     TokenType.DIVIDE: ast.Div(),
     TokenType.MULTIPLY: ast.Mult(),
 }
 
-augmented_assign_operations: Dict[TokenType, AST] = {
+augmented_assign_operations: Dict[TokenType, ast.AST] = {
     TokenType.ASSIGN_ADD: ast.Add(),
 }
