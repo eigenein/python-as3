@@ -10,7 +10,7 @@ I needed to run some code from a Flash-based game decompiled by amazing [JPEXS F
 
 The implementation may not strictly follow the ActionScript specification.
 
-Though, you're welcome to make a pull request to improve it. Please, try to follow the code style, run `isort` and add unit tests where applicable.
+Though, you're welcome to make a pull request to improve it. Please, try to follow the code style, run [`isort`](https://github.com/timothycrosley/isort) and add unit tests where applicable.
 
 ### Recipes
 
