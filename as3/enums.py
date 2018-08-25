@@ -36,6 +36,7 @@ class TokenType(Enum):
     # Reserved identifiers and keywords.
     BREAK = auto()
     CLASS = auto()
+    ELSE = auto()
     EXTENDS = auto()
     FALSE = auto()
     FUNCTION = auto()

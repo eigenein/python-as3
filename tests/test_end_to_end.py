@@ -52,6 +52,8 @@ def test_expression(expression: str, expected: Any):
     ('function bar() { return 42 }; a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; a = bar()()', {'a': 42}),
     ('class X { function X() { this.a = 42 } function baz() { return this.a; } }; a = X().baz()', {'a': 42}),
+    ('if (true) { a = 42 } else { a = 43 }', {'a': 42}),
+    ('if (false) a = 43; else a = 42;', {'a': 42}),
 ])
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {

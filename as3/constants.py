@@ -28,6 +28,7 @@ character_to_token_type = {
 keyword_to_token_type = {
     'break': TokenType.BREAK,
     'class': TokenType.CLASS,
+    'else': TokenType.ELSE,
     'extends': TokenType.EXTENDS,
     'false': TokenType.FALSE,
     'function': TokenType.FUNCTION,

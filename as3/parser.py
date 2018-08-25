@@ -67,6 +67,12 @@ class Parser:
         # Always add `pass` to be sure the body is not empty.
         yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
 
+    def parse_code_block_or_statement(self, context: Context) -> Iterable[AST]:
+        if self.is_type(TokenType.CURLY_BRACKET_OPEN):
+            yield from self.parse_code_block(context)
+        else:
+            yield self.parse_statement(context)
+
     def parse_statement(self, context: Context) -> AST:
         consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
         return self.switch({
@@ -108,14 +114,13 @@ class Parser:
         self.expect(TokenType.SEMICOLON)
 
     def parse_if(self, context: Context) -> AST:
-        self.expect(TokenType.IF)
+        if_token = self.expect(TokenType.IF)
         self.expect(TokenType.PARENTHESIS_OPEN)
-        self.parse_additive_expression(context)
+        test = self.parse_additive_expression(context)
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        if self.is_type(TokenType.CURLY_BRACKET_OPEN):
-            consume(self.parse_code_block(context))
-        else:
-            self.parse_statement(context)
+        body = list(self.parse_code_block_or_statement(context))
+        or_else = list(self.parse_code_block_or_statement(context)) if self.skip(TokenType.ELSE) else []
+        return make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
     def parse_variable_definition(self, context: Context) -> AST:
         raise NotImplementedError(TokenType.VAR)
