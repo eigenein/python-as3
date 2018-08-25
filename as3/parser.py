@@ -3,20 +3,13 @@ from __future__ import annotations
 import ast
 from ast import AST
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Any
 
 from more_itertools import consume, peekable
 
 from as3.exceptions import ASSyntaxError
-from as3.scanner import Token, TokenType
-
-
-class ContextType(Enum):
-    CODE_BLOCK = auto()
-    PACKAGE = auto()
-    CLASS = auto()
-    METHOD = auto()
+from as3.scanner import Token
+from as3.enums import TokenType, ContextType
 
 
 @dataclass

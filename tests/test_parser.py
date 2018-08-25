@@ -7,8 +7,9 @@ from typing import Any, List
 import pytest
 
 from as3.exceptions import ASSyntaxError
-from as3.parser import Parser, ContextType, Context
-from as3.scanner import Token, TokenType
+from as3.parser import Parser, Context
+from as3.scanner import Token
+from as3.enums import TokenType, ContextType
 
 context = Context(ContextType.CODE_BLOCK)
 

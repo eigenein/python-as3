@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import string
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Any, Callable, Dict, Iterable, Iterator, NoReturn, TextIO
 
 from more_itertools import consume, peekable, side_effect
 
+from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 
 
@@ -147,57 +147,6 @@ class Scanner(Iterator[Token]):
 
     def raise_syntax_error(self, message: str) -> NoReturn:
         raise ASSyntaxError(f'syntax error: {message} at line {self.line_number} position {self.position}')
-
-
-class TokenType(Enum):
-    # Comments.
-    COMMENT = auto()
-
-    # Brackets.
-    BRACKET_CLOSE = auto()
-    BRACKET_OPEN = auto()
-    CURLY_BRACKET_CLOSE = auto()
-    CURLY_BRACKET_OPEN = auto()
-    PARENTHESIS_CLOSE = auto()
-    PARENTHESIS_OPEN = auto()
-
-    # Punctuation.
-    COLON = auto()
-    COMMA = auto()
-    DOT = auto()
-    SEMICOLON = auto()
-
-    # Literals.
-    FLOAT = auto()
-    INTEGER = auto()
-
-    # Binary operators.
-    ASSIGN = auto()
-    ASSIGN_ADD = auto()
-    DIVIDE = auto()
-    LEFT_SHIFT = auto()
-    LESS = auto()
-    MINUS = auto()
-    PLUS = auto()
-    MULTIPLY = auto()
-
-    # Identifiers.
-    BREAK = auto()
-    CLASS = auto()
-    EXTENDS = auto()
-    FUNCTION = auto()
-    IDENTIFIER = auto()
-    IF = auto()
-    IMPORT = auto()
-    OVERRIDE = auto()
-    PACKAGE = auto()
-    PUBLIC = auto()
-    RETURN = auto()
-    STATIC = auto()
-    VAR = auto()
-    # TODO: true
-    # TODO: false
-    # TODO: this
 
 
 identifier_first_chars = {*string.ascii_letters, '_'}
