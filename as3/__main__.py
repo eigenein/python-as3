@@ -11,7 +11,7 @@ from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.styles.native import NativeStyle
 
 from as3 import execute_script
-from as3.stdlib import default_globals
+from as3.runtime import default_globals
 
 
 @click.command()
