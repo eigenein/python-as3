@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import string
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Iterator, NoReturn, TextIO
 
 from more_itertools import consume, peekable, side_effect
 
+from as3 import constants
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 
@@ -43,29 +43,29 @@ class Scanner(Iterator[Token]):
         return self
 
     def __next__(self) -> Token:
-        consume(self.iterate_while(lambda char_: char_ in whitespaces))
+        consume(self.iterate_while(lambda char_: char_ in constants.whitespaces))
 
         char = self.chars.peek()
-        if char in identifier_first_chars:
+        if char in constants.identifier_first_chars:
             return self.read_identifier()
-        if char in character_to_token_type:
-            return self.read_single(character_to_token_type[char])
+        if char in constants.character_to_token_type:
+            return self.read_single(constants.character_to_token_type[char])
         if char == '+':
             return self.read_plus()
         if char == '<':
             return self.read_less()
         if char == '/':
             return self.read_slash()
-        if char in digits:
+        if char in constants.digits:
             return self.read_integer()
 
         self.raise_syntax_error(f'unrecognized token "{char}"')
 
     def read_identifier(self) -> Token:
         line_number, position = self.line_number, self.position
-        value = ''.join(self.iterate_while(lambda char: char in identifier_chars))
+        value = ''.join(self.iterate_while(lambda char: char in constants.identifier_chars))
         return Token(
-            type_=keyword_to_token.get(value, TokenType.IDENTIFIER),
+            type_=constants.keyword_to_token_type.get(value, TokenType.IDENTIFIER),
             value=value,
             line_number=line_number,
             position=position,
@@ -75,7 +75,7 @@ class Scanner(Iterator[Token]):
         line_number, position = self.line_number, self.position
         return Token(
             type_=TokenType.INTEGER,
-            value=int(''.join(self.iterate_while(lambda char: char in digits))),
+            value=int(''.join(self.iterate_while(lambda char: char in constants.digits))),
             line_number=line_number,
             position=position,
         )
@@ -147,40 +147,3 @@ class Scanner(Iterator[Token]):
 
     def raise_syntax_error(self, message: str) -> NoReturn:
         raise ASSyntaxError(f'syntax error: {message} at line {self.line_number} position {self.position}')
-
-
-identifier_first_chars = {*string.ascii_letters, '_'}
-identifier_chars = {*string.ascii_letters, *string.digits, '_'}
-whitespaces = set(string.whitespace)
-digits = set(string.digits)
-
-character_to_token_type = {
-    '{': TokenType.CURLY_BRACKET_OPEN,
-    '}': TokenType.CURLY_BRACKET_CLOSE,
-    '[': TokenType.BRACKET_OPEN,
-    ']': TokenType.BRACKET_CLOSE,
-    '(': TokenType.PARENTHESIS_OPEN,
-    ')': TokenType.PARENTHESIS_CLOSE,
-    ':': TokenType.COLON,
-    ';': TokenType.SEMICOLON,
-    ',': TokenType.COMMA,
-    '-': TokenType.MINUS,
-    '*': TokenType.MULTIPLY,
-    '=': TokenType.ASSIGN,
-    '.': TokenType.DOT,
-}
-
-keyword_to_token = {
-    'break': TokenType.BREAK,
-    'class': TokenType.CLASS,
-    'extends': TokenType.EXTENDS,
-    'function': TokenType.FUNCTION,
-    'if': TokenType.IF,
-    'import': TokenType.IMPORT,
-    'override': TokenType.OVERRIDE,
-    'package': TokenType.PACKAGE,
-    'public': TokenType.PUBLIC,
-    'return': TokenType.RETURN,
-    'static': TokenType.STATIC,
-    'var': TokenType.VAR,
-}

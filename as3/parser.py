@@ -7,6 +7,7 @@ from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Any
 
 from more_itertools import consume, peekable
 
+from as3.constants import unary_operations, binary_operations, augmented_assign_operations
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Token
 from as3.enums import TokenType, ContextType
@@ -382,20 +383,3 @@ class Parser:
             raise ASSyntaxError(f'syntax error: {message} at line {token.line_number} position {token.position}')
         else:
             raise ASSyntaxError(f'syntax error: {message}')
-
-
-unary_operations: Dict[TokenType, AST] = {
-    TokenType.PLUS: ast.UAdd(),
-    TokenType.MINUS: ast.USub(),
-}
-
-binary_operations: Dict[TokenType, AST] = {
-    TokenType.MINUS: ast.Sub(),
-    TokenType.PLUS: ast.Add(),
-    TokenType.DIVIDE: ast.Div(),
-    TokenType.MULTIPLY: ast.Mult(),
-}
-
-augmented_assign_operations: Dict[TokenType, AST] = {
-    TokenType.ASSIGN_ADD: ast.Add(),
-}
