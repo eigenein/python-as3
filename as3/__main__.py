@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import sys
 from pathlib import Path
-from typing import Tuple, Any
+from typing import Any, Tuple
 
 import click
 from prompt_toolkit import PromptSession
@@ -12,7 +12,7 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.styles.native import NativeStyle
 
-from as3 import execute_script, examples
+from as3 import examples, execute_script
 from as3.runtime import default_globals
 
 
