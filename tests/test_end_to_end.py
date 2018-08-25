@@ -29,6 +29,8 @@ context = Context(ContextType.CODE_BLOCK)
     ('(foo.baz + foo.baz) * foo.baz', 8),
     ('bar(2, 42)', 44),
     ('baz()', 42),
+    ('false', False),
+    ('true', True),
 ])
 def test_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression(context)), '<ast>', 'eval'), {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Iterator, NoReturn, TextIO
+from typing import Any, Callable, Iterable, Iterator, NoReturn, TextIO
 
 from more_itertools import consume, peekable, side_effect
 
@@ -16,10 +16,6 @@ class Token:
     value: Any
     line_number: int
     position: int
-
-    @property
-    def ast_args(self) -> Dict[str, Any]:
-        return {'lineno': self.line_number, 'col_offset': self.position}
 
 
 class Scanner(Iterator[Token]):

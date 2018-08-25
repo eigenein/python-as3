@@ -24,11 +24,7 @@ class Context:
 
 class Parser:
     def __init__(self, tokens: Iterable[Token]):
-        self.tokens = peekable(self.filter_tokens(tokens))
-
-    @staticmethod
-    def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
-        return (token for token in tokens if token.type_ != TokenType.COMMENT)
+        self.tokens = peekable(filter_tokens(tokens))
 
     # Rules.
     # ------------------------------------------------------------------------------------------------------------------
@@ -53,9 +49,9 @@ class Parser:
     def parse_class(self, context: Context) -> AST:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
-        bases = [self.parse_additive_expression(context)] if self.skip(TokenType.EXTENDS) else []
+        bases = [self.parse_additive_expression(context)] if self.skip(TokenType.EXTENDS) else []  # FIXME: `ASObject`.
         body = list(self.parse_code_block(Context(ContextType.CLASS, name)))
-        return ast.ClassDef(name=name, bases=bases, keywords=[], body=body, decorator_list=[], **class_token.ast_args)
+        return make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
     def parse_parameter_definition(self, context: Context) -> AST:
         parameter_name = self.expect(TokenType.IDENTIFIER).value
@@ -69,7 +65,7 @@ class Parser:
         while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
             yield self.parse_statement(context)
         # Always add `pass` to be sure the body is not empty.
-        yield ast.Pass(**self.expect(TokenType.CURLY_BRACKET_CLOSE).ast_args)
+        yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
 
     def parse_statement(self, context: Context) -> AST:
         consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
@@ -126,7 +122,7 @@ class Parser:
 
     def parse_semicolon(self, context: Context) -> AST:
         pass_token = self.expect(TokenType.SEMICOLON)
-        return ast.Pass(**pass_token.ast_args)
+        return make_ast(pass_token, ast.Pass)
 
     def parse_return(self, context: Context) -> AST:
         return_token = self.expect(TokenType.RETURN)
@@ -134,7 +130,7 @@ class Parser:
             value = self.parse_expression(context)
         else:
             value = None
-        return ast.Return(value=value, **return_token.ast_args)
+        return make_ast(return_token, ast.Return, value=value)
 
     def parse_function_definition(self, context: Context) -> AST:
         function_token = self.expect(TokenType.FUNCTION)
@@ -163,13 +159,14 @@ class Parser:
         # TODO: defaults.
         # TODO: modifiers in `decorator_list`.
         # TODO: `staticmethod`.
-        return ast.FunctionDef(
+        return make_ast(
+            function_token,
+            ast.FunctionDef,
             name=name,
             args=ast.arguments(args=args, vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]),
             body=body,
             decorator_list=[],
             returns=returns,
-            **function_token.ast_args,
         )
 
     # Expression rules.
@@ -192,7 +189,7 @@ class Parser:
         assignment_token = self.expect(TokenType.ASSIGN)
         self.assign_to(left, assignment_token)
         value = self.parse_additive_expression(context)
-        left = ast.Assign(targets=[left], value=value, **assignment_token.ast_args)
+        left = make_ast(assignment_token, ast.Assign, targets=[left], value=value)
         # Then, check if it's chained.
         while self.skip(TokenType.ASSIGN):
             # Yes, it is. Read a value at the right.
@@ -210,11 +207,12 @@ class Parser:
         assignment_token = self.expect(*augmented_assign_operations)
         self.assign_to(left, assignment_token)
         value = self.parse_additive_expression(context)
-        return ast.AugAssign(
+        return make_ast(
+            assignment_token,
+            ast.AugAssign,
             target=left,
             op=augmented_assign_operations[assignment_token.type_],
             value=value,
-            **assignment_token.ast_args,
         )
 
     def parse_additive_expression(self, context: Context) -> AST:
@@ -236,10 +234,11 @@ class Parser:
     def parse_unary_expression(self, context: Context) -> AST:
         if self.is_type(*unary_operations):
             operation_token: Token = self.tokens.next()
-            return ast.UnaryOp(
+            return make_ast(
+                operation_token,
+                ast.UnaryOp,
                 op=unary_operations[operation_token.type_],
                 operand=self.parse_unary_expression(context),
-                **operation_token.ast_args,
             )
         return self.parse_primary_expression(context)
 
@@ -255,11 +254,12 @@ class Parser:
 
     def parse_attribute_expression(self, left: AST, context: Context) -> AST:
         attribute_token = self.expect(TokenType.DOT)
-        return ast.Attribute(
+        return make_ast(
+            attribute_token,
+            ast.Attribute,
             value=left,
             attr=self.expect(TokenType.IDENTIFIER).value,
             ctx=ast.Load(),
-            **attribute_token.ast_args,
         )
 
     def parse_call_expression(self, left: AST, context: Context) -> AST:
@@ -269,16 +269,16 @@ class Parser:
             args.append(self.parse_assignment_expression(context))
             self.skip(TokenType.COMMA)
         # TODO: keywords.
-        return ast.Call(func=left, args=args, keywords=[], **call_token.ast_args)
+        return make_ast(call_token, ast.Call, func=left, args=args, keywords=[])
 
     def parse_terminal_or_parenthesized(self, context: Context) -> AST:
         return self.switch({
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.INTEGER: self.parse_integer_expression,
             TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.TRUE: lambda **_: ast.NameConstant(value=True, **self.expect(TokenType.TRUE).ast_args),
-            TokenType.FALSE: lambda **_: ast.NameConstant(value=False, **self.expect(TokenType.FALSE).ast_args),
-            TokenType.THIS: lambda **_: ast.Name(id='self', ctx=ast.Load(), **self.expect(TokenType.THIS).ast_args),
+            TokenType.TRUE: lambda **_: make_ast(self.expect(TokenType.TRUE), ast.NameConstant, value=True),
+            TokenType.FALSE: lambda **_: make_ast(self.expect(TokenType.FALSE), ast.NameConstant, value=False),
+            TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id='self', ctx=ast.Load()),
         }, context=context)
 
     def parse_parenthesized_expression(self, context: Context) -> AST:
@@ -289,11 +289,11 @@ class Parser:
 
     def parse_integer_expression(self, context: Context) -> AST:
         value_token = self.expect(TokenType.INTEGER)
-        return ast.Num(n=value_token.value, **value_token.ast_args)
+        return make_ast(value_token, ast.Num, n=value_token.value)
 
     def parse_name_expression(self, context: Context) -> AST:
         name_token = self.expect(TokenType.IDENTIFIER)
-        return ast.Name(id=name_token.value, ctx=ast.Load(), **name_token.ast_args)
+        return make_ast(name_token, ast.Name, id=name_token.value, ctx=ast.Load())
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
@@ -302,17 +302,18 @@ class Parser:
         left = child_parser(context)
         while self.is_type(*types):
             operation_token: Token = self.tokens.next()
-            left = ast.BinOp(
+            left = make_ast(
+                operation_token,
+                ast.BinOp,
                 left=left,
                 op=binary_operations[operation_token.type_],
                 right=child_parser(context),
-                **operation_token.ast_args,
             )
         return left
 
     def assign_to(self, left: AST, token: Token):
         if not hasattr(left, 'ctx'):
-            self.raise_syntax_error(f"{ast.dump(left)} can't be assigned to", token)
+            raise_syntax_error(f"{ast.dump(left)} can't be assigned to", token)
         left.ctx = ast.Store()
 
     # Parser helpers.
@@ -370,16 +371,27 @@ class Parser:
         """
         types_string = ', '.join(type_.name for type_ in types)
         if not self.tokens:
-            self.raise_syntax_error(f'unexpected end of file, expected one of: {types_string}')
+            raise_syntax_error(f'unexpected end of file, expected one of: {types_string}')
         token: Token = self.tokens.peek()
-        self.raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
+        raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
 
-    @staticmethod
-    def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
-        """
-        Raise syntax error and provide some help message.
-        """
-        if token:
-            raise ASSyntaxError(f'syntax error: {message} at line {token.line_number} position {token.position}')
-        else:
-            raise ASSyntaxError(f'syntax error: {message}')
+
+def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
+    return (token for token in tokens if token.type_ != TokenType.COMMENT)
+
+
+def make_ast(token: Token, init: Callable[..., AST], **kwargs) -> AST:
+    """
+    Helper method to avoid passing `lineno` and `col_offset` all the time.
+    """
+    return init(**kwargs, lineno=token.line_number, col_offset=token.position)
+
+
+def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
+    """
+    Raise syntax error and provide some help message.
+    """
+    if token:
+        raise ASSyntaxError(f'syntax error: {message} at line {token.line_number} position {token.position}')
+    else:
+        raise ASSyntaxError(f'syntax error: {message}')
