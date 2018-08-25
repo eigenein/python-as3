@@ -2,15 +2,21 @@
 
 This is an ActionScript to Python AST compiler. It parses ActionScript source code and produces an [`ast.Module`](https://docs.python.org/3/library/ast.html#abstract-grammar) instance which can be just normally compiled and executed with standard [`compile`](https://docs.python.org/3/library/functions.html#compile) and [`exec`](https://docs.python.org/3/library/functions.html#exec) functions.
 
-#### Disclaimer
+### Why?
 
-I just needed to execute a specific set of ActionScript scripts produced by amazing [JPEXS Flash Decompiler](https://github.com/jindrapetrik/jpexs-decompiler), and not to build a strict ActionScript compiler. So, this implementation may not strictly follow the ActionScript specification.
+I needed to run some code from a Flash-based game decompiled by amazing [JPEXS Flash Decompiler](https://github.com/jindrapetrik/jpexs-decompiler).
 
-Though, you're welcome to make a pull request to improve it. Please, try to follow the code style and add unit tests where it's reasonable.
+### Disclaimer
 
-## Recipes
+The implementation may not strictly follow the ActionScript specification.
 
-### Interactive shell
+Though, you're welcome to make a pull request to improve it. Please, try to follow the code style, run `isort` and add unit tests where applicable.
+
+### Recipes
+
+#### Interactive shell
+
+The package contains a command-line utility to test the interpreter:
 
 ```text
 $ as3 --shell
