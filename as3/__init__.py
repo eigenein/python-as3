@@ -3,7 +3,7 @@ from __future__ import annotations
 from ast import AST
 from io import StringIO
 from types import CodeType
-from typing import TextIO, Union, Optional
+from typing import Optional, TextIO, Union
 
 from as3.parser import Parser
 from as3.scanner import Scanner

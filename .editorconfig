@@ -12,3 +12,4 @@ line_length=120
 known_standard_library=dataclasses
 known_first_party=as3
 default_section=THIRDPARTY
+not_skip=__init__.py
