@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import random
 import sys
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Any
 
 import click
 from prompt_toolkit import PromptSession
@@ -11,7 +12,7 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.styles.native import NativeStyle
 
-from as3 import execute_script
+from as3 import execute_script, examples
 from as3.runtime import default_globals
 
 
@@ -39,7 +40,10 @@ def run_shell(globals_: dict):
     session = PromptSession()
     style = style_from_pygments_cls(NativeStyle)
 
-    click.echo(f'{click.style("ActionScript shell", fg="green")}')
+    example, _ = random.choice([*examples.scripts, *examples.expressions])  # type: str, Any
+    click.echo(f'{click.style("ActionScript to Python AST shell", fg="green")}')
+    click.echo(f'{click.style("Try", fg="green")}: {click.style(example, fg="blue")}')
+
     while True:
         line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)
         # noinspection PyBroadException

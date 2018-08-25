@@ -10,6 +10,7 @@ import pytest
 
 from as3 import execute_script
 from as3.enums import ContextType
+from as3.examples import expressions, scripts
 from as3.exceptions import ASSyntaxError
 from as3.parser import Context, Parser
 from as3.scanner import Scanner
@@ -17,21 +18,7 @@ from as3.scanner import Scanner
 context = Context(ContextType.CODE_BLOCK)
 
 
-@pytest.mark.parametrize('expression, expected', [
-    ('42', 42),
-    ('2 + 2', 4),
-    ('2 + 2 * 2', 6),
-    ('(2 + 2) * 2', 8),
-    ('str(2)', '2'),
-    ('math.fabs(-2)', 2),
-    ('math.acos.__name__', 'acos'),
-    ('foo.baz + foo.baz * foo.baz', 6),
-    ('(foo.baz + foo.baz) * foo.baz', 8),
-    ('bar(2, 42)', 44),
-    ('baz()', 42),
-    ('false', False),
-    ('true', True),
-])
+@pytest.mark.parametrize('expression, expected', expressions)
 def test_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression(context)), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar baz')(bar=42, baz=2),
@@ -42,19 +29,7 @@ def test_expression(expression: str, expected: Any):
     assert actual == expected, f'actual: {actual}'
 
 
-@pytest.mark.parametrize('script, expected', [
-    ('a = 1 + 1;', {}),
-    ('a = 42;', {'a': 42}),
-    ('a = 42; b = 3', {'a': 42, 'b': 3}),
-    ('a = b = 42;', {'a': 42, 'b': 42}),
-    ('a = 42; a += 1;', {'a': 43}),
-    ('foo(42);', {}),
-    ('function bar() { return 42 }; a = bar()', {'a': 42}),
-    ('function bar() { function baz() { return 42 }; return baz; }; a = bar()()', {'a': 42}),
-    ('class X { function X() { this.a = 42 } function baz() { return this.a; } }; a = X().baz()', {'a': 42}),
-    ('if (true) { a = 42 } else { a = 43 }', {'a': 42}),
-    ('if (false) a = 43; else a = 42;', {'a': 42}),
-])
+@pytest.mark.parametrize('script, expected', scripts)
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {
         'foo': lambda x: x,
