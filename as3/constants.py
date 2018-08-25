@@ -29,6 +29,7 @@ keyword_to_token_type = {
     'break': TokenType.BREAK,
     'class': TokenType.CLASS,
     'extends': TokenType.EXTENDS,
+    'false': TokenType.FALSE,
     'function': TokenType.FUNCTION,
     'if': TokenType.IF,
     'import': TokenType.IMPORT,
@@ -37,6 +38,8 @@ keyword_to_token_type = {
     'public': TokenType.PUBLIC,
     'return': TokenType.RETURN,
     'static': TokenType.STATIC,
+    'this': TokenType.THIS,
+    'true': TokenType.TRUE,
     'var': TokenType.VAR,
 }
 

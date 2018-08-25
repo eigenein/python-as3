@@ -276,6 +276,9 @@ class Parser:
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.INTEGER: self.parse_integer_expression,
             TokenType.IDENTIFIER: self.parse_name_expression,
+            TokenType.TRUE: lambda **_: ast.NameConstant(value=True, **self.expect(TokenType.TRUE).ast_args),
+            TokenType.FALSE: lambda **_: ast.NameConstant(value=False, **self.expect(TokenType.FALSE).ast_args),
+            TokenType.THIS: lambda **_: ast.Name(id='self', ctx=ast.Load(), **self.expect(TokenType.THIS).ast_args),
         }, context=context)
 
     def parse_parenthesized_expression(self, context: Context) -> AST:
@@ -290,9 +293,6 @@ class Parser:
 
     def parse_name_expression(self, context: Context) -> AST:
         name_token = self.expect(TokenType.IDENTIFIER)
-        # FIXME: `this` as a separate token.
-        if name_token.value == 'this' and context.type_ == ContextType.METHOD:
-            name_token.value = 'self'
         return ast.Name(id=name_token.value, ctx=ast.Load(), **name_token.ast_args)
 
     # Expression rule helpers.

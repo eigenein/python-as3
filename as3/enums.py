@@ -33,10 +33,11 @@ class TokenType(Enum):
     PLUS = auto()
     MULTIPLY = auto()
 
-    # Identifiers.
+    # Reserved identifiers and keywords.
     BREAK = auto()
     CLASS = auto()
     EXTENDS = auto()
+    FALSE = auto()
     FUNCTION = auto()
     IDENTIFIER = auto()
     IF = auto()
@@ -46,10 +47,9 @@ class TokenType(Enum):
     PUBLIC = auto()
     RETURN = auto()
     STATIC = auto()
+    THIS = auto()
+    TRUE = auto()
     VAR = auto()
-    # TODO: true
-    # TODO: false
-    # TODO: this
 
 
 class ContextType(Enum):
