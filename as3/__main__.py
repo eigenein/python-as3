@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Tuple
 
@@ -29,6 +30,7 @@ def main(shell: bool, scripts: Tuple[str]):
             execute_script(path.open('rt', encoding='utf-8'), path.name, globals_)
         except Exception as e:
             click.echo(f'{click.style("Error", fg="red")}: {click.style(str(path), fg="blue")}: {e}')
+            sys.exit(1)
     if shell:
         run_shell(globals_)
 
