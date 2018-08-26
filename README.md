@@ -17,6 +17,7 @@ Though, you're welcome to make a pull request to improve it. Please, try to foll
 
 ### Development
 
+* `Pipfile` is here to set up a development environment quickly.
 * Use [`isort`](https://github.com/timothycrosley/isort) to sort imports.
 * Run tests with [`pytest`](https://docs.pytest.org/en/latest/).
 
