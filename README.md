@@ -20,12 +20,12 @@ The package contains a command-line utility to test the interpreter:
 
 ```text
 $ as3 --shell
-ActionScript shell
+ActionScript to Python AST shell
+Try: class X { function X() { this.a = 42 } function baz() { return this.a; } }; a = X().baz()
 >>> class X { function X() { this.a = 42 } function bar() { return this.a } }
 >>> x = X()
->>> x
 >>> trace(x)
-<X object at 0x1080abe48>
+<X object at 0x10bbdad68>
 >>> trace(x.bar())
 42
 ```
