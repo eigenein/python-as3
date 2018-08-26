@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from ast import AST
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, List, NoReturn, Optional
+from typing import Callable, Dict, Iterable, List, NoReturn, Optional
 
 from more_itertools import consume, peekable
 
@@ -19,7 +19,7 @@ class Context:
     Represents the current parser context and used to link entities to each other.
     """
     type_: ContextType
-    value: Any = None
+    name: Optional[str] = None  # context object name
 
 
 class Parser:
@@ -77,7 +77,7 @@ class Parser:
         consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
         return self.switch({
             TokenType.IMPORT: self.parse_import,
-            TokenType.CLASS: self.parse_class,  # FIXME: how about inline classes?
+            TokenType.CLASS: self.parse_class,
             TokenType.VAR: self.parse_variable_definition,
             TokenType.IF: self.parse_if,
             TokenType.SEMICOLON: self.parse_semicolon,
@@ -153,7 +153,8 @@ class Parser:
         if context.type_ == ContextType.CLASS:
             args.append(ast.arg(arg='self', annotation=None, lineno=function_token.line_number, col_offset=0))
             # Is this a constructor?
-            if name == context.value:
+            if name == context.name:
+                # FIXME: call `super()`: https://stackoverflow.com/a/7538926/359730
                 name = '__init__'
 
         # Parse body.
@@ -192,7 +193,7 @@ class Parser:
     def parse_chained_assignment_expression(self, left: AST, context: Context) -> AST:
         # First, assume it's not a chained assignment.
         assignment_token = self.expect(TokenType.ASSIGN)
-        self.assign_to(left, assignment_token)
+        set_store_context(left, assignment_token)
         value = self.parse_additive_expression(context)
         left = make_ast(assignment_token, ast.Assign, targets=[left], value=value)
         # Then, check if it's chained.
@@ -200,7 +201,7 @@ class Parser:
             # Yes, it is. Read a value at the right.
             value = self.parse_additive_expression(context)
             # Former value becomes a target.
-            self.assign_to(left.value, assignment_token)
+            set_store_context(left.value, assignment_token)
             left.targets.append(left.value)
             # Value at the right becomes the assigned value.
             left.value = value
@@ -210,7 +211,7 @@ class Parser:
         # FIXME: I didn't find a good way to implement chained augmented assignments like `a += b += a` in Python AST.
         # FIXME: So, only `a += b` is allowed. Sorry.
         assignment_token = self.expect(*augmented_assign_operations)
-        self.assign_to(left, assignment_token)
+        set_store_context(left, assignment_token)
         value = self.parse_additive_expression(context)
         return make_ast(
             assignment_token,
@@ -273,7 +274,6 @@ class Parser:
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             args.append(self.parse_assignment_expression(context))
             self.skip(TokenType.COMMA)
-        # TODO: keywords.
         return make_ast(call_token, ast.Call, func=left, args=args, keywords=[])
 
     def parse_terminal_or_parenthesized(self, context: Context) -> AST:
@@ -315,11 +315,6 @@ class Parser:
                 right=child_parser(context),
             )
         return left
-
-    def assign_to(self, left: AST, token: Token):
-        if not hasattr(left, 'ctx'):
-            raise_syntax_error(f"{ast.dump(left)} can't be assigned to", token)
-        left.ctx = ast.Store()
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
@@ -390,6 +385,12 @@ def make_ast(token: Token, init: Callable[..., AST], **kwargs) -> AST:
     Helper method to avoid passing `lineno` and `col_offset` all the time.
     """
     return init(**kwargs, lineno=token.line_number, col_offset=token.position)
+
+
+def set_store_context(left: AST, assignment_token: Token):
+    if not hasattr(left, 'ctx'):
+        raise_syntax_error(f"{ast.dump(left)} can't be assigned to", assignment_token)
+    left.ctx = ast.Store()
 
 
 def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
