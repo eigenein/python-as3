@@ -1,7 +1,9 @@
-![Build status](https://travis-ci.org/eigenein/python-as3.svg?branch=master) [![GitHub tag](https://img.shields.io/github/tag/eigenein/python-as3.svg)](https://GitHub.com/eigenein/python-as3/tags/)
-
-
 This is an ActionScript to Python AST compiler. It parses ActionScript source code and produces an [`ast.Module`](https://docs.python.org/3/library/ast.html#abstract-grammar) instance which can be just normally compiled and executed with standard [`compile`](https://docs.python.org/3/library/functions.html#compile) and [`exec`](https://docs.python.org/3/library/functions.html#exec) functions.
+
+### Pulse
+
+![Build status](https://travis-ci.org/eigenein/python-as3.svg?branch=master) [![GitHub tag](https://img.shields.io/github/tag/eigenein/python-as3.svg)](https://GitHub.com/eigenein/python-as3/tags/) [![GitHub license](https://img.shields.io/github/license/eigenein/python-as3.svg)](https://github.com/eigenein/python-as3/blob/master/LICENSE) [![Say Thanks!](https://img.shields.io/badge/Say%20Thanks-!-1EAEDB.svg)](https://saythanks.io/to/eigenein)
+
 
 ### Why?
 
