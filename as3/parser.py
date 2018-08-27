@@ -188,6 +188,8 @@ class Parser:
             value = self.parse_additive_expression()
         else:
             value = make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
+        # TODO: case `value` to `type_`, possibly call `type_` constructor with `value` as an argument.
+        # TODO: though this is quite unpredictable.
         if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
