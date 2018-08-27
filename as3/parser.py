@@ -8,6 +8,7 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
+from as3.ast_ import make_ast, make_ast_from_source, set_store_context, make_function
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -93,18 +94,10 @@ class Parser:
             fields = context.fields
 
         # And now we have to initialize non-static fields.
-        body.append(make_ast(
+        body.append(make_function(
             class_token,
-            ast.FunctionDef,
             name='__init__',
-            args=ast.arguments(
-                args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
+            args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
             body=(
                 [make_ast_from_source(class_token, '__dict__ = self.__dict__')] +
                 [
@@ -119,8 +112,6 @@ class Parser:
                     for token, value in fields
                 ]
             ),
-            decorator_list=[],
-            returns=None,
         ))
 
         return make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
@@ -270,15 +261,7 @@ class Parser:
         # TODO: modifiers in `decorator_list`.
         # TODO: `staticmethod`.
         # TODO: call `super`.
-        return make_ast(
-            function_token,
-            ast.FunctionDef,
-            name=name,
-            args=ast.arguments(args=args, vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]),
-            body=body,
-            decorator_list=[],
-            returns=returns,
-        )
+        return make_function(function_token, name=name, body=body, args=args, returns=returns)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
@@ -494,27 +477,6 @@ class Parser:
 
 def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
     return (token for token in tokens if token.type_ != TokenType.COMMENT)
-
-
-def make_ast(token: Token, init: Callable[..., AST], **kwargs) -> AST:
-    """
-    Helper method to avoid passing `lineno` and `col_offset` all the time.
-    """
-    return init(**kwargs, lineno=token.line_number, col_offset=token.position)
-
-
-def make_ast_from_source(token: Token, source: str) -> AST:
-    node, = ast.parse(source).body
-    node.lineno = token.line_number
-    node.col_offset = token.position
-    return ast.fix_missing_locations(node)
-
-
-def set_store_context(node: AST, assignment_token: Token) -> AST:
-    if not hasattr(node, 'ctx'):
-        raise_syntax_error(f"{ast.dump(node)} can't be assigned to", assignment_token)
-    node.ctx = ast.Store()
-    return node
 
 
 def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
