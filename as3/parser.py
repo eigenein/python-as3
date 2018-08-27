@@ -8,7 +8,7 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_ast_from_source, set_store_context, make_function
+from as3.ast_ import make_ast, make_ast_from_source, make_function, set_store_context
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
