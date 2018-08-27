@@ -51,10 +51,3 @@ class TokenType(Enum):
     THIS = auto()
     TRUE = auto()
     VAR = auto()
-
-
-class ContextType(Enum):
-    CODE_BLOCK = auto()
-    PACKAGE = auto()
-    CLASS = auto()
-    METHOD = auto()

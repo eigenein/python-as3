@@ -59,3 +59,7 @@ binary_operations: Dict[TokenType, ast.AST] = {
 augmented_assign_operations: Dict[TokenType, ast.AST] = {
     TokenType.ASSIGN_ADD: ast.Add(),
 }
+
+# `__this__` may be an instance _or_ a class itself.
+# Also, avoid confusion with possible `self` variable which is valid in ActionScript.
+this_name = '__this__'

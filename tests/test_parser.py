@@ -6,12 +6,11 @@ from typing import Any, List
 
 import pytest
 
-from as3.enums import ContextType, TokenType
+from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.parser import Context, Parser
+from as3.parser import Parser
+from as3.runtime import default_globals
 from as3.scanner import Token
-
-context = Context(ContextType.CODE_BLOCK)
 
 
 @pytest.mark.parametrize('tokens, expected', [
@@ -86,9 +85,9 @@ context = Context(ContextType.CODE_BLOCK)
     ),
 ])
 def test_expression(tokens: List[Token], expected: Any):
-    actual = eval(compile(Expression(Parser(tokens).parse_expression(context)), '<ast>', 'eval'), {
+    actual = eval(compile(Expression(Parser(tokens).parse_expression()), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar')(bar=42),
-    })
+    }, dict(default_globals))
     assert actual == expected, f'actual: {actual}'
 
 
@@ -103,4 +102,4 @@ def test_expression(tokens: List[Token], expected: Any):
 ])
 def test_expression_syntax_error(tokens: List[Token]):
     with pytest.raises(ASSyntaxError):
-        Parser(tokens).parse_expression(context)
+        Parser(tokens).parse_expression()
