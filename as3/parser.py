@@ -4,7 +4,7 @@ import ast
 from ast import AST
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Set, Tuple
+from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Set, Tuple, TypeVar
 
 from more_itertools import consume, peekable
 
@@ -23,7 +23,7 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    declared_names: Set[str] = field(default_factory=set)
+    declared_names: Set[str] = field(default_factory=set)  # FIXME: should go away.
     fields: List[Tuple[Token, AST]] = field(default_factory=list)
 
 
@@ -64,7 +64,7 @@ class Parser:
             if self.is_type(TokenType.PACKAGE):
                 statements.extend(self.parse_package())
             else:
-                statements.extend(self.parse_code_block_or_statement())
+                statements.extend(self.parse_statement())
         return ast.Module(body=statements)
 
     def parse_package(self) -> Iterable[AST]:
@@ -72,9 +72,9 @@ class Parser:
         package_name = tuple(self.parse_qualified_name()) if self.is_type(TokenType.IDENTIFIER) else ()
         with self.push_context() as context:
             context.package_name = package_name  # FIXME: `package_name`.
-            yield from self.parse_code_block()
+            yield from self.parse_statement()
 
-    def parse_class(self) -> AST:
+    def parse_class(self) -> Iterable[AST]:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
 
@@ -114,7 +114,7 @@ class Parser:
             ),
         ))
 
-        return make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
+        yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
     def parse_parameter_definition(self) -> AST:
         parameter_name = self.expect(TokenType.IDENTIFIER).value
@@ -123,22 +123,10 @@ class Parser:
         if self.skip(TokenType.ASSIGN):
             default_value = self.parse_additive_expression()
 
-    def parse_code_block(self) -> Iterable[AST]:
-        self.expect(TokenType.CURLY_BRACKET_OPEN)
-        while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
-            yield from self.parse_code_block_or_statement()
-        # Always add `pass` to be sure the body is not empty.
-        yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
-
-    def parse_code_block_or_statement(self) -> Iterable[AST]:
-        if self.is_type(TokenType.CURLY_BRACKET_OPEN):
-            yield from self.parse_code_block()
-        else:
-            yield self.parse_statement()
-
-    def parse_statement(self) -> AST:
+    def parse_statement(self) -> Iterable[AST]:
         consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
-        return self.switch({
+        yield from self.switch({
+            TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
             TokenType.IMPORT: self.parse_import,
             TokenType.CLASS: self.parse_class,
             TokenType.VAR: self.parse_variable_definition,
@@ -148,14 +136,23 @@ class Parser:
             TokenType.FUNCTION: self.parse_function_definition,
         }, else_=self.parse_expression_statement)
 
-    def parse_expression_statement(self) -> AST:
+    def parse_code_block(self) -> Iterable[AST]:
+        # FIXME: local namespace.
+        self.expect(TokenType.CURLY_BRACKET_OPEN)
+        while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
+            yield from self.parse_statement()
+        # Always add `pass` to be sure the body is not empty.
+        yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
+
+    def parse_expression_statement(self) -> Iterable[AST]:
         value = self.parse_expression()
         self.skip(TokenType.SEMICOLON)
         if isinstance(value, ast.stmt):
             # Already a statement.
-            return value
-        # Others should be wrapped into `Expr` statement.
-        return ast.Expr(value=value, lineno=value.lineno, col_offset=0)
+            yield value
+        else:
+            # Others should be wrapped into `Expr` statement.
+            yield ast.Expr(value=value, lineno=value.lineno, col_offset=0)
 
     def parse_qualified_name(self) -> Iterable[str]:
         """
@@ -172,21 +169,22 @@ class Parser:
         while self.is_type(TokenType.STATIC, TokenType.PUBLIC, TokenType.OVERRIDE):
             yield self.tokens.next().type_
 
-    def parse_import(self) -> AST:
+    def parse_import(self) -> Iterable[AST]:
         self.expect(TokenType.IMPORT)
         qualified_name = tuple(self.parse_qualified_name())  # FIXME: `parse_additive_expression`?
         self.expect(TokenType.SEMICOLON)
+        return []  # FIXME
 
-    def parse_if(self) -> AST:
+    def parse_if(self) -> Iterable[AST]:
         if_token = self.expect(TokenType.IF)
         self.expect(TokenType.PARENTHESIS_OPEN)
         test = self.parse_additive_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = list(self.parse_code_block_or_statement())
-        or_else = list(self.parse_code_block_or_statement()) if self.skip(TokenType.ELSE) else []
-        return make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
+        body = list(self.parse_statement())
+        or_else = list(self.parse_statement()) if self.skip(TokenType.ELSE) else []
+        yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
-    def parse_variable_definition(self) -> AST:
+    def parse_variable_definition(self) -> Iterable[AST]:
         # TODO: should accept modifiers.
         self.expect(TokenType.VAR)
         name_token = self.expect(TokenType.IDENTIFIER)
@@ -202,35 +200,36 @@ class Parser:
             # It's a normal variable, so declare it in the current context.
             self.context.declared_names.add(name_token.value)
         if not self.context.class_name:
+            # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
-            return make_ast(
+            yield make_ast(
                 name_token,
                 ast.Assign,
                 targets=[make_ast(name_token, ast.Name, id=name_token.value, ctx=ast.Store())],
                 value=value,
             )
-        # Now it's getting complicated, because we have to initialize the attribute on an instance.
-        # Remember the variable and return `pass`. We'll initialize it later in `__init__`.
-        self.context.fields.append((name_token, value))
-        return make_ast(name_token, ast.Pass)
+        else:
+            # We have to initialize the attribute on an instance.
+            # Remember the variable for now and return. We'll initialize it later in `__init__`.
+            self.context.fields.append((name_token, value))
 
     def parse_type_annotation(self) -> AST:
         # TODO: `*`.
         return self.parse_primary_expression()
 
-    def parse_semicolon(self) -> AST:
+    def parse_semicolon(self) -> Iterable[AST]:
         pass_token = self.expect(TokenType.SEMICOLON)
-        return make_ast(pass_token, ast.Pass)
+        yield make_ast(pass_token, ast.Pass)
 
-    def parse_return(self) -> AST:
+    def parse_return(self) -> Iterable[AST]:
         return_token = self.expect(TokenType.RETURN)
         if not self.skip(TokenType.SEMICOLON):
             value = self.parse_expression()
         else:
             value = None
-        return make_ast(return_token, ast.Return, value=value)
+        yield make_ast(return_token, ast.Return, value=value)
 
-    def parse_function_definition(self) -> AST:
+    def parse_function_definition(self) -> Iterable[AST]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value  # TODO: anonymous functions.
 
@@ -243,6 +242,7 @@ class Parser:
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             self.parse_parameter_definition()
+            # TODO: append argument.
             self.skip(TokenType.COMMA)
         returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
 
@@ -261,7 +261,7 @@ class Parser:
         # TODO: modifiers in `decorator_list`.
         # TODO: `staticmethod`.
         # TODO: call `super`.
-        return make_function(function_token, name=name, body=body, args=args, returns=returns)
+        yield make_function(function_token, name=name, body=body, args=args, returns=returns)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
@@ -418,9 +418,10 @@ class Parser:
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
-    TParser = Callable[..., AST]
+    TParserReturn = TypeVar('TParserReturn')
+    TParser = Callable[..., TParserReturn]
 
-    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, default: AST = None, **kwargs) -> AST:
+    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, default: TParserReturn = None, **kwargs) -> TParserReturn:
         """
         Behaves like a `switch` (`case`) operator and tries to match the current token against specified token types.
         If match is found, then the corresponding parser is called.
