@@ -27,7 +27,7 @@ class ASObject(metaclass=ASObjectMetaclass):
     Base class for all built ActionScript classes.
     """
 
-    default = None
+    __default__ = None
 
 
 class ASAny(ASObject):
@@ -39,7 +39,7 @@ class ASAny(ASObject):
 
 
 class ASInteger(int, ASObject):
-    default = 0
+    __default__ = 0
 
 
 class ASString(str, ASObject):
@@ -78,7 +78,7 @@ default_globals = {
     'int': ASInteger,
     'String': str,  # FIXME: `ASString`.
     'trace': print,
-    'undefined': ASAny.default,
+    'undefined': ASAny.__default__,
 
     # Standard types.
     ASAny.__name__: ASAny,

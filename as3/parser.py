@@ -187,7 +187,7 @@ class Parser:
         if self.skip(TokenType.ASSIGN):
             value = self.parse_additive_expression()
         else:
-            value = make_ast(name_token, ast.Attribute, value=type_, attr='default', ctx=ast.Load())
+            value = make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
         if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
@@ -222,7 +222,7 @@ class Parser:
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             self.parse_parameter_definition()
-            # TODO: append argument.
+            # TODO: actually append argument.
             self.skip(TokenType.COMMA)
         returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
 
