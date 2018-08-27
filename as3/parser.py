@@ -222,7 +222,7 @@ class Parser:
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             self.parse_parameter_definition()
-            # TODO: actually append argument.
+            # TODO: actually append argument and default value.
             self.skip(TokenType.COMMA)
         returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
 
@@ -236,11 +236,8 @@ class Parser:
             context.class_name = None  # prevent inner functions from being methods
             body = list(self.parse_code_block())
 
-        # TODO: arguments.
-        # TODO: defaults.
-        # TODO: modifiers in `decorator_list`.
-        # TODO: `staticmethod`.
-        # TODO: call `super`.
+        # TODO: `static`.
+        # TODO: call `super` if not called.
         yield make_function(function_token, name=name, body=body, args=args, returns=returns)
 
     # Expression rules.

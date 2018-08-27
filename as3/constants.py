@@ -39,6 +39,7 @@ keyword_to_token_type = {
     'public': TokenType.PUBLIC,
     'return': TokenType.RETURN,
     'static': TokenType.STATIC,
+    'super': TokenType.SUPER,
     'this': TokenType.THIS,
     'true': TokenType.TRUE,
     'var': TokenType.VAR,

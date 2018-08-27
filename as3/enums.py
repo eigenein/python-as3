@@ -48,6 +48,7 @@ class TokenType(Enum):
     PUBLIC = auto()
     RETURN = auto()
     STATIC = auto()
+    SUPER = auto()
     THIS = auto()
     TRUE = auto()
     VAR = auto()
