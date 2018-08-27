@@ -16,7 +16,7 @@ class ASObjectMetaclass(type):
         # Call the internal initializer.
         instance.__init__()
         # Call ActionScript constructor.
-        constructor = getattr(instance, cls.__name__)
+        constructor = getattr(instance, cls.__name__, None)
         if constructor is not None:
             constructor(*args, **kwargs)
         return instance
@@ -69,13 +69,18 @@ def resolve_name(name: str) -> dict:
 
 
 default_globals = {
+    # Internal interpreter names.
     '__dir__': dir,
     '__globals__': globals,
     '__resolve__': resolve_name,
+
+    # Standard names.
     'int': ASInteger,
     'String': str,  # FIXME: `ASString`.
     'trace': print,
     'undefined': ASAny.default,
+
+    # Standard types.
     ASAny.__name__: ASAny,
     ASObject.__name__: ASObject,
 }

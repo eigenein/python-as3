@@ -4,11 +4,11 @@ import ast
 from ast import AST
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Set, Tuple, TypeVar
+from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Tuple, TypeVar
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_ast_from_source, make_function, make_name, set_store_context
+from as3.ast_ import make_ast, make_ast_from_source, make_call, make_function, make_name, set_store_context
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -23,7 +23,6 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    declared_names: Set[str] = field(default_factory=set)  # FIXME: should go away.
     fields: List[Tuple[Token, AST]] = field(default_factory=list)
 
 
@@ -41,11 +40,7 @@ class Parser:
 
     @contextmanager
     def push_context(self) -> ContextManager[Context]:
-        context = replace(
-            self.context,
-            declared_names=self.context.declared_names.copy(),
-            fields=self.context.fields.copy(),
-        )
+        context = replace(self.context, fields=self.context.fields.copy())
         self.context_stack.append(context)
         try:
             yield context
@@ -77,9 +72,6 @@ class Parser:
     def parse_class(self) -> Iterable[AST]:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
-
-        # So now the class name is declared.
-        self.context.declared_names.add(name)
 
         # `extends`, always inherit at least from `ASObject`.
         bases = [make_ast(class_token, ast.Name, id=ASObject.__name__, ctx=ast.Load())]
@@ -197,9 +189,6 @@ class Parser:
         else:
             value = make_ast(name_token, ast.Attribute, value=type_, attr='default', ctx=ast.Load())
         if not self.context.class_name:
-            # It's a normal variable, so declare it in the current context.
-            self.context.declared_names.add(name_token.value)
-        if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
             yield make_ast(name_token, ast.Assign, targets=[make_name(name_token, ctx=ast.Store())], value=value)
@@ -227,10 +216,6 @@ class Parser:
     def parse_function_definition(self) -> Iterable[AST]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value  # TODO: anonymous functions.
-
-        # Since that the function name is declared.
-        if name:
-            self.context.declared_names.add(name)
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
@@ -357,7 +342,7 @@ class Parser:
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             args.append(self.parse_assignment_expression())
             self.skip(TokenType.COMMA)
-        return make_ast(call_token, ast.Call, func=left, args=args, keywords=[])
+        return make_call(call_token, func=left, args=args)
 
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
@@ -388,7 +373,7 @@ class Parser:
         return make_ast(
             name_token,
             ast.Subscript,
-            value=make_ast(name_token, ast.Call, func=make_name(name_token, '__resolve__'), args=[name_node], keywords=[]),
+            value=make_call(name_token, func=make_name(name_token, '__resolve__'), args=[name_node]),
             slice=make_ast(name_token, ast.Index, value=name_node),
             ctx=ast.Load(),
         )

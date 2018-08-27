@@ -24,6 +24,10 @@ def make_name(name_token: Token, custom_name: Optional[str] = None, ctx=ast.Load
     return make_ast(name_token, ast.Name, id=(custom_name or name_token.value), ctx=ctx)
 
 
+def make_call(call_token: Token, func: ast.AST, args: List[ast.AST] = None) -> ast.AST:
+    return make_ast(call_token, ast.Call, func=func, args=(args or []), keywords=[])
+
+
 def make_function(
     function_token: Token,
     name: str,
