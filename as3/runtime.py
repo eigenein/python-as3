@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import math
 
 from as3.constants import this_name
 
@@ -43,7 +44,23 @@ class ASInteger(int, ASObject):
 
 
 class ASString(str, ASObject):
-    pass
+    pass  # TODO
+
+
+class ASNumber(float, ASObject):
+    pass  # TODO
+
+
+class MathMetaclass(type):
+    def __getattr__(self, item):
+        # Let's hope the name matches.
+        return getattr(math, item)
+
+
+class Math(metaclass=MathMetaclass):
+    POSITIVE_INFINITY = ASNumber(math.inf)
+
+    abs = math.fabs
 
 
 def resolve_name(name: str) -> dict:
@@ -76,6 +93,7 @@ default_globals = {
 
     # Standard names.
     'int': ASInteger,
+    'Math': Math,
     'String': str,  # FIXME: `ASString`.
     'trace': print,
     'undefined': ASAny.__default__,

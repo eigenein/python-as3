@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from ast import Expression
 from collections import namedtuple
 from io import StringIO
@@ -21,7 +20,6 @@ def test_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression()), '<ast>', 'eval'), {
         **default_globals,
         'foo': namedtuple('Foo', 'bar baz')(bar=42, baz=2),
-        'math': math,
         'bar': lambda a, b: a + b,
         'baz': lambda: 42,
     })
