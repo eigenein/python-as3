@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import ast
 from ast import AST
-from dataclasses import dataclass, replace, field
-from typing import Callable, Dict, Iterable, List, NoReturn, Optional, ContextManager, Set, Tuple
 from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
+from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Set, Tuple
 
 from more_itertools import consume, peekable
 
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
+from as3.runtime import ASAny, ASObject
 from as3.scanner import Token
-from as3.runtime import ASObject, ASAny
 
 
 @dataclass
