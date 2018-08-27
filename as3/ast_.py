@@ -2,10 +2,10 @@
 AST helpers.
 """
 import ast
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import as3.parser
-from as3.scanner import Token
+from as3.scanner import Token, TokenType
 
 
 def make_ast(token: Token, init: Callable[..., ast.AST], **kwargs) -> ast.AST:
@@ -17,6 +17,11 @@ def make_ast_from_source(token: Token, source: str) -> ast.AST:
     node.lineno = token.line_number
     node.col_offset = token.position
     return ast.fix_missing_locations(node)
+
+
+def make_name(name_token: Token, custom_name: Optional[str] = None, ctx=ast.Load()) -> ast.AST:
+    assert custom_name or name_token.type_ == TokenType.IDENTIFIER
+    return make_ast(name_token, ast.Name, id=(custom_name or name_token.value), ctx=ctx)
 
 
 def make_function(

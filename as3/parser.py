@@ -8,7 +8,7 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_ast_from_source, make_function, set_store_context
+from as3.ast_ import make_ast, make_ast_from_source, make_function, set_store_context, make_name
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -191,7 +191,7 @@ class Parser:
         if self.skip(TokenType.COLON):
             type_ = self.parse_type_annotation()
         else:
-            type_ = make_ast(name_token, ast.Name, id=ASAny.__name__, ctx=ast.Load())
+            type_ = make_name(name_token, ASAny.__name__)
         if self.skip(TokenType.ASSIGN):
             value = self.parse_additive_expression()
         else:
@@ -202,12 +202,7 @@ class Parser:
         if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
-            yield make_ast(
-                name_token,
-                ast.Assign,
-                targets=[make_ast(name_token, ast.Name, id=name_token.value, ctx=ast.Store())],
-                value=value,
-            )
+            yield make_ast(name_token, ast.Assign, targets=[make_name(name_token, ctx=ast.Store())], value=value)
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
@@ -386,6 +381,7 @@ class Parser:
         return make_ast(value_token, ast.Num, n=value_token.value)
 
     def parse_name_expression(self) -> AST:
+        # FIXME: `__resolve__(name)[name]`.
         name_token = self.expect(TokenType.IDENTIFIER)
         if name_token.value in self.context.declared_names:
             # It's declared somewhere in the script, so just let Python find it.
