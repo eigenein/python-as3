@@ -30,5 +30,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { var a: int; function X() { this.a = 42 } function baz() { return this.a; } }; var b = X().baz()', {'b': 42}),
     ('var a; if (true) { a = 42 } else { a = 43 }', {'a': 42}),
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
+    ('{ { } }', {}),
+    # FIXME: ('var a = 42; { var a = 43; } ', {'a': 42}),
     # FIXME: ('var a = b = 42;', {'a': 42, 'b': 42}),
 ]

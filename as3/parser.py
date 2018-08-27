@@ -63,7 +63,7 @@ class Parser:
             if self.is_type(TokenType.PACKAGE):
                 statements.extend(self.parse_package())
             else:
-                statements.append(self.parse_statement())
+                statements.extend(self.parse_code_block_or_statement())
         return ast.Module(body=statements)
 
     def parse_package(self) -> Iterable[AST]:
@@ -135,7 +135,7 @@ class Parser:
     def parse_code_block(self) -> Iterable[AST]:
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
-            yield self.parse_statement()
+            yield from self.parse_code_block_or_statement()
         # Always add `pass` to be sure the body is not empty.
         yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
 
