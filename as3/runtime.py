@@ -2,21 +2,7 @@ from __future__ import annotations
 
 import inspect
 
-
-class ASGlobals:
-    """
-    Provides access to globals of the caller via attributes.
-    Used as a fallback value for `__this__` to lookup names in a global scope when referenced outside of a method.
-    """
-
-    def __getattr__(self, item):
-        return inspect.stack()[1].frame.f_globals[item]
-
-    def __setattr__(self, item, value):
-        globals_ = inspect.stack()[1].frame.f_globals
-        if item not in globals_:
-            raise NameError(f'undefined name "{item}"')
-        globals_[item] = value
+from as3.constants import this_name
 
 
 class ASObjectMetaclass(type):
@@ -43,16 +29,6 @@ class ASObject(metaclass=ASObjectMetaclass):
 
     default = None
 
-    def __setattr__(self, key, value):
-        # We need first to check if it's a "static field". Otherwise, we'll just add an attribute on the instance.
-        if hasattr(self.__class__, key):
-            setattr(self.__class__, key, value)
-        elif hasattr(self, key):
-            self.__dict__[key] = value
-        else:
-            # Ensure, we're not assigning to a new attribute. Everything should've been assigned in constructor.
-            raise AttributeError(f'undefined field "{key}" in instance {self} of type {self.__class__}')
-
 
 class ASAny(ASObject):
     def __new__(cls):
@@ -70,10 +46,32 @@ class ASString(str, ASObject):
     pass
 
 
+def resolve_name(name: str) -> dict:
+    """
+    Find a scope which contains the specified name.
+    """
+    frame = inspect.stack()[1].frame
+    # First, looking at the local scope.
+    if name in frame.f_locals:
+        return frame.f_locals
+    # Then, look into `this`.
+    if this_name in frame.f_locals:
+        this = frame.f_locals[this_name]
+        class_ = type(this)
+        if name in class_.__dict__:
+            return class_.__dict__
+        if name in this.__dict__:
+            return this.__dict__
+    # And the last attempt is globals.
+    if name in frame.f_globals:
+        return frame.f_globals
+    raise NameError(f'unable to resolve name "{name}"')
+
+
 default_globals = {
     '__dir__': dir,
     '__globals__': globals,
-    '__this__': ASGlobals(),
+    '__resolve__': resolve_name,
     'int': ASInteger,
     'String': str,  # FIXME: `ASString`.
     'trace': print,

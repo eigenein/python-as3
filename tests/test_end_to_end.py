@@ -62,7 +62,7 @@ def test_execute_script_syntax_error(script: str):
 @pytest.mark.parametrize('script', [
     'a = 1',
     '{ var a = 42; } trace(a);',
-    # FIXME: '{ var a = 42; } a = 43;',
+    '{ var a = 42; } a = 43;',
 ])
 def test_execute_script_name_error(script: str):
     with pytest.raises(NameError):

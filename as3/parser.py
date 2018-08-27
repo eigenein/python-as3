@@ -381,17 +381,15 @@ class Parser:
         return make_ast(value_token, ast.Num, n=value_token.value)
 
     def parse_name_expression(self) -> AST:
-        # FIXME: `__resolve__(name)[name]`.
         name_token = self.expect(TokenType.IDENTIFIER)
-        if name_token.value in self.context.declared_names:
-            # It's declared somewhere in the script, so just let Python find it.
-            return make_ast(name_token, ast.Name, id=name_token.value, ctx=ast.Load())
-        # It's not declared so assume it's a "field" and convert it to `__this__.name`.
+
+        # Build `__resolve__(name)[name]`. See also `as3.runtime.__resolve__`.
+        name_node = make_ast(name_token, ast.Str, s=name_token.value)
         return make_ast(
             name_token,
-            ast.Attribute,
-            value=make_ast(name_token, ast.Name, id=this_name, ctx=ast.Load()),
-            attr=name_token.value,
+            ast.Subscript,
+            value=make_ast(name_token, ast.Call, func=make_name(name_token, '__resolve__'), args=[name_node], keywords=[]),
+            slice=make_ast(name_token, ast.Index, value=name_node),
             ctx=ast.Load(),
         )
 
