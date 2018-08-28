@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, List, Tuple
 
+import pytest
+
 expressions: List[Tuple[str, Any]] = [
     ('42', 42),
     ('2 + 2', 4),
@@ -31,6 +33,9 @@ scripts: List[Tuple[str, dict]] = [
     ('var a; if (true) { a = 42 } else { a = 43 }', {'a': 42}),
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
     ('{ { } }', {}),
-    # FIXME: ('var a = 42; { var a = 43; } ', {'a': 42}),
-    # FIXME: ('var a = b = 42;', {'a': 42, 'b': 42}),
+]
+
+bad_scripts: List = [
+    pytest.param('var a = 42; { var a = 43; } ', {'a': 42}, marks=pytest.mark.xfail),
+    pytest.param('var a = b = 42;', {'a': 42, 'b': 42}, marks=pytest.mark.xfail),
 ]

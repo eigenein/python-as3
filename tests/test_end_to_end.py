@@ -8,7 +8,7 @@ from typing import Any, Dict
 import pytest
 
 from as3 import execute_script
-from as3.examples import expressions, scripts
+from as3.examples import bad_scripts, expressions, scripts
 from as3.exceptions import ASSyntaxError
 from as3.parser import Parser
 from as3.runtime import default_globals
@@ -37,7 +37,7 @@ def test_parse_expression_syntax_error(expression: str):
         Parser(Scanner(StringIO(expression))).parse_expression()
 
 
-@pytest.mark.parametrize('script, expected', scripts)
+@pytest.mark.parametrize('script, expected', scripts + bad_scripts)
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {
         **default_globals,
