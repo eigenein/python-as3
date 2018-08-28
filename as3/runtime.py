@@ -6,24 +6,7 @@ import math
 from as3.constants import this_name
 
 
-class ASObjectMetaclass(type):
-    """
-    Handles proper initialisation of ActionScript objects.
-    """
-
-    # noinspection PyArgumentList
-    def __call__(cls, *args, **kwargs):
-        instance = cls.__new__(cls, *args, **kwargs)
-        # Call the internal initializer.
-        instance.__init__()
-        # Call ActionScript constructor.
-        constructor = getattr(instance, cls.__name__, None)
-        if constructor is not None:
-            constructor(*args, **kwargs)
-        return instance
-
-
-class ASObject(metaclass=ASObjectMetaclass):
+class ASObject:
     """
     Base class for all built ActionScript classes.
     """

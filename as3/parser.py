@@ -24,11 +24,13 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    init_body: Optional[List[AST]] = None
+    # FIXME: wrap the following two attributes into an object maybe?
+    internal_init_body: Optional[List[AST]] = None  # fields initialization
+    constructor_init_body: Optional[List[AST]] = None  # transpiled ActionScript constructor
 
     def make_inner(self) -> Context:
         # Inner context should not have access to `__init__`.
-        return replace(self, init_body=None)
+        return replace(self, internal_init_body=None, constructor_init_body=None)
 
 
 class Parser:
@@ -86,15 +88,17 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = name
-            init_body = context.init_body = []
+            internal_init_body = context.internal_init_body = []
+            constructor_init_body = context.constructor_init_body = []
             body = list(self.parse_code_block())
 
         # Add `__init__`.
+        # TODO: call `super` if not called.
         body.append(make_function(
             class_token,
             name=init_name,
             args=[ast.arg(arg=this_name, annotation=None, lineno=class_token.line_number, col_offset=0)],
-            body=init_body,
+            body=[*internal_init_body, *constructor_init_body],
         ))
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
@@ -188,8 +192,8 @@ class Parser:
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
-            assert self.context.init_body is not None
-            self.context.init_body.append(make_field_initializer(name_token, value))
+            assert self.context.internal_init_body is not None
+            self.context.internal_init_body.append(make_field_initializer(name_token, value))
 
     def parse_type_annotation(self) -> AST:
         # TODO: `*`.
@@ -223,6 +227,7 @@ class Parser:
         # Is it a method?
         if self.context.class_name:
             # Then, `__this__` is available in the function.
+            # TODO: wrap with `@classmethod` if `static`.
             args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))
 
         # Parse body.
@@ -230,9 +235,12 @@ class Parser:
             context.class_name = None  # prevent inner functions from being methods
             body = list(self.parse_code_block())
 
-        # TODO: `static`.
-        # TODO: call `super` if not called.
-        yield make_function(function_token, name=name, body=body, args=args, returns=returns)
+        if name == self.context.class_name:
+            # Constructor.
+            assert self.context.constructor_init_body is not None
+            self.context.constructor_init_body.extend(body)
+        else:
+            yield make_function(function_token, name=name, body=body, args=args, returns=returns)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
