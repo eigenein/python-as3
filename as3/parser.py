@@ -93,7 +93,7 @@ class Parser:
         body.append(make_function(
             class_token,
             name=init_name,
-            args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
+            args=[ast.arg(arg=this_name, annotation=None, lineno=class_token.line_number, col_offset=0)],
             body=init_body,
         ))
 

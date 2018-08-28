@@ -6,6 +6,7 @@ from ast import AST
 from typing import List, Optional, Type
 
 import as3.parser
+from as3.constants import this_name
 from as3.scanner import Token, TokenType
 
 
@@ -56,7 +57,7 @@ def make_field_initializer(name_token: Token, value: AST) -> AST:
     return make_ast(name_token, ast.Assign, targets=[make_ast(
         name_token,
         ast.Attribute,
-        value=make_ast(name_token, ast.Name, id='self', ctx=ast.Load()),
+        value=make_ast(name_token, ast.Name, id=this_name, ctx=ast.Load()),
         attr=name_token.value,
         ctx=ast.Store(),
     )], value=value)
