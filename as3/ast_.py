@@ -2,9 +2,10 @@
 AST helpers.
 """
 import ast
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import as3.parser
+from as3.constants import init_name
 from as3.scanner import Token, TokenType
 
 
@@ -13,6 +14,7 @@ def make_ast(token: Token, init: Callable[..., ast.AST], **kwargs) -> ast.AST:
 
 
 def make_ast_from_source(token: Token, source: str) -> ast.AST:
+    # FIXME: I don't really like to use this function so replace with something better.
     node, = ast.parse(source).body
     node.lineno = token.line_number
     node.col_offset = token.position
@@ -44,6 +46,31 @@ def make_function(
         body=body,
         decorator_list=(decorator_list or []),
         returns=returns,
+    )
+
+
+def make_initializer(class_token: Token, field_values: List[Tuple[Token, ast.AST]]) -> ast.AST:
+    """
+    Make `__init__` function for a class.
+    """
+    return make_function(
+        class_token,
+        name=init_name,
+        args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
+        body=(
+            [make_ast_from_source(class_token, '__dict__ = self.__dict__')] +
+            [
+                # `__dict__[field] = value`
+                make_ast(token, ast.Assign, targets=[make_ast(
+                    token,
+                    ast.Subscript,
+                    value=make_ast(token, ast.Name, id='__dict__', ctx=ast.Load()),
+                    slice=make_ast(token, ast.Index, value=make_ast(token, ast.Str, s=token.value), ctx=ast.Load()),
+                    ctx=ast.Store(),
+                )], value=value)
+                for token, value in field_values
+            ]
+        ),
     )
 
 

@@ -8,7 +8,7 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_ast_from_source, make_call, make_function, make_name, set_store_context
+from as3.ast_ import make_ast, make_call, make_function, make_initializer, make_name, set_store_context
 from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -23,7 +23,7 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    fields: List[Tuple[Token, AST]] = field(default_factory=list)
+    field_values: List[Tuple[Token, AST]] = field(default_factory=list)
 
 
 class Parser:
@@ -40,7 +40,7 @@ class Parser:
 
     @contextmanager
     def push_context(self) -> ContextManager[Context]:
-        context = replace(self.context, fields=self.context.fields.copy())
+        context = replace(self.context, field_values=self.context.field_values.copy())
         self.context_stack.append(context)
         try:
             yield context
@@ -81,30 +81,12 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = name
-            context.fields = []  # drop all fields that may come from an outer class
+            context.field_values = []  # drop all fields that may come from an outer class
             body = list(self.parse_code_block())
-            fields = context.fields
+            field_values = context.field_values
 
-        # And now we have to initialize non-static fields.
-        body.append(make_function(
-            class_token,
-            name='__init__',
-            args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
-            body=(
-                [make_ast_from_source(class_token, '__dict__ = self.__dict__')] +
-                [
-                    # `__dict__[field] = value`
-                    make_ast(token, ast.Assign, targets=[make_ast(
-                        token,
-                        ast.Subscript,
-                        value=make_ast(token, ast.Name, id='__dict__', ctx=ast.Load()),
-                        slice=make_ast(token, ast.Index, value=make_ast(token, ast.Str, s=token.value), ctx=ast.Load()),
-                        ctx=ast.Store(),
-                    )], value=value)
-                    for token, value in fields
-                ]
-            ),
-        ))
+        # Add initializer.
+        body.append(make_initializer(class_token, field_values))
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
@@ -197,7 +179,7 @@ class Parser:
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
-            self.context.fields.append((name_token, value))
+            self.context.field_values.append((name_token, value))
 
     def parse_type_annotation(self) -> AST:
         # TODO: `*`.
