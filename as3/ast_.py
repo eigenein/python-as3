@@ -3,10 +3,9 @@ AST helpers.
 """
 import ast
 from ast import AST
-from typing import List, Optional, Tuple, Type
+from typing import List, Optional, Type
 
 import as3.parser
-from as3.constants import init_name
 from as3.scanner import Token, TokenType
 
 
@@ -49,18 +48,6 @@ def make_function(
         body=body,
         decorator_list=(decorator_list or []),
         returns=returns,
-    )
-
-
-def make_initializer(class_token: Token, field_values: List[Tuple[Token, AST]]) -> AST:
-    """
-    Make `__init__` function for a class.
-    """
-    return make_function(
-        class_token,
-        name=init_name,
-        args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
-        body=[make_field_initializer(name_token, value) for name_token, value in field_values],
     )
 
 

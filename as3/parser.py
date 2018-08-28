@@ -4,12 +4,13 @@ import ast
 from ast import AST
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Tuple, TypeVar
+from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, TypeVar
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_call, make_function, make_initializer, make_name, set_store_context
-from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations
+from as3.ast_ import make_ast, make_call, make_field_initializer, make_function, make_name, \
+    set_store_context
+from as3.constants import augmented_assign_operations, binary_operations, this_name, unary_operations, init_name
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny, ASObject
@@ -23,11 +24,11 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    field_values: Optional[List[Tuple[Token, AST]]] = None
+    init_body: Optional[List[AST]] = None
 
     def make_inner(self) -> Context:
         # Inner context should not have access to `__init__`.
-        return replace(self, field_values=None)
+        return replace(self, init_body=None)
 
 
 class Parser:
@@ -85,12 +86,16 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = name
-            context.field_values = []  # drop all fields that may come from an outer class
+            init_body = context.init_body = []
             body = list(self.parse_code_block())
-            field_values = context.field_values
 
-        # Add initializer.
-        body.append(make_initializer(class_token, field_values))
+        # Add `__init__`.
+        body.append(make_function(
+            class_token,
+            name=init_name,
+            args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
+            body=init_body,
+        ))
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
@@ -183,8 +188,8 @@ class Parser:
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
-            assert self.context.field_values is not None
-            self.context.field_values.append((name_token, value))
+            assert self.context.init_body is not None
+            self.context.init_body.append(make_field_initializer(name_token, value))
 
     def parse_type_annotation(self) -> AST:
         # TODO: `*`.
