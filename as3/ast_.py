@@ -3,14 +3,16 @@ AST helpers.
 """
 import ast
 from ast import AST
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 import as3.parser
 from as3.constants import init_name
 from as3.scanner import Token, TokenType
 
 
-def make_ast(token: Token, init: Callable[..., AST], **kwargs) -> AST:
+def make_ast(token: Token, init: Type[AST], **kwargs) -> AST:
+    # noinspection PyProtectedMember
+    assert all(field in kwargs for field in init._fields)
     return init(**kwargs, lineno=token.line_number, col_offset=token.position)
 
 
@@ -58,21 +60,19 @@ def make_initializer(class_token: Token, field_values: List[Tuple[Token, AST]]) 
         class_token,
         name=init_name,
         args=[ast.arg(arg='self', annotation=None, lineno=class_token.line_number, col_offset=0)],
-        body=(
-            [make_ast_from_source(class_token, '__dict__ = self.__dict__')] +
-            [
-                # `__dict__[field] = value`
-                make_ast(token, ast.Assign, targets=[make_ast(
-                    token,
-                    ast.Subscript,
-                    value=make_ast(token, ast.Name, id='__dict__', ctx=ast.Load()),
-                    slice=make_ast(token, ast.Index, value=make_ast(token, ast.Str, s=token.value), ctx=ast.Load()),
-                    ctx=ast.Store(),
-                )], value=value)
-                for token, value in field_values
-            ]
-        ),
+        body=[make_field_initializer(name_token, value) for name_token, value in field_values],
     )
+
+
+def make_field_initializer(name_token: Token, value: AST) -> AST:
+    # `self.field = value`
+    return make_ast(name_token, ast.Assign, targets=[make_ast(
+        name_token,
+        ast.Attribute,
+        value=make_ast(name_token, ast.Name, id='self', ctx=ast.Load()),
+        attr=name_token.value,
+        ctx=ast.Store(),
+    )], value=value)
 
 
 def set_store_context(node: AST, assignment_token: Token) -> AST:
