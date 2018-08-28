@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from ast import AST
 from contextlib import contextmanager
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, Tuple, TypeVar
 
 from more_itertools import consume, peekable
@@ -23,7 +23,11 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    field_values: List[Tuple[Token, AST]] = field(default_factory=list)
+    field_values: Optional[List[Tuple[Token, AST]]] = None
+
+    def make_inner(self) -> Context:
+        # Inner context should not have access to `__init__`.
+        return replace(self, field_values=None)
 
 
 class Parser:
@@ -40,7 +44,7 @@ class Parser:
 
     @contextmanager
     def push_context(self) -> ContextManager[Context]:
-        context = replace(self.context, field_values=self.context.field_values.copy())
+        context = self.context.make_inner()
         self.context_stack.append(context)
         try:
             yield context
@@ -179,6 +183,7 @@ class Parser:
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
+            assert self.context.field_values is not None
             self.context.field_values.append((name_token, value))
 
     def parse_type_annotation(self) -> AST:
