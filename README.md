@@ -25,7 +25,7 @@ Though, you're welcome to make a pull request to improve it. Please, try to foll
 
 #### Interactive shell
 
-The package contains a command-line utility to test the interpreter:
+The package contains an interactive shell to play around with the interpreter:
 
 ```text
 $ as3 --shell
