@@ -41,12 +41,13 @@ def make_function(
     returns=None,
     decorator_list: List[AST] = None,
 ) -> AST:
+    # Always add `pass` to be sure the body is not empty.
     return make_ast(
         function_token,
         ast.FunctionDef,
         name=name,
         args=ast.arguments(args=(args or []), vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]),
-        body=body,
+        body=[*body, make_ast(function_token, ast.Pass)],
         decorator_list=(decorator_list or []),
         returns=returns,
     )

@@ -127,8 +127,7 @@ class Parser:
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
             yield from self.parse_statement()
-        # Always add `pass` to be sure the body is not empty.
-        yield make_ast(self.expect(TokenType.CURLY_BRACKET_CLOSE), ast.Pass)
+        self.expect(TokenType.CURLY_BRACKET_CLOSE)
 
     def parse_expression_statement(self) -> Iterable[AST]:
         value = self.parse_expression()

@@ -34,6 +34,7 @@ scripts: List[Tuple[str, dict]] = [
     ('var a; if (true) { a = 42 } else { a = 43 }', {'a': 42}),
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
     ('{ { } }', {}),
+    ('class X { }', {}),
     ('class X { var a = 1; function X() { a = 42; } } var expected = X().a;', {'expected': 42}),
     (
         'class X { var a = 43 } '
@@ -50,6 +51,12 @@ scripts: List[Tuple[str, dict]] = [
         'class X { var foo = 0; function X() { foo = 42; } } '
         'class Y extends X { function Y() { super(); } } '
         'var expected = Y().foo;',
+        {'expected': 42},
+    ),
+    (
+        'class X { function foo() { return 42 } } '
+        'class Y extends X { function foo() { return super.foo() } } '
+        'var expected = Y().foo();',
         {'expected': 42},
     ),
 
