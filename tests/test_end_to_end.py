@@ -49,15 +49,6 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
 
 
 @pytest.mark.parametrize('script', [
-    'a = 1 = b;',
-    'a += b += a;',
-])
-def test_execute_script_syntax_error(script: str):
-    with pytest.raises(ASSyntaxError):
-        execute_script(script, '<ast>')
-
-
-@pytest.mark.parametrize('script', [
     'a = 1',
     '{ var a = 42; } trace(a);',
     '{ var a = 42; } a = 43;',

@@ -4,6 +4,8 @@ from typing import Any, List, Tuple
 
 import pytest
 
+from as3.exceptions import ASSyntaxError
+
 expressions: List[Tuple[str, Any]] = [
     ('42', 42),
     ('2 + 2', 4),
@@ -39,4 +41,6 @@ scripts: List[Tuple[str, dict]] = [
 bad_scripts: List = [
     pytest.param('var a = 42; { var a = 43; } ', {'a': 42}, marks=pytest.mark.xfail),
     pytest.param('var a = b = 42;', {'a': 42, 'b': 42}, marks=pytest.mark.xfail),
+    pytest.param('a = 1 = b;', {}, marks=pytest.mark.xfail(raises=ASSyntaxError)),
+    pytest.param('a += b += a;', {}, marks=pytest.mark.xfail(raises=ASSyntaxError)),
 ]
