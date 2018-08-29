@@ -6,15 +6,22 @@ import math
 from as3.constants import this_name
 
 
+# ActionScript primitive data types.
+# https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
+# ----------------------------------------------------------------------------------------------------------------------
+
 class ASObject:
     """
-    Base class for all built ActionScript classes.
+    Base class for all built ActionScript classes. Also known as `Object`.
     """
 
     __default__ = None
 
 
 class ASAny(ASObject):
+    """
+    Not declared (equivalent to type annotation `*`).
+    """
     def __new__(cls):
         # `ASAny` produces singleton `undefined` value.
         if cls.default is None:
@@ -23,6 +30,10 @@ class ASAny(ASObject):
 
 
 class ASInteger(int, ASObject):
+    """
+    `int`.
+    """
+
     __default__ = 0
 
 
@@ -31,8 +42,17 @@ class ASString(str, ASObject):
 
 
 class ASNumber(float, ASObject):
+    """
+    `Number`.
+    """
+
+    __default__ = math.nan
+
     pass  # TODO
 
+
+# ActionScript standard library.
+# ----------------------------------------------------------------------------------------------------------------------
 
 class MathMetaclass(type):
     def __getattr__(self, item):
@@ -45,6 +65,9 @@ class Math(metaclass=MathMetaclass):
 
     abs = math.fabs
 
+
+# Runtime utilities.
+# ----------------------------------------------------------------------------------------------------------------------
 
 def resolve_name(name: str) -> dict:
     """
