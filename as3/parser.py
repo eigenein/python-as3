@@ -191,7 +191,6 @@ class Parser:
             self.context.internal_init_body.append(make_field_initializer(name_token, value))
 
     def parse_type_annotation(self) -> AST:
-        # TODO: `*`.
         return self.parse_primary_expression()
 
     def parse_semicolon(self) -> Iterable[AST]:
