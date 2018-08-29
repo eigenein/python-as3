@@ -231,7 +231,7 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = None  # prevent inner functions from being methods
-            body = list(self.parse_code_block())
+            body = list(self.parse_statement())
 
         if name == self.context.class_name:
             # Constructor.

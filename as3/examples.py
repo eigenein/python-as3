@@ -36,6 +36,9 @@ scripts: List[Tuple[str, dict]] = [
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
     ('{ { } }', {}),
     ('class X { var a = 1; function X() { a = 42; } } var expected = X().a;', {'expected': 42}),
+
+    # Yes, I made it possible to have a function of one statement.
+    ('function bar() return 42; var expected = bar()', {'expected': 42}),
 ]
 
 bad_scripts: List = [
