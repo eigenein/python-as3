@@ -41,7 +41,7 @@ def run_shell(globals_: dict):
     style = style_from_pygments_cls(NativeStyle)
 
     example, _ = random.choice([*examples.scripts, *examples.expressions])  # type: str, Any
-    click.echo(f'{click.style("ActionScript to Python AST shell", fg="green")}')
+    click.echo(f'{click.style("Welcome to as3 shell!", fg="green")}')
     click.echo(f'{click.style("Try", fg="green")}: {click.style(example, fg="blue")}')
 
     while True:
