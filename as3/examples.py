@@ -45,6 +45,9 @@ bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail(strict=True)),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail(strict=True)),
     param('class X { var a = 43 } class Y extends X { var a = 42 } var output = Y().a', {'output': 42}, marks=mark.xfail(strict=True)),
+    param('class X { var a; X() { a = 42 } } class Y extends X { Y() {} } var output = Y().a', {'output': 42}, marks=mark.xfail(strict=True)),
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}, marks=mark.xfail(raises=TypeError, strict=True)),
 ]

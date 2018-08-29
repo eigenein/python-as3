@@ -92,7 +92,6 @@ class Parser:
             body = list(self.parse_code_block())
 
         # Add `__init__`.
-        # TODO: call `super` if not called.
         body.append(make_function(
             class_token,
             name=init_name,
@@ -181,8 +180,6 @@ class Parser:
             value = self.parse_additive_expression()
         else:
             value = make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
-        # TODO: cast `value` to `type_`, possibly call `type_` constructor with `value` as an argument.
-        # TODO: though this is quite unpredictable.
         if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
@@ -211,14 +208,13 @@ class Parser:
 
     def parse_function_definition(self) -> Iterable[AST]:
         function_token = self.expect(TokenType.FUNCTION)
-        name = self.expect(TokenType.IDENTIFIER).value  # TODO: anonymous functions.
+        name = self.expect(TokenType.IDENTIFIER).value
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             self.parse_parameter_definition()
-            # TODO: actually append argument and default value.
             self.skip(TokenType.COMMA)
         returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
 
