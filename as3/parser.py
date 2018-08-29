@@ -79,10 +79,12 @@ class Parser:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
 
-        # `extends`, always inherit at least from `ASObject`.
-        bases = [make_ast(class_token, ast.Name, id=ASObject.__name__, ctx=ast.Load())]
+        # Inheritance: `extends`.
         if self.skip(TokenType.EXTENDS):
-            bases.append(self.parse_primary_expression())
+            bases = [self.parse_primary_expression()]
+        else:
+            # Inherit from `ASObject` if no explicit bases.
+            bases = [make_ast(class_token, ast.Name, id=ASObject.__name__, ctx=ast.Load())]
 
         # Parse body.
         with self.push_context() as context:
@@ -332,6 +334,7 @@ class Parser:
             TokenType.TRUE: lambda **_: make_ast(self.expect(TokenType.TRUE), ast.NameConstant, value=True),
             TokenType.FALSE: lambda **_: make_ast(self.expect(TokenType.FALSE), ast.NameConstant, value=False),
             TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
+            TokenType.SUPER: self.parse_super_expression,
         })
 
     def parse_parenthesized_expression(self) -> AST:
@@ -357,6 +360,17 @@ class Parser:
             slice=make_ast(name_token, ast.Index, value=name_node),
             ctx=ast.Load(),
         )
+
+    def parse_super_expression(self) -> AST:
+        super_token = self.expect(TokenType.SUPER)
+        left = make_call(super_token, make_name(super_token))
+        if self.is_type(TokenType.PARENTHESIS_OPEN):
+            # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
+            return self.parse_call_expression(make_ast(super_token, ast.Attribute, value=left, attr=init_name, ctx=ast.Load()))
+        if self.is_type(TokenType.DOT):
+            # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
+            return self.parse_attribute_expression(left)
+        self.raise_expected_error(TokenType.PARENTHESIS_OPEN, TokenType.DOT)
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------

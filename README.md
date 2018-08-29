@@ -29,7 +29,7 @@ The package contains an interactive shell to play around with the interpreter:
 
 ```text
 $ as3 --shell
-ActionScript to Python AST shell
+Welcome to as3 shell!
 Try: class X { function X() { this.a = 42 } function baz() { return this.a; } }; a = X().baz()
 >>> class X { function X() { this.a = 42 } function bar() { return this.a } }
 >>> x = X()
@@ -37,4 +37,18 @@ Try: class X { function X() { this.a = 42 } function baz() { return this.a; } };
 <X object at 0x10bbdad68>
 >>> trace(x.bar())
 42
+```
+
+#### Running a script
+
+```python
+from as3 import execute_script
+
+execute_script('''
+    function bar() {
+        return 42
+    }
+
+    trace(bar());
+''', '<ast>')
 ```

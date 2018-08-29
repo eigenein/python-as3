@@ -12,7 +12,7 @@ from as3.scanner import Token, TokenType
 
 def make_ast(token: Token, init: Type[AST], **kwargs) -> AST:
     # noinspection PyProtectedMember
-    assert all(field in kwargs for field in init._fields)
+    assert all(field in kwargs for field in init._fields), f'missing: {set(init._fields) - kwargs.keys()}'
     return init(**kwargs, lineno=token.line_number, col_offset=token.position)
 
 
@@ -25,7 +25,7 @@ def make_ast_from_source(token: Token, source: str) -> AST:
 
 
 def make_name(name_token: Token, custom_name: Optional[str] = None, ctx=ast.Load()) -> AST:
-    assert custom_name or name_token.type_ == TokenType.IDENTIFIER
+    assert custom_name or name_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER)
     return make_ast(name_token, ast.Name, id=(custom_name or name_token.value), ctx=ctx)
 
 
