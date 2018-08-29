@@ -82,7 +82,7 @@ class Parser:
         # `extends`, always inherit at least from `ASObject`.
         bases = [make_ast(class_token, ast.Name, id=ASObject.__name__, ctx=ast.Load())]
         if self.skip(TokenType.EXTENDS):
-            bases.append(self.parse_additive_expression())
+            bases.append(self.parse_primary_expression())
 
         # Parse body.
         with self.push_context() as context:
@@ -123,7 +123,6 @@ class Parser:
         }, else_=self.parse_expression_statement)
 
     def parse_code_block(self) -> Iterable[AST]:
-        # FIXME: local namespace.
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.is_type(TokenType.CURLY_BRACKET_CLOSE):
             yield from self.parse_statement()
@@ -182,7 +181,7 @@ class Parser:
             value = self.parse_additive_expression()
         else:
             value = make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
-        # TODO: case `value` to `type_`, possibly call `type_` constructor with `value` as an argument.
+        # TODO: cast `value` to `type_`, possibly call `type_` constructor with `value` as an argument.
         # TODO: though this is quite unpredictable.
         if not self.context.class_name:
             # TODO: static fields.
@@ -273,18 +272,11 @@ class Parser:
         return left
 
     def parse_augmented_assignment_expression(self, left: AST) -> AST:
-        # FIXME: I didn't find a good way to implement chained augmented assignments like `a += b += a` in Python AST.
-        # FIXME: So, only `a += b` is allowed. Sorry.
         assignment_token = self.expect(*augmented_assign_operations)
         set_store_context(left, assignment_token)
         value = self.parse_additive_expression()
-        return make_ast(
-            assignment_token,
-            ast.AugAssign,
-            target=left,
-            op=augmented_assign_operations[assignment_token.type_],
-            value=value,
-        )
+        op = augmented_assign_operations[assignment_token.type_]
+        return make_ast(assignment_token, ast.AugAssign, target=left, op=op, value=value)
 
     def parse_additive_expression(self) -> AST:
         """
@@ -326,13 +318,8 @@ class Parser:
 
     def parse_attribute_expression(self, left: AST) -> AST:
         attribute_token = self.expect(TokenType.DOT)
-        return make_ast(
-            attribute_token,
-            ast.Attribute,
-            value=left,
-            attr=self.expect(TokenType.IDENTIFIER).value,
-            ctx=ast.Load(),
-        )
+        attr: str = self.expect(TokenType.IDENTIFIER).value
+        return make_ast(attribute_token, ast.Attribute, value=left, attr=attr, ctx=ast.Load())
 
     def parse_call_expression(self, left: AST) -> AST:
         call_token = self.expect(TokenType.PARENTHESIS_OPEN)
@@ -383,13 +370,8 @@ class Parser:
         left = child_parser()
         while self.is_type(*types):
             operation_token: Token = self.tokens.next()
-            left = make_ast(
-                operation_token,
-                ast.BinOp,
-                left=left,
-                op=binary_operations[operation_token.type_],
-                right=child_parser(),
-            )
+            op = binary_operations[operation_token.type_]
+            left = make_ast(operation_token, ast.BinOp, left=left, op=op, right=child_parser())
         return left
 
     # Parser helpers.
