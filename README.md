@@ -52,3 +52,13 @@ execute_script('''
     trace(bar());
 ''', '<ast>')
 ```
+
+#### Magic functions
+
+```text
+$ as3 --shell
+Welcome to as3 shell!
+Try: baz()
+>>> trace(__globals__().keys())
+dict_keys(['__dir__', '__globals__', '__resolve__', 'int', 'Math', 'String', 'trace', 'undefined', 'ASAny', 'ASObject', '__builtins__'])
+```
