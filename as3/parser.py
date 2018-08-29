@@ -89,7 +89,7 @@ class Parser:
             context.class_name = name
             internal_init_body = context.internal_init_body = []
             constructor_init_body = context.constructor_init_body = []
-            body = list(self.parse_code_block())
+            body = list(self.parse_statement())
 
         # Add `__init__`.
         body.append(make_function(

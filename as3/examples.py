@@ -39,6 +39,9 @@ scripts: List[Tuple[str, dict]] = [
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
+
+    # Yeah, 1-statement class is also possible because why not?
+    ('class X var a = 42; var expected = X().a', {'expected': 42}),
 ]
 
 bad_scripts: List = [
