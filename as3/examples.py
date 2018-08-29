@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Tuple
 
-import pytest
+from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
 
@@ -39,8 +39,8 @@ scripts: List[Tuple[str, dict]] = [
 ]
 
 bad_scripts: List = [
-    pytest.param('var a = 42; { var a = 43; } ', {'a': 42}, marks=pytest.mark.xfail),
-    pytest.param('var a = b = 42;', {'a': 42, 'b': 42}, marks=pytest.mark.xfail),
-    pytest.param('a = 1 = b;', {}, marks=pytest.mark.xfail(raises=ASSyntaxError)),
-    pytest.param('a += b += a;', {}, marks=pytest.mark.xfail(raises=ASSyntaxError)),
+    param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail(strict=True)),
+    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail(strict=True)),
+    param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
 ]
