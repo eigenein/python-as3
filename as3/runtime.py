@@ -5,6 +5,7 @@ import math
 
 from as3.constants import this_name
 
+# Runtime types and functions.
 
 # ActionScript primitive data types.
 # https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
