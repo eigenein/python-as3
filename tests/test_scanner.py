@@ -3,8 +3,8 @@ from __future__ import annotations
 from io import StringIO
 from typing import List
 
-import pytest
 from more_itertools import consume
+from pytest import mark, param, raises
 
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -15,7 +15,7 @@ def test_empty():
     assert list(Scanner(StringIO(''))) == []
 
 
-@pytest.mark.parametrize('input_, expected', [
+@mark.parametrize('input_, expected', [
     ('package', Token(type_=TokenType.PACKAGE, value='package', line_number=1, position=1)),
     ('{', Token(type_=TokenType.CURLY_BRACKET_OPEN, value='{', line_number=1, position=1)),
     ('(', Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=1, position=1)),
@@ -31,6 +31,14 @@ def test_empty():
     ('/* ololo */', Token(type_=TokenType.COMMENT, value=' ololo ', line_number=1, position=1)),
     ('// abc', Token(type_=TokenType.COMMENT, value=' abc', line_number=1, position=1)),
     ('*', Token(type_=TokenType.MULTIPLY, value='*', line_number=1, position=1)),
+    param('==', Token(type_=TokenType.EQUALS, value='==', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('!=', Token(type_=TokenType.NOT_EQUALS, value='!=', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('++', Token(type_=TokenType.INCREMENT, value='++', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('--', Token(type_=TokenType.DECREMENT, value='--', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('<=', Token(type_=TokenType.LESS_OR_EQUALS, value='<=', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('||', Token(type_=TokenType.LOGICAL_OR, value='||', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('&&', Token(type_=TokenType.LOGICAL_AND, value='&&', line_number=1, position=1), marks=mark.xfail(strict=True)),
+    param('new', Token(type_=TokenType.NEW, value='new', line_number=1, position=1), marks=mark.xfail(strict=True)),
 ])
 def test_single_token(input_: str, expected: Token):
     tokens = list(Scanner(StringIO(input_)))
@@ -38,7 +46,7 @@ def test_single_token(input_: str, expected: Token):
     assert tokens[0] == expected
 
 
-@pytest.mark.parametrize('input_, expected', [
+@mark.parametrize('input_, expected', [
     (
         'a = 42;',
         [
@@ -62,11 +70,11 @@ def test_multiple_tokens(input_: str, expected: List[Token]):
     assert list(Scanner(StringIO(input_))) == expected
 
 
-@pytest.mark.parametrize('input_', [
+@mark.parametrize('input_', [
     '/* end of file',
 ])
 def test_syntax_error(input_: str):
-    with pytest.raises(ASSyntaxError):
+    with raises(ASSyntaxError):
         consume(Scanner(StringIO(input_)))
 
 

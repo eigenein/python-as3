@@ -23,15 +23,23 @@ class TokenType(Enum):
     FLOAT = auto()
     INTEGER = auto()
 
-    # Binary operators.
+    # Operators.
     ASSIGN = auto()
     ASSIGN_ADD = auto()
+    DECREMENT = auto()
     DIVIDE = auto()
+    EQUALS = auto()
+    GREATER = auto()
+    INCREMENT = auto()
     LEFT_SHIFT = auto()
     LESS = auto()
+    LESS_OR_EQUALS = auto()
+    LOGICAL_AND = auto()
+    LOGICAL_OR = auto()
     MINUS = auto()
-    PLUS = auto()
     MULTIPLY = auto()
+    NOT_EQUALS = auto()
+    PLUS = auto()
 
     # Reserved identifiers and keywords.
     BREAK = auto()
@@ -43,6 +51,7 @@ class TokenType(Enum):
     IDENTIFIER = auto()
     IF = auto()
     IMPORT = auto()
+    NEW = auto()
     OVERRIDE = auto()
     PACKAGE = auto()
     PUBLIC = auto()
