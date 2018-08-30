@@ -20,9 +20,15 @@ class ASAny(ASObject):
     """
     def __new__(cls):
         # `ASAny` produces singleton `undefined` value.
-        if cls.default is None:
-            cls.default = super().__new__()
-        return cls.default
+        if cls.__default__ is None:
+            cls.__default__ = super().__new__()
+        return cls.__default__
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, ASAny)
+
+    def __hash__(self) -> int:
+        return 0
 
 
 class ASInteger(int, ASObject):

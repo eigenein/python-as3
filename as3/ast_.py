@@ -38,6 +38,7 @@ def make_function(
     name: str,
     body: List[AST],
     args: List[AST] = None,
+    defaults: List[AST] = None,
     returns=None,
     decorator_list: List[AST] = None,
 ) -> AST:
@@ -46,7 +47,7 @@ def make_function(
         function_token,
         ast.FunctionDef,
         name=name,
-        args=ast.arguments(args=(args or []), vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]),
+        args=ast.arguments(args=(args or []), vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=(defaults or [])),
         body=[*body, make_ast(function_token, ast.Pass)],
         decorator_list=(decorator_list or []),
         returns=returns,
@@ -62,6 +63,10 @@ def make_field_initializer(name_token: Token, value: AST) -> AST:
         attr=name_token.value,
         ctx=ast.Store(),
     )], value=value)
+
+
+def make_type_default_value(name_token: Token, type_: AST) -> AST:
+    return make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
 
 
 def set_store_context(node: AST, assignment_token: Token) -> AST:

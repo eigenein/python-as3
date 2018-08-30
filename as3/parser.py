@@ -8,7 +8,15 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import make_ast, make_call, make_field_initializer, make_function, make_name, set_store_context
+from as3.ast_ import (
+    make_ast,
+    make_call,
+    make_field_initializer,
+    make_function,
+    make_name,
+    make_type_default_value,
+    set_store_context,
+)
 from as3.constants import augmented_assign_operations, binary_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -103,13 +111,6 @@ class Parser:
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
-    def parse_parameter_definition(self) -> AST:
-        parameter_name = self.expect(TokenType.IDENTIFIER).value
-        self.expect(TokenType.COLON)
-        type_ = self.parse_type_annotation()
-        if self.skip(TokenType.ASSIGN):
-            default_value = self.parse_additive_expression()
-
     def parse_statement(self) -> Iterable[AST]:
         consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
         yield from self.switch({
@@ -180,7 +181,7 @@ class Parser:
         if self.skip(TokenType.ASSIGN):
             value = self.parse_additive_expression()
         else:
-            value = make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
+            value = make_type_default_value(name_token, type_)
         if not self.context.class_name:
             # TODO: static fields.
             # It's a normal variable or a static "field". So just assign the value and that's it.
@@ -192,6 +193,9 @@ class Parser:
             self.context.internal_init_body.append(make_field_initializer(name_token, value))
 
     def parse_type_annotation(self) -> AST:
+        if self.is_type(TokenType.MULTIPLY):
+            star_token = self.tokens.next()
+            return make_name(star_token, ASAny.__name__)
         return self.parse_primary_expression()
 
     def parse_semicolon(self) -> Iterable[AST]:
@@ -213,8 +217,18 @@ class Parser:
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
         args: List[AST] = []
+        defaults: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
-            self.parse_parameter_definition()
+            name_token = self.expect(TokenType.IDENTIFIER)
+            args.append(make_ast(name_token, ast.arg, arg=name_token.value, annotation=None))
+            if self.skip(TokenType.COLON):
+                type_ = self.parse_type_annotation()
+            else:
+                type_ = make_name(name_token, ASAny.__name__)
+            if self.skip(TokenType.ASSIGN):
+                defaults.append(self.parse_additive_expression())
+            else:
+                defaults.append(make_type_default_value(name_token, type_))
             self.skip(TokenType.COMMA)
         returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
 
@@ -234,7 +248,7 @@ class Parser:
             assert self.context.constructor_init_body is not None
             self.context.constructor_init_body.extend(body)
         else:
-            yield make_function(function_token, name=name, body=body, args=args, returns=returns)
+            yield make_function(function_token, name=name, body=body, args=args, defaults=defaults, returns=returns)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
