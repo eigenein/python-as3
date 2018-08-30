@@ -235,7 +235,7 @@ class Parser:
             else:
                 defaults.append(make_type_default_value(name_token, type_))
             self.skip(TokenType.COMMA)
-        returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None
+        returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None  # FIXME: else ASAny?
 
         # Is it a method?
         if self.context.class_name:

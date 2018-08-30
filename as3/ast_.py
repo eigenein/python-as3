@@ -43,6 +43,7 @@ def make_function(
     decorator_list: List[AST] = None,
 ) -> AST:
     # Always add `pass` to be sure the body is not empty.
+    # FIXME: return `undefined` instead?
     return make_ast(
         function_token,
         ast.FunctionDef,
