@@ -65,6 +65,12 @@ scripts: List[Tuple[str, dict]] = [
         'var expected = Y().foo();',
         {'expected': 42},
     ),
+    (
+        'class X { var a; function X() { a = 42 } } '
+        'class Y extends X { function Y() { /* No explicit `super()` call. */ } } '
+        'var expected = Y().a;',
+        {'expected': 42},
+    ),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
@@ -76,7 +82,6 @@ scripts: List[Tuple[str, dict]] = [
 bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail(strict=True)),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail(strict=True)),
-    param('class X { var a; X() { a = 42 } } class Y extends X { Y() {} } var output = Y().a', {'output': 42}, marks=mark.xfail(strict=True)),
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),

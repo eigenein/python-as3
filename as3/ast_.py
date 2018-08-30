@@ -66,7 +66,19 @@ def make_field_initializer(name_token: Token, value: AST) -> AST:
 
 
 def make_type_default_value(name_token: Token, type_: AST) -> AST:
+    # `type_.__default__`
     return make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
+
+
+def make_super_constructor_call(class_token: Token) -> AST:
+    # `super().__init__()`
+    return make_ast(class_token, ast.Expr, value=make_call(class_token, make_ast(
+        class_token,
+        ast.Attribute,
+        value=make_call(class_token, make_name(class_token, 'super')),
+        attr='__init__',
+        ctx=ast.Load(),
+    )))
 
 
 def set_store_context(node: AST, assignment_token: Token) -> AST:

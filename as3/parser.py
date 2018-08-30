@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from ast import AST
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, TypeVar
 
 from more_itertools import consume, peekable
@@ -14,6 +14,7 @@ from as3.ast_ import (
     make_field_initializer,
     make_function,
     make_name,
+    make_super_constructor_call,
     make_type_default_value,
     set_store_context,
 )
@@ -31,13 +32,17 @@ class Context:
     """
     package_name: Optional[str] = None
     class_name: Optional[str] = None
-    # FIXME: wrap the following two attributes into an object maybe?
-    internal_init_body: Optional[List[AST]] = None  # fields initialization
-    constructor_init_body: Optional[List[AST]] = None  # transpiled ActionScript constructor
+    constructor: Optional[ConstructorContext] = None
 
     def make_inner(self) -> Context:
-        # Inner context should not have access to `__init__`.
-        return replace(self, internal_init_body=None, constructor_init_body=None)
+        return replace(self)
+
+
+@dataclass
+class ConstructorContext:
+    internal: List[AST] = field(default_factory=list)
+    action_script: List[AST] = field(default_factory=list)
+    is_super_called: bool = False
 
 
 class Parser:
@@ -97,16 +102,17 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = name
-            internal_init_body = context.internal_init_body = []
-            constructor_init_body = context.constructor_init_body = []
+            constructor = context.constructor = ConstructorContext()
             body = list(self.parse_statement())
+            if not constructor.is_super_called:
+                constructor.internal.insert(0, make_super_constructor_call(class_token))
 
         # Add `__init__`.
         body.append(make_function(
             class_token,
             name=init_name,
-            args=[ast.arg(arg=this_name, annotation=None, lineno=class_token.line_number, col_offset=0)],
-            body=[*internal_init_body, *constructor_init_body],
+            args=[make_ast(class_token, ast.arg, arg=this_name, annotation=None)],
+            body=[*constructor.internal, *constructor.action_script],
         ))
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
@@ -189,8 +195,7 @@ class Parser:
         else:
             # We have to initialize the attribute on an instance.
             # Remember the variable for now and return. We'll initialize it later in `__init__`.
-            assert self.context.internal_init_body is not None
-            self.context.internal_init_body.append(make_field_initializer(name_token, value))
+            self.context.constructor.internal.append(make_field_initializer(name_token, value))
 
     def parse_type_annotation(self) -> AST:
         if self.is_type(TokenType.MULTIPLY):
@@ -244,9 +249,7 @@ class Parser:
             body = list(self.parse_statement())
 
         if name == self.context.class_name:
-            # Constructor.
-            assert self.context.constructor_init_body is not None
-            self.context.constructor_init_body.extend(body)
+            self.context.constructor.action_script.extend(body)
         else:
             yield make_function(function_token, name=name, body=body, args=args, defaults=defaults, returns=returns)
 
@@ -379,6 +382,7 @@ class Parser:
         left = make_call(super_token, make_name(super_token))
         if self.is_type(TokenType.PARENTHESIS_OPEN):
             # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
+            self.context.constructor.is_super_called = True
             return self.parse_call_expression(make_ast(super_token, ast.Attribute, value=left, attr=init_name, ctx=ast.Load()))
         if self.is_type(TokenType.DOT):
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
