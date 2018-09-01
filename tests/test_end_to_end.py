@@ -5,7 +5,7 @@ from collections import namedtuple
 from io import StringIO
 from typing import Any, Dict
 
-import pytest
+from pytest import mark, raises
 
 from as3 import execute_script
 from as3.examples import bad_scripts, expressions, scripts
@@ -15,7 +15,7 @@ from as3.runtime import default_globals
 from as3.scanner import Scanner
 
 
-@pytest.mark.parametrize('expression, expected', expressions)
+@mark.parametrize('expression, expected', expressions)
 def test_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(Scanner(StringIO(expression))).parse_expression()), '<ast>', 'eval'), {
         **default_globals,
@@ -26,18 +26,18 @@ def test_expression(expression: str, expected: Any):
     assert actual == expected, f'actual: {actual}'
 
 
-@pytest.mark.parametrize('expression', [
+@mark.parametrize('expression', [
     '2 +',
     'abs(',
     'abs((',
     'math..abs',
 ])
 def test_parse_expression_syntax_error(expression: str):
-    with pytest.raises(ASSyntaxError):
+    with raises(ASSyntaxError):
         Parser(Scanner(StringIO(expression))).parse_expression()
 
 
-@pytest.mark.parametrize('script, expected', scripts + bad_scripts)
+@mark.parametrize('script, expected', scripts + bad_scripts)
 def test_execute_script(script: str, expected: Dict[str, Any]):
     globals_ = {
         **default_globals,
@@ -48,11 +48,11 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
         assert globals_[key] == value, f'actual: {globals_[key]}'
 
 
-@pytest.mark.parametrize('script', [
+@mark.parametrize('script', [
     'a = 1',
     '{ var a = 42; } trace(a);',
     '{ var a = 42; } a = 43;',
 ])
 def test_execute_script_name_error(script: str):
-    with pytest.raises(NameError):
+    with raises(NameError):
         execute_script(script, '<ast>')

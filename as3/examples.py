@@ -7,6 +7,8 @@ from pytest import mark, param
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
 
+strict_xfail = mark.xfail(strict=True)
+
 expressions: List[Tuple[str, Any]] = [
     ('42', 42),
     ('2 + 2', 4),
@@ -80,8 +82,8 @@ scripts: List[Tuple[str, dict]] = [
 ]
 
 bad_scripts: List = [
-    param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail(strict=True)),
-    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail(strict=True)),
+    param('var a = 42; { var a = 43; } ', {'a': 42}, marks=strict_xfail),
+    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=strict_xfail),
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),

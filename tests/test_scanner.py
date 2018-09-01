@@ -11,34 +11,47 @@ from as3.exceptions import ASSyntaxError
 from as3.scanner import Scanner, Token
 
 
+def make_test_params(value: str, type_: TokenType, xfail: bool = False):
+    marks = mark.xfail(strict=True) if xfail else ()
+    return param(value, Token(type_=type_, value=value, line_number=1, position=1), marks=marks)
+
+
 def test_empty():
     assert list(Scanner(StringIO(''))) == []
 
 
 @mark.parametrize('input_, expected', [
-    ('package', Token(type_=TokenType.PACKAGE, value='package', line_number=1, position=1)),
-    ('{', Token(type_=TokenType.CURLY_BRACKET_OPEN, value='{', line_number=1, position=1)),
-    ('(', Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=1, position=1)),
-    ('[', Token(type_=TokenType.BRACKET_OPEN, value='[', line_number=1, position=1)),
-    (';', Token(type_=TokenType.SEMICOLON, value=';', line_number=1, position=1)),
-    (':', Token(type_=TokenType.COLON, value=':', line_number=1, position=1)),
-    ('+', Token(type_=TokenType.PLUS, value='+', line_number=1, position=1)),
-    ('-', Token(type_=TokenType.MINUS, value='-', line_number=1, position=1)),
-    ('<', Token(type_=TokenType.LESS, value='<', line_number=1, position=1)),
-    ('<<', Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=1, position=1)),
-    ('+=', Token(type_=TokenType.ASSIGN_ADD, value='+=', line_number=1, position=1)),
-    ('/', Token(type_=TokenType.DIVIDE, value='/', line_number=1, position=1)),
+    # Positive cases.
+    make_test_params('just_some_identifier', TokenType.IDENTIFIER),
+    make_test_params('package', TokenType.PACKAGE),
+    make_test_params('{', TokenType.CURLY_BRACKET_OPEN),
+    make_test_params('(', TokenType.PARENTHESIS_OPEN),
+    make_test_params('[', TokenType.BRACKET_OPEN),
+    make_test_params(';', TokenType.SEMICOLON),
+    make_test_params(':', TokenType.COLON),
+    make_test_params('+', TokenType.PLUS),
+    make_test_params('-', TokenType.MINUS),
+    make_test_params('<', TokenType.LESS),
+    make_test_params('<<', TokenType.LEFT_SHIFT),
+    make_test_params('+=', TokenType.ASSIGN_ADD),
+    make_test_params('/', TokenType.DIVIDE),
+    make_test_params('*', TokenType.MULTIPLY),
+
+    # Special cases: token value is not the entire token.
     ('/* ololo */', Token(type_=TokenType.COMMENT, value=' ololo ', line_number=1, position=1)),
     ('// abc', Token(type_=TokenType.COMMENT, value=' abc', line_number=1, position=1)),
-    ('*', Token(type_=TokenType.MULTIPLY, value='*', line_number=1, position=1)),
-    param('==', Token(type_=TokenType.EQUALS, value='==', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('!=', Token(type_=TokenType.NOT_EQUALS, value='!=', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('++', Token(type_=TokenType.INCREMENT, value='++', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('--', Token(type_=TokenType.DECREMENT, value='--', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('<=', Token(type_=TokenType.LESS_OR_EQUALS, value='<=', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('||', Token(type_=TokenType.LOGICAL_OR, value='||', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('&&', Token(type_=TokenType.LOGICAL_AND, value='&&', line_number=1, position=1), marks=mark.xfail(strict=True)),
-    param('new', Token(type_=TokenType.NEW, value='new', line_number=1, position=1), marks=mark.xfail(strict=True)),
+
+    # Expected failures.
+    make_test_params('==', TokenType.EQUALS, True),
+    make_test_params('!=', TokenType.NOT_EQUALS, True),
+    make_test_params('++', TokenType.INCREMENT, True),
+    make_test_params('--', TokenType.DECREMENT, True),
+    make_test_params('<=', TokenType.LESS_OR_EQUALS, True),
+    make_test_params('||', TokenType.LOGICAL_OR, True),
+    make_test_params('&&', TokenType.LOGICAL_AND, True),
+    make_test_params('new', TokenType.NEW, True),
+    make_test_params('>>', TokenType.RIGHT_SHIFT, True),
+    make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
 ])
 def test_single_token(input_: str, expected: Token):
     tokens = list(Scanner(StringIO(input_)))

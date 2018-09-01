@@ -40,6 +40,8 @@ class TokenType(Enum):
     MULTIPLY = auto()
     NOT_EQUALS = auto()
     PLUS = auto()
+    RIGHT_SHIFT = auto()
+    UNSIGNED_RIGHT_SHIFT = auto()
 
     # Reserved identifiers and keywords.
     BREAK = auto()
