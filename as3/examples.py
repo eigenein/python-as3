@@ -14,6 +14,7 @@ expressions: List[Tuple[str, Any]] = [
     ('2 + 2', 4),
     ('2 + 2 * 2', 6),
     ('(2 + 2) * 2', 8),
+    ('1 * (2 * (2 + 2))', 8),
     ('String(2)', '2'),
     ('Math.abs(-2)', 2),
     ('Math.acos.__name__', 'acos'),
@@ -23,6 +24,11 @@ expressions: List[Tuple[str, Any]] = [
     ('baz()', 42),
     ('false', False),
     ('true', True),
+    ('+1', 1),
+    ('-1', -1),
+    ('+-1', -1),
+    ('-+-1', 1),
+    ('-1 + -1', -2),
 ]
 
 scripts: List[Tuple[str, dict]] = [
@@ -87,4 +93,5 @@ bad_scripts: List = [
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('class X { function X(foo: int) { foo = 42 } }; var a = X().foo', {'a': 42}, marks=strict_xfail),
 ]

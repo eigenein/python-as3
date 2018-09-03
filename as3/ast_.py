@@ -1,36 +1,121 @@
-"""
-AST helpers.
-"""
+from __future__ import annotations
+
 import ast
 from ast import AST
 from typing import List, Optional, Type
 
 import as3.parser
-from as3.constants import this_name
+from as3.constants import augmented_assign_operations, binary_operations, unary_operations
 from as3.scanner import Token, TokenType
 
 
-def make_ast(token: Token, init: Type[AST], **kwargs) -> AST:
+class ASTBuilder:
+    """
+    Helper class to build AST nodes.
+    Operations performed on a helper instance are converted into corresponding node transformations.
+    """
+
+    @classmethod
+    def identifier(cls, with_token: Token) -> ASTBuilder:
+        assert with_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER)
+        return cls.name(with_token, with_token.value)
+
+    @classmethod
+    def name(cls, with_token: Token, identifier: str) -> ASTBuilder:
+        # Creating with `Load` context by default, it may be changed by assignment operations.
+        return ASTBuilder(make_ast(with_token, ast.Name, id=identifier, ctx=ast.Load()))
+
+    @classmethod
+    def string(cls, with_token: Token) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Str, s=with_token.value))
+
+    @classmethod
+    def integer(cls, with_token: Token) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Num, n=with_token.value))
+
+    def __init__(self, node: Optional[AST]):
+        self.node = node
+
+    # noinspection PyDefaultArgument
+    def call(self, with_token: Token, args: List[AST] = []) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Call, func=self.node, args=args, keywords=[]))
+
+    def subscript(self, with_token: Token, index: AST) -> ASTBuilder:
+        return ASTBuilder(make_ast(
+            with_token,
+            ast.Subscript,
+            value=self.node,
+            slice=make_ast(with_token, ast.Index, value=index),
+            ctx=ast.Load(),
+        ))
+
+    def attribute(self, with_token: Token, name: str) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Attribute, value=self.node, attr=name, ctx=ast.Load()))
+
+    def as_expression(self, with_token: Token) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Expr, value=self.node))
+
+    def assign(self, with_token: Token, value: AST) -> ASTBuilder:
+        if not isinstance(self.node, ast.Assign):
+            # Assign to the current node.
+            set_store_context(with_token, self.node)
+            self.node = make_ast(with_token, ast.Assign, targets=[self.node], value=value)
+        else:
+            # Chained assignment. Former value becomes a target.
+            set_store_context(with_token, self.node.value)
+            self.node.targets.append(self.node.value)
+            # Value at the right becomes the assigned value.
+            self.node.value = value
+        return self
+
+    def aug_assign(self, with_token: Token, value: AST) -> ASTBuilder:
+        set_store_context(with_token, self.node)
+        operation = augmented_assign_operations[with_token.type_]
+        self.node = make_ast(with_token, ast.AugAssign, target=self.node, op=operation, value=value)
+        return self
+
+    def unary_operation(self, with_token: Token) -> ASTBuilder:
+        operation = unary_operations[with_token.type_]
+        self.node = make_ast(with_token, ast.UnaryOp, op=operation, operand=self.node)
+        return self
+
+    def binary_operation(self, with_token: Token, right: AST) -> ASTBuilder:
+        operation = binary_operations[with_token.type_]
+        self.node = make_ast(with_token, ast.BinOp, left=self.node, op=operation, right=right)
+        return self
+
+    def return_(self, with_token: Token) -> ASTBuilder:
+        self.node = make_ast(with_token, ast.Return, value=self.node)
+        return self
+
+
+def make_ast(with_token: Token, init: Type[AST], **kwargs) -> AST:
     # noinspection PyProtectedMember
     assert all(field in kwargs for field in init._fields), f'missing: {set(init._fields) - kwargs.keys()}'
-    return init(**kwargs, lineno=token.line_number, col_offset=token.position)
+    return init(**kwargs, lineno=with_token.line_number, col_offset=with_token.position)
 
 
-def make_ast_from_source(token: Token, source: str) -> AST:
-    # FIXME: I don't really like to use this function so replace with something better.
-    node, = ast.parse(source).body
-    node.lineno = token.line_number
-    node.col_offset = token.position
-    return ast.fix_missing_locations(node)
+def set_store_context(with_token: Token, node: AST) -> AST:
+    if not hasattr(node, 'ctx'):
+        as3.parser.raise_syntax_error(f"{ast.dump(node)} can't be assigned to", with_token)
+    node.ctx = ast.Store()
+    return node
 
 
-def make_name(name_token: Token, custom_name: Optional[str] = None, ctx=ast.Load()) -> AST:
-    assert custom_name or name_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER)
-    return make_ast(name_token, ast.Name, id=(custom_name or name_token.value), ctx=ctx)
+def make_type_default_value(with_token: Token, type_node: AST) -> AST:
+    # `type_.__default__`
+    return ASTBuilder(type_node).attribute(with_token, '__default__').node
 
 
-def make_call(call_token: Token, func: AST, args: List[AST] = None) -> AST:
-    return make_ast(call_token, ast.Call, func=func, args=(args or []), keywords=[])
+def make_super_constructor_call(with_token: Token) -> AST:
+    # `super().__init__()`
+    return ASTBuilder \
+        .name(with_token, 'super') \
+        .call(with_token) \
+        .attribute(with_token, '__init__') \
+        .call(with_token) \
+        .as_expression(with_token) \
+        .node
 
 
 def make_function(
@@ -43,7 +128,7 @@ def make_function(
     decorator_list: List[AST] = None,
 ) -> AST:
     # Always add `pass` to be sure the body is not empty.
-    # FIXME: return `undefined` instead?
+    # FIXME: return `undefined` instead of `None`?
     return make_ast(
         function_token,
         ast.FunctionDef,
@@ -53,37 +138,3 @@ def make_function(
         decorator_list=(decorator_list or []),
         returns=returns,
     )
-
-
-def make_field_initializer(name_token: Token, value: AST) -> AST:
-    # `self.field = value`
-    return make_ast(name_token, ast.Assign, targets=[make_ast(
-        name_token,
-        ast.Attribute,
-        value=make_ast(name_token, ast.Name, id=this_name, ctx=ast.Load()),
-        attr=name_token.value,
-        ctx=ast.Store(),
-    )], value=value)
-
-
-def make_type_default_value(name_token: Token, type_: AST) -> AST:
-    # `type_.__default__`
-    return make_ast(name_token, ast.Attribute, value=type_, attr='__default__', ctx=ast.Load())
-
-
-def make_super_constructor_call(class_token: Token) -> AST:
-    # `super().__init__()`
-    return make_ast(class_token, ast.Expr, value=make_call(class_token, make_ast(
-        class_token,
-        ast.Attribute,
-        value=make_call(class_token, make_name(class_token, 'super')),
-        attr='__init__',
-        ctx=ast.Load(),
-    )))
-
-
-def set_store_context(node: AST, assignment_token: Token) -> AST:
-    if not hasattr(node, 'ctx'):
-        as3.parser.raise_syntax_error(f"{ast.dump(node)} can't be assigned to", assignment_token)
-    node.ctx = ast.Store()
-    return node

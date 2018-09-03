@@ -8,17 +8,8 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import (
-    make_ast,
-    make_call,
-    make_field_initializer,
-    make_function,
-    make_name,
-    make_super_constructor_call,
-    make_type_default_value,
-    set_store_context,
-)
-from as3.constants import augmented_assign_operations, binary_operations, init_name, this_name, unary_operations
+from as3.ast_ import ASTBuilder, make_ast, make_function, make_super_constructor_call, make_type_default_value
+from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny, ASObject
@@ -97,7 +88,7 @@ class Parser:
             bases = [self.parse_primary_expression()]
         else:
             # Inherit from `ASObject` if no explicit bases.
-            bases = [make_ast(class_token, ast.Name, id=ASObject.__name__, ctx=ast.Load())]
+            bases = [ASTBuilder.name(class_token, ASObject.__name__).node]
 
         # Parse body.
         with self.push_context() as context:
@@ -183,24 +174,27 @@ class Parser:
         if self.skip(TokenType.COLON):
             type_ = self.parse_type_annotation()
         else:
-            type_ = make_name(name_token, ASAny.__name__)
+            type_ = ASTBuilder.name(name_token, ASAny.__name__).node
         if self.skip(TokenType.ASSIGN):
             value = self.parse_additive_expression()
         else:
             value = make_type_default_value(name_token, type_)
         if not self.context.class_name:
-            # TODO: static fields.
+            # TODO: static fields, they now fall under `else`.
             # It's a normal variable or a static "field". So just assign the value and that's it.
-            yield make_ast(name_token, ast.Assign, targets=[make_name(name_token, ctx=ast.Store())], value=value)
+            yield ASTBuilder.identifier(name_token).assign(name_token, value).node
         else:
-            # We have to initialize the attribute on an instance.
-            # Remember the variable for now and return. We'll initialize it later in `__init__`.
-            self.context.constructor.internal.append(make_field_initializer(name_token, value))
+            # We'll initialize it later in `__init__`: `__this__.field = value`.
+            node = ASTBuilder \
+                .name(name_token, this_name) \
+                .attribute(name_token, name_token.value) \
+                .assign(name_token, value) \
+                .node
+            self.context.constructor.internal.append(node)
 
     def parse_type_annotation(self) -> AST:
         if self.is_type(TokenType.MULTIPLY):
-            star_token = self.tokens.next()
-            return make_name(star_token, ASAny.__name__)
+            return ASTBuilder.name(self.tokens.next(), ASAny.__name__).node
         return self.parse_primary_expression()
 
     def parse_semicolon(self) -> Iterable[AST]:
@@ -213,7 +207,7 @@ class Parser:
             value = self.parse_expression()
         else:
             value = None
-        yield make_ast(return_token, ast.Return, value=value)
+        yield ASTBuilder(value).return_(return_token).node
 
     def parse_function_definition(self) -> Iterable[AST]:
         function_token = self.expect(TokenType.FUNCTION)
@@ -229,7 +223,7 @@ class Parser:
             if self.skip(TokenType.COLON):
                 type_ = self.parse_type_annotation()
             else:
-                type_ = make_name(name_token, ASAny.__name__)
+                type_ = ASTBuilder.name(name_token, ASAny.__name__).node
             if self.skip(TokenType.ASSIGN):
                 defaults.append(self.parse_additive_expression())
             else:
@@ -269,27 +263,17 @@ class Parser:
         }, default=left, left=left)
 
     def parse_chained_assignment_expression(self, left: AST) -> AST:
-        # First, assume it's not a chained assignment.
         assignment_token = self.expect(TokenType.ASSIGN)
-        set_store_context(left, assignment_token)
-        value = self.parse_additive_expression()
-        left = make_ast(assignment_token, ast.Assign, targets=[left], value=value)
-        # Then, check if it's chained.
-        while self.skip(TokenType.ASSIGN):
-            # Yes, it is. Read a value at the right.
-            value = self.parse_additive_expression()
-            # Former value becomes a target.
-            left.targets.append(set_store_context(left.value, assignment_token))
-            # Value at the right becomes the assigned value.
-            left.value = value
-        return left
+        builder = ASTBuilder(left).assign(assignment_token, self.parse_additive_expression())
+        while self.is_type(TokenType.ASSIGN):
+            assignment_token: Token = self.tokens.next()
+            builder.assign(assignment_token, self.parse_additive_expression())
+        return builder.node
 
     def parse_augmented_assignment_expression(self, left: AST) -> AST:
         assignment_token = self.expect(*augmented_assign_operations)
-        set_store_context(left, assignment_token)
         value = self.parse_additive_expression()
-        op = augmented_assign_operations[assignment_token.type_]
-        return make_ast(assignment_token, ast.AugAssign, target=left, op=op, value=value)
+        return ASTBuilder(left).aug_assign(assignment_token, value).node
 
     def parse_additive_expression(self) -> AST:
         """
@@ -310,13 +294,8 @@ class Parser:
 
     def parse_unary_expression(self) -> AST:
         if self.is_type(*unary_operations):
-            operation_token: Token = self.tokens.next()
-            return make_ast(
-                operation_token,
-                ast.UnaryOp,
-                op=unary_operations[operation_token.type_],
-                operand=self.parse_unary_expression(),
-            )
+            token: Token = self.tokens.next()
+            return ASTBuilder(self.parse_unary_expression()).unary_operation(token).node
         return self.parse_primary_expression()
 
     def parse_primary_expression(self) -> AST:
@@ -331,8 +310,8 @@ class Parser:
 
     def parse_attribute_expression(self, left: AST) -> AST:
         attribute_token = self.expect(TokenType.DOT)
-        attr: str = self.expect(TokenType.IDENTIFIER).value
-        return make_ast(attribute_token, ast.Attribute, value=left, attr=attr, ctx=ast.Load())
+        name: str = self.expect(TokenType.IDENTIFIER).value
+        return ASTBuilder(left).attribute(attribute_token, name).node
 
     def parse_call_expression(self, left: AST) -> AST:
         call_token = self.expect(TokenType.PARENTHESIS_OPEN)
@@ -340,7 +319,7 @@ class Parser:
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             args.append(self.parse_assignment_expression())
             self.skip(TokenType.COMMA)
-        return make_call(call_token, func=left, args=args)
+        return ASTBuilder(left).call(call_token, args).node
 
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
@@ -362,43 +341,40 @@ class Parser:
     def parse_integer_expression(self) -> AST:
         value_token = self.expect(TokenType.INTEGER)
         # TODO: cast to `ASInteger`.
-        return make_ast(value_token, ast.Num, n=value_token.value)
+        return ASTBuilder.integer(value_token).node
 
     def parse_name_expression(self) -> AST:
         name_token = self.expect(TokenType.IDENTIFIER)
 
         # Build `__resolve__(name)[name]`. See also `as3.runtime.__resolve__`.
-        name_node = make_ast(name_token, ast.Str, s=name_token.value)
-        return make_ast(
-            name_token,
-            ast.Subscript,
-            value=make_call(name_token, func=make_name(name_token, '__resolve__'), args=[name_node]),
-            slice=make_ast(name_token, ast.Index, value=name_node),
-            ctx=ast.Load(),
-        )
+        name_node = ASTBuilder.string(name_token).node
+        return ASTBuilder \
+            .name(name_token, '__resolve__') \
+            .call(name_token, [name_node]) \
+            .subscript(name_token, name_node) \
+            .node
 
     def parse_super_expression(self) -> AST:
         super_token = self.expect(TokenType.SUPER)
-        left = make_call(super_token, make_name(super_token))
+        builder = ASTBuilder.identifier(super_token).call(super_token)
         if self.is_type(TokenType.PARENTHESIS_OPEN):
             # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
             self.context.constructor.is_super_called = True
-            return self.parse_call_expression(make_ast(super_token, ast.Attribute, value=left, attr=init_name, ctx=ast.Load()))
+            return self.parse_call_expression(builder.attribute(super_token, init_name).node)
         if self.is_type(TokenType.DOT):
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
-            return self.parse_attribute_expression(left)
+            return self.parse_attribute_expression(builder.node)
         self.raise_expected_error(TokenType.PARENTHESIS_OPEN, TokenType.DOT)
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
     def parse_binary_operations(self, child_parser: Callable[[], AST], *types: TokenType) -> AST:
-        left = child_parser()
+        builder = ASTBuilder(child_parser())
         while self.is_type(*types):
-            operation_token: Token = self.tokens.next()
-            op = binary_operations[operation_token.type_]
-            left = make_ast(operation_token, ast.BinOp, left=left, op=op, right=child_parser())
-        return left
+            token: Token = self.tokens.next()
+            builder.binary_operation(token, child_parser())
+        return builder.node
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
