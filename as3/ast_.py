@@ -5,7 +5,7 @@ from ast import AST
 from typing import List, Optional, Type
 
 import as3.parser
-from as3.constants import augmented_assign_operations, binary_operations, unary_operations
+from as3.constants import augmented_assign_operations, binary_operations, compare_operations, unary_operations
 from as3.scanner import Token, TokenType
 
 
@@ -79,8 +79,14 @@ class ASTBuilder:
         return self
 
     def binary_operation(self, with_token: Token, right: AST) -> ASTBuilder:
-        operation = binary_operations[with_token.type_]
-        self.node = make_ast(with_token, ast.BinOp, left=self.node, op=operation, right=right)
+        # TODO: casting: `1 + '1'`, `1 == '1'` etc.
+        type_ = with_token.type_
+        if type_ in binary_operations:
+            self.node = make_ast(with_token, ast.BinOp, left=self.node, op=binary_operations[type_], right=right)
+        elif type_ in compare_operations:
+            self.node = make_ast(with_token, ast.Compare, left=self.node, ops=[compare_operations[type_]], comparators=[right])
+        else:
+            raise KeyError(with_token.type_)
         return self
 
     def return_(self, with_token: Token) -> ASTBuilder:

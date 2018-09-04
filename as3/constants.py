@@ -61,6 +61,10 @@ augmented_assign_operations: Dict[TokenType, ast.AST] = {
     TokenType.ASSIGN_ADD: ast.Add(),
 }
 
+compare_operations: Dict[TokenType, ast.AST] = {
+    TokenType.NOT_EQUALS: ast.NotEq(),
+}
+
 # `__this__` may be an instance _or_ a class itself.
 # Also, avoid confusion with possible `self` variable which is valid in ActionScript.
 this_name = '__this__'

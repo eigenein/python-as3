@@ -43,6 +43,7 @@ def run_shell(globals_: dict):
     example, _ = random.choice([*examples.scripts, *examples.expressions])  # type: str, Any
     click.echo(f'{click.style("Welcome to as3 shell!", fg="green")}')
     click.echo(f'{click.style("Try", fg="green")}: {click.style(example, fg="blue")}')
+    click.echo(f'{click.style("Use", fg="green")}: {click.style("trace(...)", fg="blue")} {click.style("to print something.", fg="green")}')
 
     while True:
         line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)

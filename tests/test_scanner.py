@@ -36,6 +36,8 @@ def test_empty():
     make_test_params('+=', TokenType.ASSIGN_ADD),
     make_test_params('/', TokenType.DIVIDE),
     make_test_params('*', TokenType.MULTIPLY),
+    make_test_params('!', TokenType.LOGICAL_NOT),
+    make_test_params('!=', TokenType.NOT_EQUALS),
 
     # Special cases: token value is not the entire token.
     ('/* ololo */', Token(type_=TokenType.COMMENT, value=' ololo ', line_number=1, position=1)),
@@ -43,7 +45,6 @@ def test_empty():
 
     # Expected failures.
     make_test_params('==', TokenType.EQUALS, True),
-    make_test_params('!=', TokenType.NOT_EQUALS, True),
     make_test_params('++', TokenType.INCREMENT, True),
     make_test_params('--', TokenType.DECREMENT, True),
     make_test_params('<=', TokenType.LESS_OR_EQUALS, True),

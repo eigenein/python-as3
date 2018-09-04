@@ -167,7 +167,7 @@ class Parser:
     def parse_if(self) -> Iterable[AST]:
         if_token = self.expect(TokenType.IF)
         self.expect(TokenType.PARENTHESIS_OPEN)
-        test = self.parse_additive_expression()
+        test = self.parse_non_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         body = list(self.parse_statement())
         or_else = list(self.parse_statement()) if self.skip(TokenType.ELSE) else []
@@ -182,7 +182,7 @@ class Parser:
         else:
             type_ = ASTBuilder.name(name_token, ASAny.__name__).node
         if self.skip(TokenType.ASSIGN):
-            value = self.parse_additive_expression()
+            value = self.parse_non_assignment_expression()
         else:
             value = make_type_default_value(name_token, type_)
         if not self.context.class_name:
@@ -236,14 +236,14 @@ class Parser:
             else:
                 type_ = ASTBuilder.name(name_token, ASAny.__name__).node
             if self.skip(TokenType.ASSIGN):
-                node.args.defaults.append(self.parse_additive_expression())
+                node.args.defaults.append(self.parse_non_assignment_expression())
             else:
                 node.args.defaults.append(make_type_default_value(name_token, type_))
             self.skip(TokenType.COMMA)
 
         # Skip return type.
         if self.skip(TokenType.COLON):
-            self.parse_additive_expression()
+            self.parse_non_assignment_expression()
 
         # Parse body.
         with self.push_context() as context:
@@ -264,7 +264,7 @@ class Parser:
         return self.parse_assignment_expression()
 
     def parse_assignment_expression(self) -> AST:
-        left = self.parse_additive_expression()
+        left = self.parse_non_assignment_expression()
         return self.switch({
             TokenType.ASSIGN: self.parse_chained_assignment_expression,
             TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
@@ -272,16 +272,25 @@ class Parser:
 
     def parse_chained_assignment_expression(self, left: AST) -> AST:
         assignment_token = self.expect(TokenType.ASSIGN)
-        builder = ASTBuilder(left).assign(assignment_token, self.parse_additive_expression())
+        builder = ASTBuilder(left).assign(assignment_token, self.parse_non_assignment_expression())
         while self.is_type(TokenType.ASSIGN):
             assignment_token: Token = self.tokens.next()
-            builder.assign(assignment_token, self.parse_additive_expression())
+            builder.assign(assignment_token, self.parse_non_assignment_expression())
         return builder.node
 
     def parse_augmented_assignment_expression(self, left: AST) -> AST:
         assignment_token = self.expect(*augmented_assign_operations)
-        value = self.parse_additive_expression()
+        value = self.parse_non_assignment_expression()
         return ASTBuilder(left).aug_assign(assignment_token, value).node
+
+    def parse_non_assignment_expression(self) -> AST:
+        return self.parse_equality_expression()
+
+    def parse_equality_expression(self) -> AST:
+        return self.parse_binary_operations(
+            self.parse_additive_expression,
+            TokenType.NOT_EQUALS,
+        )
 
     def parse_additive_expression(self) -> AST:
         """

@@ -16,7 +16,7 @@ expressions: List[Tuple[str, Any]] = [
     ('(2 + 2) * 2', 8),
     ('1 * (2 * (2 + 2))', 8),
     ('String(2)', '2'),
-    ('Math.abs(-2)', 2),
+    ('Math.abs(-2)', 2.0),
     ('Math.acos.__name__', 'acos'),
     ('foo.baz + foo.baz * foo.baz', 6),
     ('(foo.baz + foo.baz) * foo.baz', 8),
@@ -29,6 +29,8 @@ expressions: List[Tuple[str, Any]] = [
     ('+-1', -1),
     ('-+-1', 1),
     ('-1 + -1', -2),
+    ('1 != 2', True),
+    ('1 != 1', True),
 ]
 
 scripts: List[Tuple[str, dict]] = [

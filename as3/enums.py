@@ -35,6 +35,7 @@ class TokenType(Enum):
     LESS = auto()
     LESS_OR_EQUALS = auto()
     LOGICAL_AND = auto()
+    LOGICAL_NOT = auto()
     LOGICAL_OR = auto()
     MINUS = auto()
     MULTIPLY = auto()

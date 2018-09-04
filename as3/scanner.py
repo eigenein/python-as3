@@ -52,6 +52,8 @@ class Scanner(Iterator[Token]):
             return self.read_less()
         if char == '/':
             return self.read_slash()
+        if char == '!':
+            return self.read_not()
         if char in constants.digits:
             return self.read_integer()
 
@@ -123,6 +125,13 @@ class Scanner(Iterator[Token]):
 
         # Just normal division.
         return Token(type_=TokenType.DIVIDE, value='/', line_number=line_number, position=position)
+
+    def read_not(self) -> Token:
+        line_number, position = self.line_number, self.position
+        self.expect('!')
+        if self.skip('='):
+            return Token(type_=TokenType.NOT_EQUALS, value='!=', line_number=line_number, position=position)
+        return Token(type_=TokenType.LOGICAL_NOT, value='!', line_number=line_number, position=position)
 
     def expect(self, char: str):
         if not self.chars:
