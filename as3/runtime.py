@@ -21,7 +21,7 @@ class ASAny(ASObject):
     def __new__(cls):
         # `ASAny` produces singleton `undefined` value.
         if cls.__default__ is None:
-            cls.__default__ = super().__new__()
+            cls.__default__ = super().__new__(cls)
         return cls.__default__
 
     def __eq__(self, other) -> bool:
@@ -104,7 +104,7 @@ default_globals = {
     'Math': Math,
     'String': str,  # FIXME: `ASString`.
     'trace': print,
-    'undefined': ASAny.__default__,
+    'undefined': ASAny(),
 
     # Standard types.
     ASAny.__name__: ASAny,

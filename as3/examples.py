@@ -32,6 +32,7 @@ expressions: List[Tuple[str, Any]] = [
     ('-1 + -1', -2),
     ('1 != 2', True),
     ('1 != 1', False),
+    ('undefined', ASAny()),
 ]
 
 scripts: List[Tuple[str, dict]] = [
@@ -40,7 +41,7 @@ scripts: List[Tuple[str, dict]] = [
     ('var a = 42;', {'a': 42}),
     ('var a = 42; var b = 3', {'a': 42, 'b': 3}),
     ('var a = 42; a += 1;', {'a': 43}),
-    ('var a: *', {'a': ASAny.__default__}),
+    ('var a: *', {'a': ASAny()}),
     ('foo(42);', {}),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
@@ -52,7 +53,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
-    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASAny.__default__}),
+    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASAny()}),
     ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
     (
         'class X { var a = 43 } '

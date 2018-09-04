@@ -23,7 +23,8 @@ def test_expression(expression: str, expected: Any):
         'bar': lambda a, b: a + b,
         'baz': lambda: 42,
     })
-    assert type(actual) == type(expected) and actual == expected, f'actual: {actual!r}'
+    assert type(actual) == type(expected), f'actual: {actual!r}'
+    assert actual == expected, f'actual: {actual!r}'
 
 
 @mark.parametrize('expression', [
