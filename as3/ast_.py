@@ -30,7 +30,7 @@ class ASTBuilder:
         return ASTBuilder(make_ast(with_token, ast.Str, s=with_token.value))
 
     @classmethod
-    def integer(cls, with_token: Token) -> ASTBuilder:
+    def number(cls, with_token: Token) -> ASTBuilder:
         return ASTBuilder(make_ast(with_token, ast.Num, n=with_token.value))
 
     def __init__(self, node: Optional[AST]):

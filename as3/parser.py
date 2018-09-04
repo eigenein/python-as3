@@ -8,8 +8,14 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import ASTBuilder, make_ast, make_function, make_super_constructor_call, make_type_default_value, \
-    make_argument
+from as3.ast_ import (
+    ASTBuilder,
+    make_argument,
+    make_ast,
+    make_function,
+    make_super_constructor_call,
+    make_type_default_value,
+)
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -358,8 +364,10 @@ class Parser:
 
     def parse_integer_expression(self) -> AST:
         value_token = self.expect(TokenType.INTEGER)
-        # TODO: cast to `ASInteger`.
-        return ASTBuilder.integer(value_token).node
+        # `int(42)`
+        return ASTBuilder.name(value_token, 'int') \
+            .call(value_token, args=[ASTBuilder.number(value_token).node]) \
+            .node
 
     def parse_name_expression(self) -> AST:
         name_token = self.expect(TokenType.IDENTIFIER)

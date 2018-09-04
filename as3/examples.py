@@ -5,12 +5,13 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASAny
+from as3.runtime import ASAny, ASInteger
 
 strict_xfail = mark.xfail(strict=True)
 
+# FIXME: arithmetic operations still return normal `int` instead of `ASInteger`.
 expressions: List[Tuple[str, Any]] = [
-    ('42', 42),
+    ('42', ASInteger(42)),
     ('2 + 2', 4),
     ('2 + 2 * 2', 6),
     ('(2 + 2) * 2', 8),
@@ -30,7 +31,7 @@ expressions: List[Tuple[str, Any]] = [
     ('-+-1', 1),
     ('-1 + -1', -2),
     ('1 != 2', True),
-    ('1 != 1', True),
+    ('1 != 1', False),
 ]
 
 scripts: List[Tuple[str, dict]] = [
