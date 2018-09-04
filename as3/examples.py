@@ -50,6 +50,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
     ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASAny.__default__}),
+    ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
     (
         'class X { var a = 43 } '
         'class Y extends X { var a = 42 } '
@@ -93,5 +94,4 @@ bad_scripts: List = [
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
-    param('class X { function X(foo: int) { foo = 42 } }; var a = X().foo', {'a': 42}, marks=strict_xfail),
 ]

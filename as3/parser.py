@@ -8,7 +8,8 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
-from as3.ast_ import ASTBuilder, make_ast, make_function, make_super_constructor_call, make_type_default_value
+from as3.ast_ import ASTBuilder, make_ast, make_function, make_super_constructor_call, make_type_default_value, \
+    make_argument
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -31,8 +32,8 @@ class Context:
 
 @dataclass
 class ConstructorContext:
-    internal: List[AST] = field(default_factory=list)
-    action_script: List[AST] = field(default_factory=list)
+    internal_body: List[AST] = field(default_factory=list)
+    node: Optional[AST] = None
     is_super_called: bool = False
 
 
@@ -96,15 +97,20 @@ class Parser:
             constructor = context.constructor = ConstructorContext()
             body = list(self.parse_statement())
             if not constructor.is_super_called:
-                constructor.internal.insert(0, make_super_constructor_call(class_token))
+                constructor.internal_body.insert(0, make_super_constructor_call(class_token))
 
         # Add `__init__`.
-        body.append(make_function(
+        init_node = make_function(
             class_token,
             name=init_name,
-            args=[make_ast(class_token, ast.arg, arg=this_name, annotation=None)],
-            body=[*constructor.internal, *constructor.action_script],
-        ))
+            args=[make_argument(class_token, this_name)],
+            body=constructor.internal_body,
+        )
+        if constructor.node is not None:
+            assert constructor.node.args.args[0].arg == this_name
+            init_node.args.args.extend(constructor.node.args.args[1:])  # avoid adding `__this__` twice
+            init_node.body.extend(constructor.node.body)
+        body.append(init_node)
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
@@ -190,7 +196,7 @@ class Parser:
                 .attribute(name_token, name_token.value) \
                 .assign(name_token, value) \
                 .node
-            self.context.constructor.internal.append(node)
+            self.context.constructor.internal_body.append(node)
 
     def parse_type_annotation(self) -> AST:
         if self.is_type(TokenType.MULTIPLY):
@@ -212,40 +218,42 @@ class Parser:
     def parse_function_definition(self) -> Iterable[AST]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
-
-        # Parse arguments.
-        self.expect(TokenType.PARENTHESIS_OPEN)
-        args: List[AST] = []
-        defaults: List[AST] = []
-        while not self.skip(TokenType.PARENTHESIS_CLOSE):
-            name_token = self.expect(TokenType.IDENTIFIER)
-            args.append(make_ast(name_token, ast.arg, arg=name_token.value, annotation=None))
-            if self.skip(TokenType.COLON):
-                type_ = self.parse_type_annotation()
-            else:
-                type_ = ASTBuilder.name(name_token, ASAny.__name__).node
-            if self.skip(TokenType.ASSIGN):
-                defaults.append(self.parse_additive_expression())
-            else:
-                defaults.append(make_type_default_value(name_token, type_))
-            self.skip(TokenType.COMMA)
-        returns = self.parse_additive_expression() if self.skip(TokenType.COLON) else None  # FIXME: else ASAny?
+        node = make_function(function_token, name=name)
 
         # Is it a method?
         if self.context.class_name:
             # Then, `__this__` is available in the function.
             # TODO: wrap with `@classmethod` if `static`.
-            args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))
+            node.args.args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))
+
+        # Parse arguments.
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        while not self.skip(TokenType.PARENTHESIS_CLOSE):
+            name_token = self.expect(TokenType.IDENTIFIER)
+            node.args.args.append(make_argument(name_token, name_token.value))
+            if self.skip(TokenType.COLON):
+                type_ = self.parse_type_annotation()
+            else:
+                type_ = ASTBuilder.name(name_token, ASAny.__name__).node
+            if self.skip(TokenType.ASSIGN):
+                node.args.defaults.append(self.parse_additive_expression())
+            else:
+                node.args.defaults.append(make_type_default_value(name_token, type_))
+            self.skip(TokenType.COMMA)
+
+        # Skip return type.
+        if self.skip(TokenType.COLON):
+            self.parse_additive_expression()
 
         # Parse body.
         with self.push_context() as context:
             context.class_name = None  # prevent inner functions from being methods
-            body = list(self.parse_statement())
+            node.body.extend(self.parse_statement())
 
         if name == self.context.class_name:
-            self.context.constructor.action_script.extend(body)
+            self.context.constructor.node = node
         else:
-            yield make_function(function_token, name=name, body=body, args=args, defaults=defaults, returns=returns)
+            yield node
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.

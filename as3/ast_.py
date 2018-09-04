@@ -36,9 +36,8 @@ class ASTBuilder:
     def __init__(self, node: Optional[AST]):
         self.node = node
 
-    # noinspection PyDefaultArgument
-    def call(self, with_token: Token, args: List[AST] = []) -> ASTBuilder:
-        return ASTBuilder(make_ast(with_token, ast.Call, func=self.node, args=args, keywords=[]))
+    def call(self, with_token: Token, args: List[AST] = None) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.Call, func=self.node, args=(args or []), keywords=[]))
 
     def subscript(self, with_token: Token, index: AST) -> ASTBuilder:
         return ASTBuilder(make_ast(
@@ -119,22 +118,30 @@ def make_super_constructor_call(with_token: Token) -> AST:
 
 
 def make_function(
-    function_token: Token,
+    with_token: Token,
     name: str,
-    body: List[AST],
+    body: List[AST] = None,
     args: List[AST] = None,
     defaults: List[AST] = None,
-    returns=None,
-    decorator_list: List[AST] = None,
+    decorators: List[AST] = None,
 ) -> AST:
-    # Always add `pass` to be sure the body is not empty.
-    # FIXME: return `undefined` instead of `None`?
     return make_ast(
-        function_token,
+        with_token,
         ast.FunctionDef,
         name=name,
-        args=ast.arguments(args=(args or []), vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=(defaults or [])),
-        body=[*body, make_ast(function_token, ast.Pass)],
-        decorator_list=(decorator_list or []),
-        returns=returns,
+        args=ast.arguments(
+            args=(args or []),
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=(defaults or []),
+        ),
+        body=[*(body or []), make_ast(with_token, ast.Pass)],  # always add `pass` to make sure body is not empty
+        decorator_list=(decorators or []),
+        returns=None,
     )
+
+
+def make_argument(with_token: Token, name: str) -> AST:
+    return make_ast(with_token, ast.arg, arg=name, annotation=None)
