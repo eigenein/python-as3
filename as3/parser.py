@@ -77,8 +77,9 @@ class Parser:
         self.expect(TokenType.PACKAGE)
         package_name = tuple(self.parse_qualified_name()) if self.is_type(TokenType.IDENTIFIER) else ()
         with self.push_context() as context:
-            context.package_name = package_name  # FIXME: `package_name`.
+            context.package_name = package_name  # FIXME: `package_name` is not tuple.
             yield from self.parse_statement()
+        # TODO: export public members.
 
     def parse_class(self) -> Iterable[AST]:
         class_token = self.expect(TokenType.CLASS)
@@ -160,9 +161,9 @@ class Parser:
 
     def parse_import(self) -> Iterable[AST]:
         self.expect(TokenType.IMPORT)
-        qualified_name = tuple(self.parse_qualified_name())  # FIXME: `parse_additive_expression`?
+        qualified_name = tuple(self.parse_qualified_name())  # FIXME: `parse_non_assignment_expression`
         self.expect(TokenType.SEMICOLON)
-        return []  # FIXME
+        return []  # FIXME: actually import name
 
     def parse_if(self) -> Iterable[AST]:
         if_token = self.expect(TokenType.IF)

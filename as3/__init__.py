@@ -27,4 +27,5 @@ def execute_script(
 ) -> CodeType:
     code = compile_script(script, filename)
     exec(code, globals_, locals_)
+    # FIXME: only exports should be allowed in `globals_` on exit.
     return code
