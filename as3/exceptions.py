@@ -2,5 +2,5 @@ from __future__ import annotations
 
 
 class ASSyntaxError(Exception):
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, *args):
+        super().__init__(*args)

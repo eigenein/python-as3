@@ -8,6 +8,7 @@ from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Opt
 
 from more_itertools import consume, peekable
 
+from as3 import syntax
 from as3.ast_ import (
     ASTBuilder,
     make_argument,
@@ -348,10 +349,10 @@ class Parser:
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
-            TokenType.INTEGER: self.parse_integer_expression,
-            TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.TRUE: lambda **_: make_ast(self.expect(TokenType.TRUE), ast.NameConstant, value=True),
-            TokenType.FALSE: lambda **_: make_ast(self.expect(TokenType.FALSE), ast.NameConstant, value=False),
+            TokenType.INTEGER: lambda: syntax.integer(self.tokens),
+            TokenType.IDENTIFIER: lambda: syntax.identifier(self.tokens),
+            TokenType.TRUE: lambda: syntax.name_constant(self.tokens),
+            TokenType.FALSE: lambda: syntax.name_constant(self.tokens),
             TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
             TokenType.SUPER: self.parse_super_expression,
         })
@@ -361,24 +362,6 @@ class Parser:
         inner = self.parse_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return inner
-
-    def parse_integer_expression(self) -> AST:
-        value_token = self.expect(TokenType.INTEGER)
-        # `int(42)`
-        return ASTBuilder.name(value_token, 'int') \
-            .call(value_token, args=[ASTBuilder.number(value_token).node]) \
-            .node
-
-    def parse_name_expression(self) -> AST:
-        name_token = self.expect(TokenType.IDENTIFIER)
-
-        # Build `__resolve__(name)[name]`. See also `as3.runtime.__resolve__`.
-        name_node = ASTBuilder.string(name_token).node
-        return ASTBuilder \
-            .name(name_token, '__resolve__') \
-            .call(name_token, [name_node]) \
-            .subscript(name_token, name_node) \
-            .node
 
     def parse_super_expression(self) -> AST:
         super_token = self.expect(TokenType.SUPER)
