@@ -1,29 +1,7 @@
 import ast
-import string
 from typing import Dict
 
 from as3.enums import TokenType
-
-identifier_first_chars = {*string.ascii_letters, '_'}
-identifier_chars = {*string.ascii_letters, *string.digits, '_'}
-whitespaces = set(string.whitespace)
-digits = set(string.digits)
-
-character_to_token_type = {
-    '{': TokenType.CURLY_BRACKET_OPEN,
-    '}': TokenType.CURLY_BRACKET_CLOSE,
-    '[': TokenType.BRACKET_OPEN,
-    ']': TokenType.BRACKET_CLOSE,
-    '(': TokenType.PARENTHESIS_OPEN,
-    ')': TokenType.PARENTHESIS_CLOSE,
-    ':': TokenType.COLON,
-    ';': TokenType.SEMICOLON,
-    ',': TokenType.COMMA,
-    '-': TokenType.MINUS,
-    '*': TokenType.MULTIPLY,
-    '=': TokenType.ASSIGN,
-    '.': TokenType.DOT,
-}
 
 keyword_to_token_type = {
     'break': TokenType.BREAK,

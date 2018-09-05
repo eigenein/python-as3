@@ -1,13 +1,51 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Iterator, NoReturn, TextIO
-
-from more_itertools import consume, peekable, side_effect
+from typing import Any, Iterable
 
 from as3 import constants
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
+
+specification = re.compile(r'''
+    # Special tokens used by the scanner.
+    (?P<NEW_LINE>\n) |
+    (?P<WHITESPACE>\s+) |
+    
+    # Normal tokens.
+    (?P<EQUALS>==) |
+    (?P<NOT_EQUALS>!=) |
+    (?P<ASSIGN_ADD>\+=) |
+    (?P<UNSIGNED_LEFT_SHIFT><<<) |
+    (?P<LEFT_SHIFT><<) |
+    (?P<RIGHT_SHIFT>>>) |
+    (?P<DECREMENT>--) |
+    (?P<INCREMENT>\+\+) |
+    (?P<ASSIGN>=) |
+    (?P<COLON>:) |
+    (?P<COMMA>,) |
+    (?P<COMMENT>(//[^\n]*)|(/\*.*?\*/)) |
+    (?P<CURLY_BRACKET_CLOSE>}) |
+    (?P<CURLY_BRACKET_OPEN>{) |
+    (?P<DIVIDE>/) |
+    (?P<IDENTIFIER>[_a-zA-Z]\w*) |
+    (?P<INTEGER>\d+) |
+    (?P<LESS><) |
+    (?P<LOGICAL_NOT>!) |
+    (?P<MULTIPLY>\*) |
+    (?P<PARENTHESIS_CLOSE>\)) |
+    (?P<PARENTHESIS_OPEN>\() |
+    (?P<BRACKET_CLOSE>\]) |
+    (?P<BRACKET_OPEN>\[) |
+    (?P<PLUS>\+) |
+    (?P<MINUS>-) |
+    (?P<SEMICOLON>;) |
+    (?P<DOT>\.) |
+    
+    # Fallback token to detect syntax errors.
+    (?P<UNKNOWN>.)
+''', re.VERBOSE)
 
 
 @dataclass
@@ -18,137 +56,24 @@ class Token:
     position: int
 
 
-class Scanner(Iterator[Token]):
-    def __init__(self, io: TextIO):
-        self.chars = peekable(
-            char
-            for line in side_effect(self.increment_line, io)
-            for char in side_effect(self.increment_position, line)
-        )
-        self.line_number = 0
-        self.position = 0
+def scan(source: str) -> Iterable[Token]:
+    current_line_number = 1
+    current_line_start_index = 0
 
-    def increment_line(self, _: str):
-        self.line_number += 1
-        self.position = 0
-
-    def increment_position(self, _: str):
-        self.position += 1
-
-    def __iter__(self) -> Iterator[Token]:
-        return self
-
-    def __next__(self) -> Token:
-        consume(self.iterate_while(lambda char_: char_ in constants.whitespaces))
-
-        char = self.chars.peek()
-        if char in constants.identifier_first_chars:
-            return self.read_identifier()
-        if char in constants.character_to_token_type:
-            return self.read_single(constants.character_to_token_type[char])
-        if char == '+':
-            return self.read_plus()
-        if char == '<':
-            return self.read_less()
-        if char == '/':
-            return self.read_slash()
-        if char == '!':
-            return self.read_not()
-        if char in constants.digits:
-            return self.read_integer()
-
-        self.raise_syntax_error(f'unrecognized token "{char}"')
-
-    def read_identifier(self) -> Token:
-        line_number, position = self.line_number, self.position
-        value = ''.join(self.iterate_while(lambda char: char in constants.identifier_chars))
-        return Token(
-            type_=constants.keyword_to_token_type.get(value, TokenType.IDENTIFIER),
-            value=value,
-            line_number=line_number,
-            position=position,
-        )
-
-    def read_integer(self) -> Token:
-        line_number, position = self.line_number, self.position
-        return Token(
-            type_=TokenType.INTEGER,
-            value=int(''.join(self.iterate_while(lambda char: char in constants.digits))),
-            line_number=line_number,
-            position=position,
-        )
-
-    def read_single(self, type_: TokenType) -> Token:
-        line_number, position = self.line_number, self.position
-        return Token(type_=type_, value=self.chars.next(), line_number=line_number, position=position)
-
-    def read_less(self) -> Token:
-        line_number, position = self.line_number, self.position
-        self.expect('<')
-        if not self.skip('<'):
-            return Token(type_=TokenType.LESS, value='<', line_number=line_number, position=position)
-        return Token(type_=TokenType.LEFT_SHIFT, value='<<', line_number=line_number, position=position)
-
-    def read_plus(self) -> Token:
-        line_number, position = self.line_number, self.position
-        self.expect('+')
-        if not self.skip('='):
-            return Token(type_=TokenType.PLUS, value='+', line_number=line_number, position=position)
-        return Token(type_=TokenType.ASSIGN_ADD, value='+=', line_number=line_number, position=position)
-
-    def read_slash(self) -> Token:
-        line_number, position = self.line_number, self.position
-        self.expect('/')
-
-        # Single-line comment.
-        if self.skip('/'):
-            return Token(
-                type_=TokenType.COMMENT,
-                value=''.join(self.iterate_while(lambda char: char not in '\r\n')),
-                line_number=line_number,
-                position=position,
-            )
-
-        # Multi-line comment.
-        if self.skip('*'):
-            chars = []
-            while self.chars:
-                if self.skip('*') and self.skip('/'):
-                    return Token(
-                        type_=TokenType.COMMENT,
-                        value=''.join(chars),
-                        line_number=line_number,
-                        position=position,
-                    )
-                chars.append(self.chars.next())
-            self.raise_syntax_error('unexpected end of file inside a block comment')
-
-        # Just normal division.
-        return Token(type_=TokenType.DIVIDE, value='/', line_number=line_number, position=position)
-
-    def read_not(self) -> Token:
-        line_number, position = self.line_number, self.position
-        self.expect('!')
-        if self.skip('='):
-            return Token(type_=TokenType.NOT_EQUALS, value='!=', line_number=line_number, position=position)
-        return Token(type_=TokenType.LOGICAL_NOT, value='!', line_number=line_number, position=position)
-
-    def expect(self, char: str):
-        if not self.chars:
-            self.raise_syntax_error('unexpected end of file')
-        if self.chars.peek() != char:
-            self.raise_syntax_error(f'expected: "{char}", found: "{self.chars.peek()}"')
-        self.chars.next()
-
-    def skip(self, char: str) -> bool:
-        if self.chars and self.chars.peek() == char:
-            self.chars.next()
-            return True
-        return False
-
-    def iterate_while(self, predicate: Callable[[str], bool]) -> Iterable[str]:
-        while self.chars and predicate(self.chars.peek()):
-            yield self.chars.next()
-
-    def raise_syntax_error(self, message: str) -> NoReturn:
-        raise ASSyntaxError(f'syntax error: {message} at line {self.line_number} position {self.position}')
+    for match in specification.finditer(source):
+        type_ = TokenType[match.lastgroup]
+        value = match.group(match.lastgroup)
+        position = match.start() - current_line_start_index + 1  # indexing starts from one
+        if type_ == TokenType.UNKNOWN:
+            raise ASSyntaxError(f'unexpected character "{value}" at line {current_line_number} position {position}')
+        if type_ == TokenType.WHITESPACE:
+            # Don't flood the parser with whitespaces.
+            continue
+        if type_ == TokenType.NEW_LINE:
+            # Used just to track the current position.
+            current_line_start_index = match.end()
+            current_line_number += 1
+            continue
+        if type_ == TokenType.IDENTIFIER and value in constants.keyword_to_token_type:
+            type_ = constants.keyword_to_token_type[value]
+        yield Token(type_=type_, value=value, line_number=current_line_number, position=position)

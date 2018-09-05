@@ -2,7 +2,13 @@ from enum import Enum, auto
 
 
 class TokenType(Enum):
-    # Comments.
+    # Special types that are only used by the scanner.
+    # Though, `NEW_LINE` potentially could be used by the parser.
+    NEW_LINE = auto()
+    UNKNOWN = auto()
+    WHITESPACE = auto()
+
+    # Comments and whitespaces.
     COMMENT = auto()
 
     # Brackets.

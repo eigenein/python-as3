@@ -28,7 +28,7 @@ def main(shell: bool, scripts: Tuple[str]):
         path = Path(script)
         # noinspection PyBroadException
         try:
-            execute_script(path.open('rt', encoding='utf-8'), path.name, globals_)
+            execute_script(path.open('rt', encoding='utf-8').read(), path.name, globals_)
         except Exception as e:
             click.echo(f'{click.style("Error", fg="red")}: {click.style(str(path), fg="blue")}: {e}')
             sys.exit(1)
