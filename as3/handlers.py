@@ -1,3 +1,7 @@
+"""
+Contains functions that build larger AST's from smaller AST's or tokens.
+"""
+
 from __future__ import annotations
 
 import ast

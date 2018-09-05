@@ -1,6 +1,10 @@
+"""
+Contains function that allow to construct syntax rules from a simpler ones.
+"""
+
 from __future__ import annotations
 
-from typing import Any, Callable, Tuple, TypeVar, Iterable
+from typing import Any, Callable, Iterable, Tuple, TypeVar
 
 from more_itertools import peekable
 
@@ -17,7 +21,7 @@ def parse(with_parser: TParser[T], tokens: Iterable[Token]) -> T:
     return with_parser(peekable(tokens))
 
 
-def sequence(handler: THandler[T], *parsers: Tuple[str, TParser[Any]]) -> TParser[T]:
+def sequence(handler: THandler[T], parsers: Iterable[Tuple[str, TParser[Any]]]) -> TParser[T]:
     def sequence_parser(tokens: peekable) -> T:
         kwargs = {key: parser(tokens) for key, parser in parsers}
         kwargs.pop('', None)  # drop unneeded values

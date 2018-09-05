@@ -1,5 +1,5 @@
 import ast
-from typing import Dict, Any
+from typing import Any, Dict
 
 from as3.enums import TokenType
 
