@@ -1,3 +1,7 @@
+"""
+Examples used in unit tests and the interactive shell.
+"""
+
 from __future__ import annotations
 
 from typing import Any, List, Tuple

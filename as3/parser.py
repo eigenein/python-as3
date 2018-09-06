@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, TypeVar
 
+# FIXME: get rid of `more_itertools`.
 from more_itertools import consume, peekable
 
 from as3 import syntax

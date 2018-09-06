@@ -1,3 +1,8 @@
+"""
+Classes and functions needed for transpiled code execution.
+This includes internal constructs as well as parts of standard ActionScript library.
+"""
+
 from __future__ import annotations
 
 import inspect

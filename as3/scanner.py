@@ -1,3 +1,7 @@
+"""
+Scanner aka lexer.
+"""
+
 from __future__ import annotations
 
 import re
