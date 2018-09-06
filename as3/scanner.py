@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, NoReturn
+from typing import Any, Iterable
 
 from as3 import constants
 from as3.enums import TokenType
@@ -59,13 +59,6 @@ class Token:
     value: Any
     line_number: int
     position: int
-
-    def raise_if_not(self, *types: TokenType):
-        if self.type_ not in types:
-            self.raise_unexpected()
-
-    def raise_unexpected(self) -> NoReturn:
-        raise ASSyntaxError(f'unexpected {self.type_.name} "{self.value}" at line {self.line_number} position {self.position}')
 
 
 def scan(source: str) -> Iterable[Token]:

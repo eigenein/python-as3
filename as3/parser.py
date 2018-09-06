@@ -1,3 +1,7 @@
+"""
+TODO: deprecated in favor of `parsers.py` and `syntax.py`.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -351,7 +355,7 @@ class Parser:
         return self.switch({
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.INTEGER: lambda: syntax.integer(self.tokens),
-            TokenType.IDENTIFIER: lambda: syntax.identifier(self.tokens),
+            TokenType.IDENTIFIER: lambda: syntax.name(self.tokens),
             TokenType.TRUE: lambda: syntax.name_constant(self.tokens),
             TokenType.FALSE: lambda: syntax.name_constant(self.tokens),
             TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
