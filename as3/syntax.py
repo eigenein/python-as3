@@ -4,23 +4,24 @@ Describes ActionScript syntax.
 
 from __future__ import annotations
 
+from as3 import handlers
 from as3.constants import augmented_assign_operations, name_constants, unary_operations
 from as3.enums import TokenType
-from as3.parsers import expect, many, maybe, sequence, switch
+from as3.parsers import end_of_stream, expect, handled, many, maybe, sequence, switch
 
-integer = expect(TokenType.INTEGER)
+integer = handled(expect(TokenType.INTEGER), handlers.integer)
 
 identifier = expect(TokenType.IDENTIFIER)
 
-name = identifier
+name = handled(identifier, handlers.name)
 
-name_constant = expect(*name_constants.keys())
+name_constant = handled(expect(*name_constants.keys()), handlers.name_constant)
 
-parenthesized = sequence(
+parenthesized = handled(sequence(
     expect(TokenType.PARENTHESIS_OPEN),
     lambda tokens: expression(tokens),
     expect(TokenType.PARENTHESIS_CLOSE),
-)
+), handlers.parenthesized)
 
 this = expect(TokenType.THIS)
 
@@ -50,7 +51,7 @@ primary_expression = sequence(
     many(switch(attribute_expression, call_expression)),
 )
 
-unary_expression = sequence(many(expect(*unary_operations)), primary_expression)
+unary_expression = handled(sequence(many(expect(*unary_operations)), primary_expression), handlers.unary)
 
 multiplicative_expression = sequence(
     unary_expression,
@@ -172,4 +173,4 @@ package = sequence(
     many(statement),
 )
 
-script = many(switch(package, statement))
+script = handled(sequence(many(switch(package, statement)), end_of_stream), handlers.script)

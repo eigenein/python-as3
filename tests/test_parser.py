@@ -8,9 +8,10 @@ import pytest
 
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.parser import Parser
+from as3.parsers import parse
 from as3.runtime import default_globals
 from as3.scanner import Token
+from as3.syntax import expression
 
 
 @pytest.mark.parametrize('tokens, expected', [
@@ -85,7 +86,7 @@ from as3.scanner import Token
     ),
 ])
 def test_expression(tokens: List[Token], expected: Any):
-    actual = eval(compile(Expression(Parser(tokens).parse_expression()), '<ast>', 'eval'), {
+    actual = eval(compile(Expression(parse(tokens, expression)), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar')(bar=42),
     }, dict(default_globals))
     assert actual == expected, f'actual: {actual}'
@@ -102,4 +103,4 @@ def test_expression(tokens: List[Token], expected: Any):
 ])
 def test_expression_syntax_error(tokens: List[Token]):
     with pytest.raises(ASSyntaxError):
-        Parser(tokens).parse_expression()
+        parse(tokens, expression)

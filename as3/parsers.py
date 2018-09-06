@@ -1,5 +1,5 @@
 """
-Contains function that allow to construct syntax rules from a simpler ones.
+Parser functions that potentially accept any custom syntax.
 """
 
 from __future__ import annotations
@@ -16,13 +16,13 @@ THandler = Callable[..., T]
 TParser = Callable[[Peekable[Token]], T]
 
 
-def parse(with_parser: TParser[T], tokens: Iterable[Token]) -> T:
+def parse(tokens: Iterable[Token], with_parser: TParser[T]) -> T:
     return with_parser(Peekable(tokens))
 
 
 def sequence(*parsers: TParser[Any]) -> TParser[Tuple[Any, ...]]:
     """
-    Sequence of inner parsers. Result of each parser is captured and passed into the handler.
+    Sequence of inner parsers. Result of each parser is captured and all of them are returned in a tuple.
     """
     def parse_sequence(tokens: Peekable[Token]) -> T:
         return tuple(parser(tokens) for parser in parsers)
@@ -31,24 +31,23 @@ def sequence(*parsers: TParser[Any]) -> TParser[Tuple[Any, ...]]:
 
 def switch(*parsers: TParser[T]) -> TParser[T]:
     """
-    Specifies syntax alternatives.
-    Important: inner parsers must not advance the token iterator in case of unsuccess.
+    Equivalent of syntax rule "or" expression.
     """
     def parse_either(tokens: Peekable[Token]) -> T:
+        position = tokens.position
         for parser in parsers:
             try:
                 # First successful parser.
                 return parser(tokens)
             except ASSyntaxError:
-                continue
+                if tokens.position != position:
+                    raise  # parser advanced and then failed
         # All cases failed.
         try:
             token = tokens.peek()
         except StopIteration:
-            # Because of end of stream.
             raise ASSyntaxError(f'unexpected end of stream')
         else:
-            # Because the token is unexpected.
             raise ASSyntaxError(
                 f'unexpected {token.type_.name} "{token.value}"'
                 f' at line {token.line_number} position {token.position}'
@@ -59,34 +58,38 @@ def switch(*parsers: TParser[T]) -> TParser[T]:
 def maybe(parser: TParser[T]) -> TParser[Optional[T]]:
     """
     Specifies optional syntax construction.
-    Important: inner parser must not advance the token iterator in case of unsuccess.
     """
     def parse_optional(tokens: Peekable[T]) -> Optional[T]:
+        position = tokens.position
         try:
             return parser(tokens)
         except ASSyntaxError:
+            if tokens.position != position:
+                raise  # parser advanced and then failed
             return None
     return parse_optional
 
 
 def many(parser: TParser[T]) -> TParser[List[T]]:
     """
-    Many occurrences of the same syntax construct.
-    Important: inner parser must not advance the token iterator in case of unsuccess.
+    Zero to multiple repetitions of the same syntax expression.
     """
     def parse_many(tokens: Peekable[T]) -> List[T]:
         results: List[T] = []
         while True:
+            position = tokens.position
             try:
                 results.append(parser(tokens))
             except ASSyntaxError:
+                if tokens.position != position:
+                    raise  # parser advanced and then failed
                 return results
     return parse_many
 
 
 def expect(*types: TokenType) -> TParser[T]:
     """
-    Expect single token of one specified types.
+    Expects single token of one of specified types.
     """
     def parse_expected_token(tokens: Peekable[Token]) -> T:
         try:
@@ -105,10 +108,25 @@ def expect(*types: TokenType) -> TParser[T]:
     return parse_expected_token
 
 
+def end_of_stream(tokens: Peekable[Token]):
+    """
+    Expects end of stream. Used to handle not parsed leftovers properly.
+    """
+    try:
+        token = tokens.peek()
+    except StopIteration:
+        pass
+    else:
+        raise ASSyntaxError(
+            f'unexpected {token.type_.name} "{token.value}"'
+            f' at line {token.line_number} position {token.position},'
+            f' expected end of stream'
+        )
+
+
 def handled(parser: TParser[Any], with_handler: THandler[T]) -> TParser[T]:
     """
     Return handled result of inner parser.
-    TODO: see the note in `handlers.py`.
     """
     def handle_parsed(tokens: Peekable[Token]) -> T:
         return with_handler(parser(tokens))
