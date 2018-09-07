@@ -41,22 +41,26 @@ class ASTBuilder:
         self.node = node
 
     def call(self, with_token: Token, args: List[AST] = None) -> ASTBuilder:
-        return ASTBuilder(make_ast(with_token, ast.Call, func=self.node, args=(args or []), keywords=[]))
+        self.node = make_ast(with_token, ast.Call, func=self.node, args=(args or []), keywords=[])
+        return self
 
     def subscript(self, with_token: Token, index: AST) -> ASTBuilder:
-        return ASTBuilder(make_ast(
+        self.node = make_ast(
             with_token,
             ast.Subscript,
             value=self.node,
             slice=make_ast(with_token, ast.Index, value=index),
             ctx=ast.Load(),
-        ))
+        )
+        return self
 
     def attribute(self, with_token: Token, name: str) -> ASTBuilder:
-        return ASTBuilder(make_ast(with_token, ast.Attribute, value=self.node, attr=name, ctx=ast.Load()))
+        self.node = make_ast(with_token, ast.Attribute, value=self.node, attr=name, ctx=ast.Load())
+        return self
 
     def as_expression(self, with_token: Token) -> ASTBuilder:
-        return ASTBuilder(make_ast(with_token, ast.Expr, value=self.node))
+        self.node = make_ast(with_token, ast.Expr, value=self.node)
+        return self
 
     def assign(self, with_token: Token, value: AST) -> ASTBuilder:
         if not isinstance(self.node, ast.Assign):

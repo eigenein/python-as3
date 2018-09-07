@@ -23,12 +23,12 @@ parenthesized = handled(sequence(
     expect(TokenType.PARENTHESIS_CLOSE),
 ), handlers.parenthesized)
 
-this = expect(TokenType.THIS)
+this = handled(expect(TokenType.THIS), handlers.this)
 
-super_expression = sequence(expect(TokenType.SUPER), switch(
+super_expression = handled(sequence(expect(TokenType.SUPER), switch(
     lambda tokens: call_expression(tokens),
     lambda tokens: attribute_expression(tokens),
-))
+)), handlers.super_expression)
 
 terminal_or_parenthesized = switch(
     parenthesized,
@@ -39,17 +39,23 @@ terminal_or_parenthesized = switch(
     super_expression,
 )
 
-attribute_expression = sequence(expect(TokenType.DOT), identifier)
+attribute_expression = handled(sequence(expect(TokenType.DOT), identifier), handlers.attribute_expression)
 
-call_expression = sequence(
+call_argument = handled(sequence(
+    lambda tokens: non_assignment_expression(tokens),
+    maybe(expect(TokenType.COMMA)),
+), handlers.call_argument)
+
+call_expression = handled(sequence(
     expect(TokenType.PARENTHESIS_OPEN),
-    many(sequence(lambda tokens: non_assignment_expression(tokens), maybe(expect(TokenType.COMMA)))),
-)
+    many(call_argument),
+    expect(TokenType.PARENTHESIS_CLOSE),
+), handlers.call_expression)
 
-primary_expression = sequence(
+primary_expression = handled(sequence(
     terminal_or_parenthesized,
     many(switch(attribute_expression, call_expression)),
-)
+), handlers.primary_expression)
 
 unary_expression = handled(sequence(many(expect(*unary_operations)), primary_expression), handlers.unary)
 

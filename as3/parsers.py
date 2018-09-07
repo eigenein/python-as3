@@ -35,23 +35,18 @@ def switch(*parsers: TParser[T]) -> TParser[T]:
     """
     def parse_either(tokens: Peekable[Token]) -> T:
         position = tokens.position
+        errors: List[str] = []
         for parser in parsers:
             try:
                 # First successful parser.
+                # TODO: maybe also return which specific path succeeded.
                 return parser(tokens)
-            except ASSyntaxError:
+            except ASSyntaxError as ex:
                 if tokens.position != position:
                     raise  # parser advanced and then failed
+                errors.append(str(ex))
         # All cases failed.
-        try:
-            token = tokens.peek()
-        except StopIteration:
-            raise ASSyntaxError(f'unexpected end of stream')
-        else:
-            raise ASSyntaxError(
-                f'unexpected {token.type_.name} "{token.value}"'
-                f' at line {token.line_number} position {token.position}'
-            )
+        raise ASSyntaxError(f'syntax errors: {"; ".join(errors)}')
     return parse_either
 
 
