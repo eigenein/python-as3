@@ -22,6 +22,7 @@ from as3.runtime import ASAny, ASObject
 from as3.scanner import Token
 
 
+# FIXME: I feel that the context was not a good idea, so it's better to implement the same in some other way.
 @dataclass
 class Context:
     """
@@ -72,10 +73,9 @@ class Parser:
         """
         statements: List[AST] = []
         while self.tokens:
-            if self.is_type(TokenType.PACKAGE):
-                statements.extend(self.parse_package())
-            else:
-                statements.extend(self.parse_statement())
+            statements.extend(self.switch({
+                TokenType.PACKAGE: self.parse_package,
+            }, else_=self.parse_statement))
         return ast.Module(body=statements)
 
     def parse_package(self) -> Iterable[AST]:
@@ -267,7 +267,7 @@ class Parser:
         return self.switch({
             TokenType.ASSIGN: self.parse_chained_assignment_expression,
             TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
-        }, default=left, left=left)
+        }, else_=lambda **_: left, left=left)
 
     def parse_chained_assignment_expression(self, left: AST) -> AST:
         assignment_token = self.expect(TokenType.ASSIGN)
@@ -400,7 +400,7 @@ class Parser:
     TParserReturn = TypeVar('TParserReturn')
     TParser = Callable[..., TParserReturn]
 
-    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, default: TParserReturn = None, **kwargs) -> TParserReturn:
+    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, **kwargs) -> TParserReturn:
         """
         Behaves like a `switch` (`case`) operator and tries to match the current token against specified token types.
         If match is found, then the corresponding parser is called.
@@ -408,14 +408,11 @@ class Parser:
         Otherwise, `default` is returned if defined.
         Otherwise, syntax error is raised.
         """
-        assert not else_ or not default, "`else_` and `default` can't be used together"
         try:
             parser = cases[self.tokens.peek().type_]
         except (StopIteration, KeyError):
             if else_:
                 return else_(**kwargs)
-            if default:
-                return default
             self.raise_expected_error(*cases.keys())
         else:
             return parser(**kwargs)
