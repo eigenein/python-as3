@@ -14,8 +14,12 @@ from as3.runtime import default_globals
 from as3.scanner import scan
 
 
+def test_parse_expression():
+    pass  # TODO: scan and parse an expression and test generated AST with `ast.dump`.
+
+
 @mark.parametrize('expression, expected', expressions)
-def test_expression(expression: str, expected: Any):
+def test_evaluate_expression(expression: str, expected: Any):
     actual = eval(compile(Expression(Parser(scan(expression)).parse_expression()), '<ast>', 'eval'), {
         **default_globals,
         'foo': namedtuple('Foo', 'bar baz')(bar=42, baz=2),

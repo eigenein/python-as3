@@ -85,7 +85,7 @@ from as3.syntax import expression
         -42,
     ),
 ])
-def test_expression(tokens: List[Token], expected: Any):
+def test_evaluate_expression(tokens: List[Token], expected: Any):
     actual = eval(compile(Expression(parse(tokens, expression)), '<ast>', 'eval'), {
         'foo': namedtuple('Foo', 'bar')(bar=42),
     }, dict(default_globals))
@@ -101,6 +101,6 @@ def test_expression(tokens: List[Token], expected: Any):
         Token(TokenType.PLUS, '+', 0, 0),
     ],
 ])
-def test_expression_syntax_error(tokens: List[Token]):
+def test_parse_expression_syntax_error(tokens: List[Token]):
     with pytest.raises(ASSyntaxError):
         parse(tokens, expression)
