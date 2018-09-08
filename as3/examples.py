@@ -97,6 +97,7 @@ scripts: List[Tuple[str, dict]] = [
 bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
+    param('42 +', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),

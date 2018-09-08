@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 from ast import AST
-from typing import List, Type, Any
+from typing import Any, List, Type
 
 import as3.parser
 from as3.constants import augmented_assign_operations, binary_operations, compare_operations, unary_operations
