@@ -7,7 +7,7 @@ T = TypeVar('T')
 
 
 class Peekable(Iterable[T]):
-    def __init__(self, iterable: Iterable[T]):
+    def __init__(self, iterable: Iterable[T]) -> None:
         self.iterator = iter(iterable)
         self.cache: Deque[T] = deque()
 

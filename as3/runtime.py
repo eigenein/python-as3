@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import inspect
 import math
+from typing import Any
 
 from as3.constants import this_name
 
@@ -16,7 +17,7 @@ class ASObject:
     Base class for all built ActionScript classes. Also known as `Object`.
     """
 
-    __default__ = None
+    __default__: Any = None
 
 
 class ASAny(ASObject):

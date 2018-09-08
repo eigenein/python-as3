@@ -1,5 +1,5 @@
 import ast
-from typing import Any, Dict
+from typing import Dict
 
 from as3.enums import TokenType
 
@@ -41,11 +41,6 @@ augmented_assign_operations: Dict[TokenType, ast.AST] = {
 
 compare_operations: Dict[TokenType, ast.AST] = {
     TokenType.NOT_EQUALS: ast.NotEq(),
-}
-
-name_constants: Dict[TokenType, Any] = {
-    TokenType.TRUE: True,
-    TokenType.FALSE: False,
 }
 
 # `__this__` may be an instance _or_ a class itself.

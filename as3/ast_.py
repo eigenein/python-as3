@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 from ast import AST
-from typing import List, Optional, Type
+from typing import List, Type, Any
 
 import as3.parser
 from as3.constants import augmented_assign_operations, binary_operations, compare_operations, unary_operations
@@ -37,7 +37,11 @@ class ASTBuilder:
     def number(cls, with_token: Token) -> ASTBuilder:
         return ASTBuilder(make_ast(with_token, ast.Num, n=int(with_token.value)))
 
-    def __init__(self, node: Optional[AST]):
+    @classmethod
+    def name_constant(cls, with_token: Token, value: Any) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.NameConstant, value=value))
+
+    def __init__(self, node: AST) -> None:
         self.node = node
 
     def call(self, with_token: Token, args: List[AST] = None) -> ASTBuilder:
@@ -72,7 +76,7 @@ class ASTBuilder:
             set_store_context(with_token, self.node.value)
             self.node.targets.append(self.node.value)
             # Value at the right becomes the assigned value.
-            self.node.value = value
+            self.node.value = value  # type: ignore
         return self
 
     def aug_assign(self, with_token: Token, value: AST) -> ASTBuilder:
@@ -110,7 +114,7 @@ def make_ast(with_token: Token, init: Type[AST], **kwargs) -> AST:
 def set_store_context(with_token: Token, node: AST) -> AST:
     if not hasattr(node, 'ctx'):
         as3.parser.raise_syntax_error(f"{ast.dump(node)} can't be assigned to", with_token)
-    node.ctx = ast.Store()
+    node.ctx = ast.Store()  # type: ignore
     return node
 
 

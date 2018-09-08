@@ -8,3 +8,4 @@ install:
 script:
   - pytest
   - isort --check-only --diff
+  - mypy --package as3

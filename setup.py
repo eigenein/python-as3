@@ -12,7 +12,6 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=['tests']),
     python_requires='>=3.7',
     install_requires=[
-        'more-itertools>=4.3.0,<5.0.0',
         'click>=6.7,<7.0',
         'prompt-toolkit>=2.0.4,<2.1.0',
     ],

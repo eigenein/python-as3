@@ -4,7 +4,7 @@ import ast
 from ast import AST
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, TypeVar
+from typing import Callable, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar
 
 from as3.ast_ import (
     ASTBuilder,
@@ -43,7 +43,7 @@ class ConstructorContext:
 
 
 class Parser:
-    def __init__(self, tokens: Iterable[Token]):
+    def __init__(self, tokens: Iterable[Token]) -> None:
         self.tokens = Peekable(filter_tokens(tokens))
         self.context_stack = [Context()]
 
@@ -55,7 +55,7 @@ class Parser:
         return self.context_stack[-1]
 
     @contextmanager
-    def push_context(self) -> ContextManager[Context]:
+    def push_context(self) -> Iterator[Context]:
         context = self.context.make_inner()
         self.context_stack.append(context)
         try:
@@ -82,7 +82,7 @@ class Parser:
         self.expect(TokenType.PACKAGE)
         package_name = tuple(self.parse_qualified_name()) if self.is_type(TokenType.IDENTIFIER) else ()
         with self.push_context() as context:
-            context.package_name = package_name  # FIXME: `package_name` is not tuple.
+            context.package_name = package_name  # type: ignore
             yield from self.parse_statement()
         # TODO: export public members.
 
@@ -113,15 +113,16 @@ class Parser:
             body=constructor.internal_body,
         )
         if constructor.node is not None:
-            assert constructor.node.args.args[0].arg == this_name
-            init_node.args.args.extend(constructor.node.args.args[1:])  # avoid adding `__this__` twice
-            init_node.body.extend(constructor.node.body)
+            assert constructor.node.args.args[0].arg == this_name  # type: ignore
+            # Avoid adding `__this__` twice.
+            init_node.args.args.extend(constructor.node.args.args[1:])  # type: ignore
+            init_node.body.extend(constructor.node.body)  # type: ignore
         body.append(init_node)
 
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
     def parse_statement(self) -> Iterable[AST]:
-        yield from self.switch({
+        yield from self.switch({  # type: ignore
             TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
             TokenType.IMPORT: self.parse_import,
             TokenType.CLASS: self.parse_class,
@@ -194,7 +195,7 @@ class Parser:
                 .attribute(name_token, name_token.value) \
                 .assign(name_token, value) \
                 .node
-            self.context.constructor.internal_body.append(node)
+            self.context.constructor.internal_body.append(node)  # type: ignore
 
     def parse_type_annotation(self) -> AST:
         if self.is_type(TokenType.MULTIPLY):
@@ -210,7 +211,7 @@ class Parser:
         if not self.skip(TokenType.SEMICOLON):
             value = self.parse_expression()
         else:
-            value = None
+            value = ASTBuilder.name_constant(return_token, None).node
         yield ASTBuilder(value).return_(return_token).node
 
     def parse_function_definition(self) -> Iterable[AST]:
@@ -222,21 +223,21 @@ class Parser:
         if self.context.class_name:
             # Then, `__this__` is available in the function.
             # TODO: wrap with `@classmethod` if `static`.
-            node.args.args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))
+            node.args.args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))  # type: ignore
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             name_token = self.expect(TokenType.IDENTIFIER)
-            node.args.args.append(make_argument(name_token, name_token.value))
+            node.args.args.append(make_argument(name_token, name_token.value))  # type: ignore
             if self.skip(TokenType.COLON):
                 type_ = self.parse_type_annotation()
             else:
                 type_ = ASTBuilder.name(name_token, ASAny.__name__).node
             if self.skip(TokenType.ASSIGN):
-                node.args.defaults.append(self.parse_non_assignment_expression())
+                node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:
-                node.args.defaults.append(make_type_default_value(name_token, type_))
+                node.args.defaults.append(make_type_default_value(name_token, type_))  # type: ignore
             self.skip(TokenType.COMMA)
 
         # Skip return type.
@@ -246,10 +247,10 @@ class Parser:
         # Parse body.
         with self.push_context() as context:
             context.class_name = None  # prevent inner functions from being methods
-            node.body.extend(self.parse_statement())
+            node.body.extend(self.parse_statement())  # type: ignore
 
         if name == self.context.class_name:
-            self.context.constructor.node = node
+            self.context.constructor.node = node  # type: ignore
         else:
             yield node
 
@@ -272,7 +273,7 @@ class Parser:
         assignment_token = self.expect(TokenType.ASSIGN)
         builder = ASTBuilder(left).assign(assignment_token, self.parse_non_assignment_expression())
         while self.is_type(TokenType.ASSIGN):
-            assignment_token: Token = next(self.tokens)
+            assignment_token = next(self.tokens)
             builder.assign(assignment_token, self.parse_non_assignment_expression())
         return builder.node
 
@@ -341,9 +342,9 @@ class Parser:
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.INTEGER: self.parse_integer_expression,
             TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.TRUE: lambda **_: make_ast(self.expect(TokenType.TRUE), ast.NameConstant, value=True),
-            TokenType.FALSE: lambda **_: make_ast(self.expect(TokenType.FALSE), ast.NameConstant, value=False),
-            TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
+            TokenType.TRUE: lambda: ASTBuilder.name_constant(next(self.tokens), True).node,
+            TokenType.FALSE: lambda: ASTBuilder.name_constant(next(self.tokens), False).node,
+            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
             TokenType.SUPER: self.parse_super_expression,
         })
 
@@ -376,7 +377,7 @@ class Parser:
         builder = ASTBuilder.identifier(super_token).call(super_token)
         if self.is_type(TokenType.PARENTHESIS_OPEN):
             # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
-            self.context.constructor.is_super_called = True
+            self.context.constructor.is_super_called = True  # type: ignore
             return self.parse_call_expression(builder.attribute(super_token, init_name).node)
         if self.is_type(TokenType.DOT):
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
