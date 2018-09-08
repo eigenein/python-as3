@@ -86,8 +86,9 @@ from as3.scanner import Token
 ])
 def test_evaluate_expression(tokens: List[Token], expected: Any):
     actual = eval(compile(Expression(Parser(tokens).parse_expression()), '<ast>', 'eval'), {
+        **default_globals,
         'foo': namedtuple('Foo', 'bar')(bar=42),
-    }, dict(default_globals))
+    })
     assert actual == expected, f'actual: {actual}'
 
 
