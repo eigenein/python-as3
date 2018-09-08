@@ -14,7 +14,6 @@ from as3.runtime import ASAny, ASObject
 from as3.scanner import Token
 
 
-# FIXME: I feel that the context was not a good idea, so it's better to implement the same in some other way.
 @dataclass
 class Context:
     """
@@ -41,6 +40,7 @@ class Parser:
         self.context_stack = [Context()]
 
     # Context helpers.
+    # FIXME: I feel that the context was not a good idea, so it's better to implement the same in some other way.
     # ------------------------------------------------------------------------------------------------------------------
 
     @property
@@ -78,6 +78,7 @@ class Parser:
             yield from self.parse_statement()
         # TODO: export public members.
 
+    # FIXME: move AST construction to the builder.
     def parse_class(self) -> Iterable[ast.AST]:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
@@ -159,6 +160,7 @@ class Parser:
         or_else = list(self.parse_statement()) if self.tokens.skip(TokenType.ELSE) else []
         yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
+    # FIXME: move AST construction to the builder.
     def parse_variable_definition(self) -> Iterable[ast.AST]:
         # TODO: should accept modifiers.
         self.expect(TokenType.VAR)
@@ -201,6 +203,7 @@ class Parser:
             builder = AST.name_constant(return_token, None)
         yield builder.return_it(return_token).node
 
+    # FIXME: move AST construction to the builder.
     def parse_function_definition(self) -> Iterable[ast.AST]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
