@@ -41,6 +41,33 @@ class ASTBuilder:
     def name_constant(cls, with_token: Token, value: Any) -> ASTBuilder:
         return ASTBuilder(make_ast(with_token, ast.NameConstant, value=value))
 
+    @classmethod
+    def script(cls, statements: List[AST]) -> ASTBuilder:
+        return ASTBuilder(ast.Module(body=statements))
+
+    @classmethod
+    def argument(cls, with_token: Token, name: str) -> ASTBuilder:
+        return ASTBuilder(make_ast(with_token, ast.arg, arg=name, annotation=None))
+
+    @classmethod
+    def super_constructor_call(cls, with_token: Token) -> ASTBuilder:
+        """
+        `super().__init__()`
+        """
+        return ASTBuilder \
+            .name(with_token, 'super') \
+            .call(with_token) \
+            .attribute(with_token, '__init__') \
+            .call(with_token) \
+            .as_expression(with_token)
+
+    @classmethod
+    def type_default_value(cls, with_token: Token, type_node: AST) -> ASTBuilder:
+        """
+        `type_.__default__`
+        """
+        return ASTBuilder(type_node).attribute(with_token, '__default__')
+
     def __init__(self, node: AST) -> None:
         self.node = node
 
@@ -118,22 +145,6 @@ def set_store_context(with_token: Token, node: AST) -> AST:
     return node
 
 
-def make_type_default_value(with_token: Token, type_node: AST) -> AST:
-    # `type_.__default__`
-    return ASTBuilder(type_node).attribute(with_token, '__default__').node
-
-
-def make_super_constructor_call(with_token: Token) -> AST:
-    # `super().__init__()`
-    return ASTBuilder \
-        .name(with_token, 'super') \
-        .call(with_token) \
-        .attribute(with_token, '__init__') \
-        .call(with_token) \
-        .as_expression(with_token) \
-        .node
-
-
 def make_function(
     with_token: Token,
     name: str,
@@ -158,7 +169,3 @@ def make_function(
         decorator_list=(decorators or []),
         returns=None,
     )
-
-
-def make_argument(with_token: Token, name: str) -> AST:
-    return make_ast(with_token, ast.arg, arg=name, annotation=None)

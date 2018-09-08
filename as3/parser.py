@@ -6,14 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar
 
-from as3.ast_ import (
-    ASTBuilder,
-    make_argument,
-    make_ast,
-    make_function,
-    make_super_constructor_call,
-    make_type_default_value,
-)
+from as3.ast_ import ASTBuilder, make_ast, make_function
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
@@ -76,7 +69,7 @@ class Parser:
             statements.extend(self.switch({
                 TokenType.PACKAGE: self.parse_package,
             }, else_=self.parse_statement))
-        return ast.Module(body=statements)
+        return ASTBuilder.script(statements).node
 
     def parse_package(self) -> Iterable[AST]:
         self.expect(TokenType.PACKAGE)
@@ -103,13 +96,13 @@ class Parser:
             constructor = context.constructor = ConstructorContext()
             body = list(self.parse_statement())
             if not constructor.is_super_called:
-                constructor.internal_body.insert(0, make_super_constructor_call(class_token))
+                constructor.internal_body.insert(0, ASTBuilder.super_constructor_call(class_token).node)
 
         # Add `__init__`.
         init_node = make_function(
             class_token,
             name=init_name,
-            args=[make_argument(class_token, this_name)],
+            args=[ASTBuilder.argument(class_token, this_name).node],
             body=constructor.internal_body,
         )
         if constructor.node is not None:
@@ -183,7 +176,7 @@ class Parser:
         if self.skip(TokenType.ASSIGN):
             value = self.parse_non_assignment_expression()
         else:
-            value = make_type_default_value(name_token, type_)
+            value = ASTBuilder.type_default_value(name_token, type_).node
         if not self.context.class_name:
             # TODO: static fields, they now fall under `else`.
             # It's a normal variable or a static "field". So just assign the value and that's it.
@@ -229,7 +222,7 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_OPEN)
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
             name_token = self.expect(TokenType.IDENTIFIER)
-            node.args.args.append(make_argument(name_token, name_token.value))  # type: ignore
+            node.args.args.append(ASTBuilder.argument(name_token, name_token.value).node)  # type: ignore
             if self.skip(TokenType.COLON):
                 type_ = self.parse_type_annotation()
             else:
@@ -237,7 +230,7 @@ class Parser:
             if self.skip(TokenType.ASSIGN):
                 node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:
-                node.args.defaults.append(make_type_default_value(name_token, type_))  # type: ignore
+                node.args.defaults.append(ASTBuilder.type_default_value(name_token, type_).node)  # type: ignore
             self.skip(TokenType.COMMA)
 
         # Skip return type.
