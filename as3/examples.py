@@ -11,8 +11,6 @@ from pytest import mark, param
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny, ASInteger
 
-strict_xfail = mark.xfail(strict=True)
-
 # FIXME: arithmetic operations still return normal `int` instead of `ASInteger`.
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
@@ -97,8 +95,8 @@ scripts: List[Tuple[str, dict]] = [
 ]
 
 bad_scripts: List = [
-    param('var a = 42; { var a = 43; } ', {'a': 42}, marks=strict_xfail),
-    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=strict_xfail),
+    param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
+    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),

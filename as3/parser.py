@@ -1,7 +1,3 @@
-"""
-TODO: deprecated in favor of `parsers.py` and `syntax.py`.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -10,10 +6,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Callable, ContextManager, Dict, Iterable, List, NoReturn, Optional, TypeVar
 
-# FIXME: get rid of `more_itertools`.
-from more_itertools import consume, peekable
-
-from as3 import syntax
 from as3.ast_ import (
     ASTBuilder,
     make_argument,
@@ -25,6 +17,7 @@ from as3.ast_ import (
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
+from as3.itertools_ import Peekable
 from as3.runtime import ASAny, ASObject
 from as3.scanner import Token
 
@@ -51,7 +44,7 @@ class ConstructorContext:
 
 class Parser:
     def __init__(self, tokens: Iterable[Token]):
-        self.tokens = peekable(filter_tokens(tokens))
+        self.tokens = Peekable(filter_tokens(tokens))
         self.context_stack = [Context()]
 
     # Context helpers.
@@ -128,7 +121,6 @@ class Parser:
         yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
 
     def parse_statement(self) -> Iterable[AST]:
-        consume(self.parse_modifiers())  # FIXME: should only be allowed in some contexts
         yield from self.switch({
             TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
             TokenType.IMPORT: self.parse_import,
@@ -163,13 +155,6 @@ class Parser:
         yield self.expect(TokenType.IDENTIFIER).value
         while self.skip(TokenType.DOT):
             yield self.expect(TokenType.IDENTIFIER).value
-
-    def parse_modifiers(self) -> Iterable[TokenType]:
-        """
-        Parse modifiers like `public` and `static`.
-        """
-        while self.is_type(TokenType.STATIC, TokenType.PUBLIC, TokenType.OVERRIDE):
-            yield self.tokens.next().type_
 
     def parse_import(self) -> Iterable[AST]:
         self.expect(TokenType.IMPORT)
@@ -213,7 +198,7 @@ class Parser:
 
     def parse_type_annotation(self) -> AST:
         if self.is_type(TokenType.MULTIPLY):
-            return ASTBuilder.name(self.tokens.next(), ASAny.__name__).node
+            return ASTBuilder.name(next(self.tokens), ASAny.__name__).node
         return self.parse_primary_expression()
 
     def parse_semicolon(self) -> Iterable[AST]:
@@ -287,7 +272,7 @@ class Parser:
         assignment_token = self.expect(TokenType.ASSIGN)
         builder = ASTBuilder(left).assign(assignment_token, self.parse_non_assignment_expression())
         while self.is_type(TokenType.ASSIGN):
-            assignment_token: Token = self.tokens.next()
+            assignment_token: Token = next(self.tokens)
             builder.assign(assignment_token, self.parse_non_assignment_expression())
         return builder.node
 
@@ -324,7 +309,7 @@ class Parser:
 
     def parse_unary_expression(self) -> AST:
         if self.is_type(*unary_operations):
-            token: Token = self.tokens.next()
+            token: Token = next(self.tokens)
             return ASTBuilder(self.parse_unary_expression()).unary_operation(token).node
         return self.parse_primary_expression()
 
@@ -347,17 +332,17 @@ class Parser:
         call_token = self.expect(TokenType.PARENTHESIS_OPEN)
         args: List[AST] = []
         while not self.skip(TokenType.PARENTHESIS_CLOSE):
-            args.append(self.parse_assignment_expression())
+            args.append(self.parse_non_assignment_expression())
             self.skip(TokenType.COMMA)
         return ASTBuilder(left).call(call_token, args).node
 
     def parse_terminal_or_parenthesized(self) -> AST:
         return self.switch({
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
-            TokenType.INTEGER: lambda: syntax.integer(self.tokens),
-            TokenType.IDENTIFIER: lambda: syntax.name(self.tokens),
-            TokenType.TRUE: lambda: syntax.name_constant(self.tokens),
-            TokenType.FALSE: lambda: syntax.name_constant(self.tokens),
+            TokenType.INTEGER: self.parse_integer_expression,
+            TokenType.IDENTIFIER: self.parse_name_expression,
+            TokenType.TRUE: lambda **_: make_ast(self.expect(TokenType.TRUE), ast.NameConstant, value=True),
+            TokenType.FALSE: lambda **_: make_ast(self.expect(TokenType.FALSE), ast.NameConstant, value=False),
             TokenType.THIS: lambda **_: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
             TokenType.SUPER: self.parse_super_expression,
         })
@@ -367,6 +352,24 @@ class Parser:
         inner = self.parse_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return inner
+
+    def parse_integer_expression(self) -> AST:
+        value_token = self.expect(TokenType.INTEGER)
+        # `int(42)`
+        return ASTBuilder.name(value_token, 'int') \
+            .call(value_token, args=[ASTBuilder.number(value_token).node]) \
+            .node
+
+    def parse_name_expression(self) -> AST:
+        name_token = self.expect(TokenType.IDENTIFIER)
+
+        # Build `__resolve__(name)[name]`. See also `as3.runtime.__resolve__`.
+        name_node = ASTBuilder.string(name_token).node
+        return ASTBuilder \
+            .name(name_token, '__resolve__') \
+            .call(name_token, [name_node]) \
+            .subscript(name_token, name_node) \
+            .node
 
     def parse_super_expression(self) -> AST:
         super_token = self.expect(TokenType.SUPER)
@@ -386,7 +389,7 @@ class Parser:
     def parse_binary_operations(self, child_parser: Callable[[], AST], *types: TokenType) -> AST:
         builder = ASTBuilder(child_parser())
         while self.is_type(*types):
-            token: Token = self.tokens.next()
+            token: Token = next(self.tokens)
             builder.binary_operation(token, child_parser())
         return builder.node
 
@@ -422,21 +425,24 @@ class Parser:
         Raise syntax error if the current token has an unexpected type.
         """
         if self.is_type(*types):
-            return self.tokens.next()
+            return next(self.tokens)
         self.raise_expected_error(*types)
 
     def is_type(self, *types: TokenType) -> bool:
         """
         Check the current token type.
         """
-        return self.tokens and self.tokens.peek().type_ in types
+        try:
+            return self.tokens.peek().type_ in types
+        except StopIteration:
+            return False
 
     def skip(self, *types: TokenType) -> bool:
         """
         Check the current token type and skip it if matches.
         """
         if self.is_type(*types):
-            self.tokens.next()
+            next(self.tokens)
             return True
         return False
 
@@ -445,10 +451,12 @@ class Parser:
         Raise syntax error with the list of expected types in the message.
         """
         types_string = ', '.join(type_.name for type_ in types)
-        if not self.tokens:
+        try:
+            token = self.tokens.peek()
+        except StopIteration:
             raise_syntax_error(f'unexpected end of file, expected one of: {types_string}')
-        token: Token = self.tokens.peek()
-        raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
+        else:
+            raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
 
 
 def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:

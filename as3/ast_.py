@@ -87,7 +87,6 @@ class ASTBuilder:
         return self
 
     def binary_operation(self, with_token: Token, right: AST) -> ASTBuilder:
-        # TODO: casting: `1 + '1'`, `1 == '1'` etc.
         type_ = with_token.type_
         if type_ in binary_operations:
             self.node = make_ast(with_token, ast.BinOp, left=self.node, op=binary_operations[type_], right=right)

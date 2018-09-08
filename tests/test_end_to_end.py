@@ -4,7 +4,7 @@ from ast import Expression
 from collections import namedtuple
 from typing import Any, Dict
 
-from pytest import mark, raises
+from pytest import mark, param, raises
 
 from as3 import execute_script
 from as3.examples import bad_scripts, expressions, scripts
@@ -12,10 +12,6 @@ from as3.exceptions import ASSyntaxError
 from as3.parser import Parser
 from as3.runtime import default_globals
 from as3.scanner import scan
-
-
-def test_parse_expression():
-    pass  # TODO: scan and parse an expression and test generated AST with `ast.dump`.
 
 
 @mark.parametrize('expression, expected', expressions)
@@ -53,10 +49,10 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
 
 
 @mark.parametrize('script', [
-    'a = 1',
-    '{ var a = 42; } trace(a);',
-    '{ var a = 42; } a = 43;',
+    param('a = 1'),
+    param('{ var a = 42; } trace(a);', marks=mark.xfail),
+    param('{ var a = 42; } a = 43;', marks=mark.xfail),
 ])
 def test_execute_script_name_error(script: str):
     with raises(NameError):
-        execute_script(script, '<ast>')
+        execute_script(script, '<ast>', dict(default_globals))

@@ -10,17 +10,21 @@ class Peekable(Iterable[T]):
     def __init__(self, iterable: Iterable[T]):
         self.iterator = iter(iterable)
         self.cache: Deque[T] = deque()
-        self.position = 0
 
     def __iter__(self) -> Iterator[T]:
         return self
 
     def __next__(self) -> T:
         self.peek()
-        self.position += 1
         return self.cache.popleft()
 
-    next = __next__
+    def __bool__(self):
+        try:
+            self.peek()
+        except StopIteration:
+            return False
+        else:
+            return True
 
     def peek(self) -> T:
         if not self.cache:
