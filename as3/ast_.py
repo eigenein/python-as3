@@ -126,6 +126,16 @@ class AST:
 
         return AST(make_ast(with_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[]))
 
+    @classmethod
+    def field_initializer(cls, with_token: Token, value: ast.AST) -> AST:
+        """
+        `__this__.with_token = node`.
+        """
+        return cls \
+            .name(with_token, this_name) \
+            .attribute(with_token, with_token.value) \
+            .assign(with_token, value)
+
     def __init__(self, node: ast.AST) -> None:
         self.node = node
 

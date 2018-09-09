@@ -135,12 +135,8 @@ class Parser:
             # It's a normal variable or a static "field". So just assign the value and that's it.
             yield AST.identifier(name_token).assign(name_token, value).node
         else:
-            # We'll initialize it later in `__init__`: `__this__.field = value`.
-            node = AST \
-                .name(name_token, this_name) \
-                .attribute(name_token, name_token.value) \
-                .assign(name_token, value) \
-                .node
+            # We'll initialize it later in `__init__`.
+            node = AST.field_initializer(name_token, value).node
             self.context.constructor.internal_body.append(node)  # type: ignore
 
     def parse_type_annotation(self) -> ast.AST:
