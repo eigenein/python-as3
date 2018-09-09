@@ -5,10 +5,19 @@ Wrappers around standard `ast` module.
 from __future__ import annotations
 
 import ast
-from typing import Any, List, Type
+from typing import Any, List, Optional, Type
 
 import as3.parser
-from as3.constants import augmented_assign_operations, binary_operations, compare_operations, unary_operations
+from as3.constants import (
+    augmented_assign_operations,
+    binary_operations,
+    compare_operations,
+    init_name,
+    this_name,
+    unary_operations,
+)
+from as3.context import ConstructorContext
+from as3.runtime import ASObject
 from as3.scanner import Token, TokenType
 
 
@@ -87,6 +96,35 @@ class AST:
             .name(with_token, '__resolve__') \
             .call(with_token, [name_node]) \
             .subscript(with_token, name_node)
+
+    @classmethod
+    def class_(
+        cls,
+        *,
+        with_token: Token,
+        name: str,
+        base: Optional[ast.AST],
+        body: List[ast.AST],
+        constructor: ConstructorContext,
+    ) -> AST:
+        bases = [base if base else AST.name(with_token, ASObject.__name__).node]
+
+        if not constructor.is_super_called:
+            constructor.internal_body.insert(0, AST.super_constructor_call(with_token).node)
+        init_node = make_function(
+            with_token,
+            name=init_name,
+            args=[AST.argument(with_token, this_name).node],
+            body=constructor.internal_body,
+        )
+        if constructor.node is not None:
+            assert constructor.node.args.args[0].arg == this_name  # type: ignore
+            # Avoid adding `__this__` twice.
+            init_node.args.args.extend(constructor.node.args.args[1:])  # type: ignore
+            init_node.body.extend(constructor.node.body)  # type: ignore
+        body.append(init_node)
+
+        return AST(make_ast(with_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[]))
 
     def __init__(self, node: ast.AST) -> None:
         self.node = node

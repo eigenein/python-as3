@@ -3,35 +3,15 @@ from __future__ import annotations
 import ast
 from collections import deque
 from contextlib import contextmanager
-from dataclasses import dataclass, field, replace
 from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar
 
 from as3.ast_ import AST, make_ast, make_function
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
+from as3.context import ConstructorContext, Context
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASAny, ASObject
+from as3.runtime import ASAny
 from as3.scanner import Token
-
-
-@dataclass
-class Context:
-    """
-    Represents the current parser context.
-    """
-    package_name: Optional[str] = None
-    class_name: Optional[str] = None
-    constructor: Optional[ConstructorContext] = None
-
-    def make_inner(self) -> Context:
-        return replace(self)
-
-
-@dataclass
-class ConstructorContext:
-    internal_body: List[ast.AST] = field(default_factory=list)
-    node: Optional[ast.AST] = None
-    is_super_called: bool = False
 
 
 class Parser:
@@ -78,41 +58,18 @@ class Parser:
             yield from self.parse_statement()
         # TODO: export public members.
 
-    # FIXME: move AST construction to the builder.
     def parse_class(self) -> Iterable[ast.AST]:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
 
-        # Inheritance: `extends`.
-        if self.tokens.skip(TokenType.EXTENDS):
-            bases = [self.parse_primary_expression()]
-        else:
-            # Inherit from `ASObject` if no explicit bases.
-            bases = [AST.name(class_token, ASObject.__name__).node]
+        base: Optional[ast.AST] = self.parse_primary_expression() if self.tokens.skip(TokenType.EXTENDS) else None
 
-        # Parse body.
         with self.push_context() as context:
             context.class_name = name
             constructor = context.constructor = ConstructorContext()
             body = list(self.parse_statement())
-            if not constructor.is_super_called:
-                constructor.internal_body.insert(0, AST.super_constructor_call(class_token).node)
 
-        # Add `__init__`.
-        init_node = make_function(
-            class_token,
-            name=init_name,
-            args=[AST.argument(class_token, this_name).node],
-            body=constructor.internal_body,
-        )
-        if constructor.node is not None:
-            assert constructor.node.args.args[0].arg == this_name  # type: ignore
-            # Avoid adding `__this__` twice.
-            init_node.args.args.extend(constructor.node.args.args[1:])  # type: ignore
-            init_node.body.extend(constructor.node.body)  # type: ignore
-        body.append(init_node)
-
-        yield make_ast(class_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[])
+        yield AST.class_(with_token=class_token, name=name, base=base, body=body, constructor=constructor).node
 
     def parse_statement(self) -> Iterable[ast.AST]:
         yield from self.switch({  # type: ignore
