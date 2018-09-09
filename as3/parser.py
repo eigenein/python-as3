@@ -2,39 +2,19 @@ from __future__ import annotations
 
 import ast
 from collections import deque
-from contextlib import contextmanager
-from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar
+from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
 from as3.ast_ import AST, make_ast, make_function
 from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
-from as3.context import ConstructorContext, Context
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
-from as3.scanner import Token
+from as3.scanner import Location, Token
 
 
 class Parser:
     def __init__(self, tokens: Iterable[Token]) -> None:
         self.tokens = Peekable(filter_tokens(tokens))
-        self.context_stack = [Context()]
-
-    # Context helpers.
-    # FIXME: I feel that the context was not a good idea, so it's better to implement the same in some other way.
-    # ------------------------------------------------------------------------------------------------------------------
-
-    @property
-    def context(self) -> Context:
-        return self.context_stack[-1]
-
-    @contextmanager
-    def push_context(self) -> Iterator[Context]:
-        context = self.context.make_inner()
-        self.context_stack.append(context)
-        try:
-            yield context
-        finally:
-            self.context_stack.pop()
 
     # Rules.
     # ------------------------------------------------------------------------------------------------------------------
@@ -53,23 +33,15 @@ class Parser:
     def parse_package(self) -> Iterable[ast.AST]:
         self.expect(TokenType.PACKAGE)
         package_name = tuple(self.parse_qualified_name()) if self.tokens.is_type(TokenType.IDENTIFIER) else ()
-        with self.push_context() as context:
-            context.package_name = package_name  # type: ignore
-            yield from self.parse_statement()
+        yield from self.parse_statement()
         # TODO: export public members.
 
     def parse_class(self) -> Iterable[ast.AST]:
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
-
         base: Optional[ast.AST] = self.parse_primary_expression() if self.tokens.skip(TokenType.EXTENDS) else None
-
-        with self.push_context() as context:
-            context.class_name = name
-            constructor = context.constructor = ConstructorContext()
-            body = list(self.parse_statement())
-
-        yield AST.class_(with_token=class_token, name=name, base=base, body=body, constructor=constructor).node
+        body = list(self.parse_statement())
+        yield AST.class_(location=class_token, name=name, base=base, body=body).node
 
     def parse_statement(self) -> Iterable[ast.AST]:
         yield from self.switch({  # type: ignore
@@ -117,9 +89,7 @@ class Parser:
         or_else = list(self.parse_statement()) if self.tokens.skip(TokenType.ELSE) else []
         yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
-    # FIXME: move AST construction to the builder.
     def parse_variable_definition(self) -> Iterable[ast.AST]:
-        # TODO: should accept modifiers.
         self.expect(TokenType.VAR)
         name_token = self.expect(TokenType.IDENTIFIER)
         if self.tokens.skip(TokenType.COLON):
@@ -130,14 +100,8 @@ class Parser:
             value = self.parse_non_assignment_expression()
         else:
             value = AST.type_default_value(name_token, type_).node
-        if not self.context.class_name:
-            # TODO: static fields, they now fall under `else`.
-            # It's a normal variable or a static "field". So just assign the value and that's it.
-            yield AST.identifier(name_token).assign(name_token, value).node
-        else:
-            # We'll initialize it later in `__init__`.
-            node = AST.field_initializer(name_token, value).node
-            self.context.constructor.internal_body.append(node)  # type: ignore
+        # TODO: static fields.
+        yield AST.identifier(name_token).assign(name_token, value).node
 
     def parse_type_annotation(self) -> ast.AST:
         if self.tokens.is_type(TokenType.MULTIPLY):
@@ -156,17 +120,10 @@ class Parser:
             builder = AST.name_constant(return_token, None)
         yield builder.return_it(return_token).node
 
-    # FIXME: move AST construction to the builder.
-    def parse_function_definition(self) -> Iterable[ast.AST]:
+    def parse_function_definition(self) -> Iterable[ast.FunctionDef]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
         node = make_function(function_token, name=name)
-
-        # Is it a method?
-        if self.context.class_name:
-            # Then, `__this__` is available in the function.
-            # TODO: wrap with `@classmethod` if `static`.
-            node.args.args.append(ast.arg(arg=this_name, annotation=None, lineno=function_token.line_number, col_offset=0))  # type: ignore
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
@@ -188,14 +145,9 @@ class Parser:
             self.parse_non_assignment_expression()
 
         # Parse body.
-        with self.push_context() as context:
-            context.class_name = None  # prevent inner functions from being methods
-            node.body.extend(self.parse_statement())  # type: ignore
+        node.body.extend(cast(List[ast.stmt], self.parse_statement()))
 
-        if name == self.context.class_name:
-            self.context.constructor.node = node  # type: ignore
-        else:
-            yield node
+        yield node
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
@@ -300,7 +252,6 @@ class Parser:
         builder = AST.identifier(super_token).call(super_token)
         if self.tokens.is_type(TokenType.PARENTHESIS_OPEN):
             # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
-            self.context.constructor.is_super_called = True  # type: ignore
             return self.parse_call_expression(builder.attribute(super_token, init_name).node)
         if self.tokens.is_type(TokenType.DOT):
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
@@ -410,11 +361,11 @@ def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
     return (token for token in tokens if token.type_ != TokenType.COMMENT)
 
 
-def raise_syntax_error(message: str, token: Optional[Token] = None) -> NoReturn:
+def raise_syntax_error(message: str, location: Optional[Location] = None) -> NoReturn:
     """
     Raise syntax error and provide some help message.
     """
-    if token:
-        raise ASSyntaxError(f'syntax error: {message} at line {token.line_number} position {token.position}')
+    if location:
+        raise ASSyntaxError(f'syntax error: {message} at line {location.line_number} position {location.position}')
     else:
         raise ASSyntaxError(f'syntax error: {message}')

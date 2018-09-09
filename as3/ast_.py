@@ -5,7 +5,8 @@ Wrappers around standard `ast` module.
 from __future__ import annotations
 
 import ast
-from typing import Any, List, Optional, Type
+from ast import dump
+from typing import Any, List, Optional, Type, TypeVar, cast
 
 import as3.parser
 from as3.constants import (
@@ -16,9 +17,10 @@ from as3.constants import (
     this_name,
     unary_operations,
 )
-from as3.context import ConstructorContext
 from as3.runtime import ASObject
-from as3.scanner import Token, TokenType
+from as3.scanner import Location, Token, TokenType
+
+TAST = TypeVar('TAST', bound=ast.AST)
 
 
 class AST:
@@ -26,121 +28,149 @@ class AST:
     Helper class to build AST nodes.
     """
 
-    @classmethod
-    def identifier(cls, with_token: Token) -> AST:
+    @staticmethod
+    def identifier(with_token: Token) -> AST:
         assert with_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER)
-        return cls.name(with_token, with_token.value)
+        return AST.name(with_token, with_token.value)
 
-    @classmethod
-    def name(cls, with_token: Token, identifier: str) -> AST:
+    @staticmethod
+    def name(location: Location, identifier: str) -> AST:
         # Creating with `Load` context by default, it may be changed by assignment operations.
-        return AST(make_ast(with_token, ast.Name, id=identifier, ctx=ast.Load()))
+        return AST(make_ast(location, ast.Name, id=identifier, ctx=ast.Load()))
 
-    @classmethod
-    def string(cls, with_token: Token) -> AST:
+    @staticmethod
+    def string(with_token: Token) -> AST:
         return AST(make_ast(with_token, ast.Str, s=with_token.value))
 
-    @classmethod
-    def number(cls, with_token: Token) -> AST:
+    @staticmethod
+    def number(with_token: Token) -> AST:
         return AST(make_ast(with_token, ast.Num, n=int(with_token.value)))
 
-    @classmethod
-    def name_constant(cls, with_token: Token, value: Any) -> AST:
+    @staticmethod
+    def name_constant(with_token: Token, value: Any) -> AST:
         return AST(make_ast(with_token, ast.NameConstant, value=value))
 
-    @classmethod
-    def script(cls, statements: List[ast.AST]) -> AST:
+    @staticmethod
+    def script(statements: List[ast.AST]) -> AST:
         return AST(ast.Module(body=statements))
 
-    @classmethod
-    def argument(cls, with_token: Token, name: str) -> AST:
-        return AST(make_ast(with_token, ast.arg, arg=name, annotation=None))
+    @staticmethod
+    def argument(location: Location, name: str) -> AST:
+        return AST(make_ast(location, ast.arg, arg=name, annotation=None))
 
-    @classmethod
-    def super_constructor_call(cls, with_token: Token) -> AST:
+    @staticmethod
+    def super_constructor_call(location: Location) -> AST:
         """
         `super().__init__()`
         """
         return AST \
-            .name(with_token, 'super') \
-            .call(with_token) \
-            .attribute(with_token, '__init__') \
-            .call(with_token) \
-            .as_expression(with_token)
+            .name(location, 'super') \
+            .call(location) \
+            .attribute(location, '__init__') \
+            .call(location) \
+            .as_expression(location)
 
-    @classmethod
-    def type_default_value(cls, with_token: Token, type_node: ast.AST) -> AST:
+    @staticmethod
+    def type_default_value(with_token: Token, type_node: ast.AST) -> AST:
         """
         `type_.__default__`
         """
         return AST(type_node).attribute(with_token, '__default__')
 
-    @classmethod
-    def expression_statement(cls, value: ast.AST) -> AST:
+    @staticmethod
+    def expression_statement(value: ast.AST) -> AST:
         builder = AST(value)
         return builder if isinstance(value, ast.stmt) else builder.expr()
 
-    @classmethod
-    def integer_expression(cls, with_token: Token) -> AST:
-        return cls \
+    @staticmethod
+    def integer_expression(with_token: Token) -> AST:
+        return AST \
             .name(with_token, 'int') \
             .call(with_token, args=[AST.number(with_token).node])
 
-    @classmethod
-    def name_expression(cls, with_token: Token) -> AST:
+    @staticmethod
+    def name_expression(with_token: Token) -> AST:
         """
         `__resolve__(name)[name]`.
         """
-        name_node = cls.string(with_token).node
+        name_node = AST.string(with_token).node
         return AST \
             .name(with_token, '__resolve__') \
             .call(with_token, [name_node]) \
             .subscript(with_token, name_node)
 
-    @classmethod
-    def class_(
-        cls,
-        *,
-        with_token: Token,
-        name: str,
-        base: Optional[ast.AST],
-        body: List[ast.AST],
-        constructor: ConstructorContext,
-    ) -> AST:
-        bases = [base if base else AST.name(with_token, ASObject.__name__).node]
+    @staticmethod
+    def class_(*, location: Location, name: str, base: Optional[ast.AST], body: List[ast.AST]) -> AST:
+        class_body: List[ast.AST] = []
+        initializers: List[ast.stmt] = []
+        init: Optional[ast.FunctionDef] = None
 
-        if not constructor.is_super_called:
-            constructor.internal_body.insert(0, AST.super_constructor_call(with_token).node)
-        init_node = make_function(
-            with_token,
-            name=init_name,
-            args=[AST.argument(with_token, this_name).node],
-            body=constructor.internal_body,
-        )
-        if constructor.node is not None:
-            assert constructor.node.args.args[0].arg == this_name  # type: ignore
-            # Avoid adding `__this__` twice.
-            init_node.args.args.extend(constructor.node.args.args[1:])  # type: ignore
-            init_node.body.extend(constructor.node.body)  # type: ignore
-        body.append(init_node)
+        for statement in body:
+            if isinstance(statement, ast.Assign):
+                # Field initializer. Prepend `__this__` to each target.
+                statement.targets = [cast(ast.expr, AST.this_target(target).node) for target in statement.targets]
+                initializers.append(statement)
+                # Don't put it in the class body straight away, but defer to the `__init__`.
+                continue
+            if isinstance(statement, ast.FunctionDef):
+                # It's a method.
+                # FIXME: static methods.
+                statement_location = location_of(statement)
+                # Prepend `__this__` argument.
+                statement.args.args.insert(0, cast(ast.arg, AST.argument(statement_location, this_name).node))
+                if statement.name == name:
+                    init = statement
+                    # It's a constructor. Rename it to `__init__`.
+                    statement.name = init_name
+                    if not has_super_call(statement):
+                        # ActionScript calls `super()` implicitly if not called explicitly.
+                        statement.body.insert(0, cast(ast.stmt, AST.super_constructor_call(statement_location).node))
+            class_body.append(statement)
 
-        return AST(make_ast(with_token, ast.ClassDef, name=name, bases=bases, keywords=[], body=body, decorator_list=[]))
+        # Create a default constructor if not defined.
+        init = init or make_function(location, init_name, args=[cast(ast.arg, AST.argument(location, this_name).node)])
+        # Prepend field initializers before the constructor body.
+        init.body = [*initializers, *init.body]
 
-    @classmethod
-    def field_initializer(cls, with_token: Token, value: ast.AST) -> AST:
+        return AST(make_ast(
+            location,
+            ast.ClassDef,
+            name=name,
+            bases=[base or AST.name(location, ASObject.__name__).node],
+            keywords=[],
+            body=[*class_body, init],
+            decorator_list=[],
+        ))
+
+    @staticmethod
+    def this_target(target: ast.AST) -> AST:
         """
-        `__this__.with_token = node`.
+        `__this__.target`.
         """
-        return cls \
-            .name(with_token, this_name) \
-            .attribute(with_token, with_token.value) \
-            .assign(with_token, value)
+        assert isinstance(target, ast.Name), f'unexpected target: {dump(target)}'
+        location = location_of(target)
+        return AST.name(location, this_name).attribute(location, target.id).set_store_context()
+
+    @staticmethod
+    def arguments(args: List[ast.arg] = None, defaults: List[ast.AST] = None) -> AST:
+        return AST(ast.arguments(
+            args=(args or []),
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=(defaults or []),
+        ))
 
     def __init__(self, node: ast.AST) -> None:
         self.node = node
 
-    def call(self, with_token: Token, args: List[ast.AST] = None) -> AST:
-        self.node = make_ast(with_token, ast.Call, func=self.node, args=(args or []), keywords=[])
+    def set_store_context(self) -> AST:
+        set_store_context(self.node)
+        return self
+
+    def call(self, location: Location, args: List[ast.AST] = None) -> AST:
+        self.node = make_ast(location, ast.Call, func=self.node, args=(args or []), keywords=[])
         return self
 
     def subscript(self, with_token: Token, index: ast.AST) -> AST:
@@ -153,29 +183,29 @@ class AST:
         )
         return self
 
-    def attribute(self, with_token: Token, name: str) -> AST:
-        self.node = make_ast(with_token, ast.Attribute, value=self.node, attr=name, ctx=ast.Load())
+    def attribute(self, location: Location, name: str) -> AST:
+        self.node = make_ast(location, ast.Attribute, value=self.node, attr=name, ctx=ast.Load())
         return self
 
-    def as_expression(self, with_token: Token) -> AST:
-        self.node = make_ast(with_token, ast.Expr, value=self.node)
+    def as_expression(self, location: Location) -> AST:
+        self.node = make_ast(location, ast.Expr, value=self.node)
         return self
 
-    def assign(self, with_token: Token, value: ast.AST) -> AST:
+    def assign(self, location: Location, value: ast.AST) -> AST:
         if not isinstance(self.node, ast.Assign):
             # Assign to the current node.
-            set_store_context(with_token, self.node)
-            self.node = make_ast(with_token, ast.Assign, targets=[self.node], value=value)
+            self.set_store_context()
+            self.node = make_ast(location, ast.Assign, targets=[self.node], value=value)
         else:
             # Chained assignment. Former value becomes a target.
-            set_store_context(with_token, self.node.value)
+            set_store_context(self.node.value)
             self.node.targets.append(self.node.value)
             # Value at the right becomes the assigned value.
             self.node.value = value  # type: ignore
         return self
 
     def aug_assign(self, with_token: Token, value: ast.AST) -> AST:
-        set_store_context(with_token, self.node)
+        self.set_store_context()
         operation = augmented_assign_operations[with_token.type_]
         self.node = make_ast(with_token, ast.AugAssign, target=self.node, op=operation, value=value)
         return self
@@ -204,40 +234,50 @@ class AST:
         return self
 
 
-def make_ast(with_token: Token, init: Type[ast.AST], **kwargs) -> ast.AST:
+def make_ast(location: Location, init: Type[TAST], **kwargs) -> TAST:
     # noinspection PyProtectedMember
     assert all(field in kwargs for field in init._fields), f'missing: {set(init._fields) - kwargs.keys()}'
-    return init(**kwargs, lineno=with_token.line_number, col_offset=with_token.position)
+    return init(**kwargs, lineno=location.line_number, col_offset=location.position)
 
 
-def set_store_context(with_token: Token, node: ast.AST) -> ast.AST:
+def set_store_context(node: ast.AST) -> ast.AST:
     if not hasattr(node, 'ctx'):
-        as3.parser.raise_syntax_error(f"{ast.dump(node)} can't be assigned to", with_token)
+        as3.parser.raise_syntax_error(f"{ast.dump(node)} can't be assigned to", location_of(node))
     node.ctx = ast.Store()  # type: ignore
     return node
 
 
 def make_function(
-    with_token: Token,
+    location: Location,
     name: str,
     body: List[ast.AST] = None,
-    args: List[ast.AST] = None,
+    args: List[ast.arg] = None,
     defaults: List[ast.AST] = None,
     decorators: List[ast.AST] = None,
-) -> ast.AST:
+) -> ast.FunctionDef:
     return make_ast(
-        with_token,
+        location,
         ast.FunctionDef,
         name=name,
-        args=ast.arguments(
-            args=(args or []),
-            vararg=None,
-            kwonlyargs=[],
-            kw_defaults=[],
-            kwarg=None,
-            defaults=(defaults or []),
-        ),
-        body=[*(body or []), make_ast(with_token, ast.Pass)],  # always add `pass` to make sure body is not empty
+        args=AST.arguments(args, defaults).node,
+        body=[*(body or []), make_ast(location, ast.Pass)],  # always add `pass` to make sure body is not empty
         decorator_list=(decorators or []),
         returns=None,
     )
+
+
+def has_super_call(node: ast.AST) -> bool:
+    """
+    Tests if the node contains `super().__init__` anywhere inside.
+    """
+    return any((
+        isinstance(child, ast.Attribute)
+        and child.attr == init_name
+        and isinstance(child.value, ast.Call)
+        and isinstance(child.value.func, ast.Name)
+        and child.value.func.id == 'super'
+    ) for child in ast.walk(node))
+
+
+def location_of(node: ast.AST) -> Location:
+    return Location(line_number=node.lineno, position=node.col_offset)

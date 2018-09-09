@@ -36,6 +36,9 @@ class ASAny(ASObject):
     def __hash__(self) -> int:
         return 0
 
+    def __repr__(self) -> str:
+        return 'undefined'
+
 
 class ASInteger(int, ASObject):
     """

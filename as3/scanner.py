@@ -54,11 +54,15 @@ specification = re.compile(r'''
 
 
 @dataclass
-class Token:
-    type_: TokenType
-    value: Any
+class Location:
     line_number: int
     position: int
+
+
+@dataclass
+class Token(Location):
+    type_: TokenType
+    value: Any
 
 
 def scan(source: str) -> Iterable[Token]:
@@ -81,4 +85,5 @@ def scan(source: str) -> Iterable[Token]:
             continue
         if type_ == TokenType.IDENTIFIER and value in constants.keyword_to_token_type:
             type_ = constants.keyword_to_token_type[value]
+        # noinspection PyArgumentList
         yield Token(type_=type_, value=value, line_number=current_line_number, position=position)
