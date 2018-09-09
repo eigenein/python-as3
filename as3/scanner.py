@@ -15,8 +15,8 @@ from as3.exceptions import ASSyntaxError
 # Group names must match `TokenType` members.
 specification = re.compile(r'''
     # Special tokens used by the scanner.
-    (?P<NEW_LINE>\n) |
-    (?P<WHITESPACE>\s+) |
+    (?P<NEW_LINE>\r?\n) |
+    (?P<WHITESPACE>[ \t\f\v]+) |
     
     # Normal tokens.
     (?P<EQUALS>==) |

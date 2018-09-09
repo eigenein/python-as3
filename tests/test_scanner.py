@@ -77,6 +77,12 @@ def test_single_token(input_: str, expected: Token):
             Token(type_=TokenType.INTEGER, value='42', line_number=1, position=17),
         ],
     ),
+    (
+        ' \n/**/',
+        [
+            Token(type_=TokenType.COMMENT, value='/**/', line_number=2, position=1),
+        ],
+    ),
 ])
 def test_multiple_tokens(input_: str, expected: List[Token]):
     assert list(scan(input_)) == expected
