@@ -6,11 +6,10 @@ from typing import Any, Dict
 
 from pytest import mark, param, raises
 
-from as3 import execute_script
+from as3 import default_globals, execute_script
 from as3.examples import bad_scripts, expressions, scripts
 from as3.exceptions import ASSyntaxError
 from as3.parser import Parser
-from as3.runtime import default_globals
 from as3.scanner import scan
 
 
@@ -39,11 +38,7 @@ def test_parse_expression_syntax_error(expression: str):
 
 @mark.parametrize('script, expected', scripts + bad_scripts)
 def test_execute_script(script: str, expected: Dict[str, Any]):
-    globals_ = {
-        **default_globals,
-        'foo': lambda x: x,
-    }
-    execute_script(script, '<ast>', globals_)
+    globals_ = execute_script(script, '<ast>', foo=lambda x: x)
     for key, value in expected.items():
         assert globals_[key] == value, f'actual: {globals_[key]}'
 
@@ -55,4 +50,4 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
 ])
 def test_execute_script_name_error(script: str):
     with raises(NameError):
-        execute_script(script, '<ast>', dict(default_globals))
+        execute_script(script, '<ast>')

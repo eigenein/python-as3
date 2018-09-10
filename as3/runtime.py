@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import inspect
 import math
-from typing import Any
+from typing import Any, Dict
 
 from as3.constants import this_name
 
@@ -102,7 +102,7 @@ def resolve_name(name: str) -> dict:
     raise NameError(f'unable to resolve name "{name}"')
 
 
-default_globals = {
+default_globals: Dict[str, Any] = {
     # Internal interpreter names.
     '__dir__': dir,
     '__globals__': globals,
