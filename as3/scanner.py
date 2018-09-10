@@ -47,6 +47,8 @@ specification = re.compile(r'''
     (?P<MINUS>-) |
     (?P<SEMICOLON>;) |
     (?P<DOT>\.) |
+    (?P<STRING_1>\"(\\.|[^\\"])*\") |  # http://www.lysator.liu.se/c/ANSI-C-grammar-l.html
+    (?P<STRING_2>\'(\\.|[^\\'])*\') |  # http://www.lysator.liu.se/c/ANSI-C-grammar-l.html
     
     # Fallback token to detect syntax errors.
     (?P<UNKNOWN>.)

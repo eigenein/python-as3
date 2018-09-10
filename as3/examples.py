@@ -35,6 +35,7 @@ expressions: List[Tuple[str, Any]] = [
     ('1 != 2', True),
     ('1 != 1', False),
     ('undefined', ASAny()),
+    (r'"1\n2\n\""', '1\n2\n\"'),
 ]
 
 scripts: List[Tuple[str, dict]] = [

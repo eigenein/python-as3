@@ -39,8 +39,8 @@ class AST:
         return AST(make_ast(location, ast.Name, id=identifier, ctx=ast.Load()))
 
     @staticmethod
-    def string(with_token: Token) -> AST:
-        return AST(make_ast(with_token, ast.Str, s=with_token.value))
+    def string(location: Location, value: str) -> AST:
+        return AST(make_ast(location, ast.Str, s=value))
 
     @staticmethod
     def number(with_token: Token) -> AST:
@@ -89,11 +89,17 @@ class AST:
             .call(with_token, args=[AST.number(with_token).node])
 
     @staticmethod
+    def string_expression(with_token: Token) -> AST:
+        return AST \
+            .name(with_token, 'String') \
+            .call(with_token, args=[AST.string(with_token, ast.literal_eval(with_token.value)).node])
+
+    @staticmethod
     def name_expression(with_token: Token) -> AST:
         """
         `__resolve__(name)[name]`.
         """
-        name_node = AST.string(with_token).node
+        name_node = AST.string(with_token, with_token.value).node
         return AST \
             .name(with_token, '__resolve__') \
             .call(with_token, [name_node]) \

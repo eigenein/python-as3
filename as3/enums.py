@@ -28,6 +28,8 @@ class TokenType(Enum):
     # Literals.
     FLOAT = auto()
     INTEGER = auto()
+    STRING = auto()
+    STRING_1 = STRING_2 = STRING
 
     # Operators.
     ASSIGN = auto()

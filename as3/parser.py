@@ -254,6 +254,7 @@ class Parser:
             TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
             TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
             TokenType.SUPER: self.parse_super_expression,
+            TokenType.STRING: self.parse_string_expression,
         })
 
     def parse_parenthesized_expression(self) -> ast.AST:
@@ -278,6 +279,9 @@ class Parser:
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
             return self.parse_attribute_expression(builder.node)
         self.raise_syntax_error(TokenType.PARENTHESIS_OPEN, TokenType.DOT)
+
+    def parse_string_expression(self) -> ast.AST:
+        return AST.string_expression(self.expect(TokenType.STRING)).node
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------

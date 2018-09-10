@@ -40,10 +40,13 @@ def test_empty():
     make_test_params('++', TokenType.INCREMENT),
     make_test_params('--', TokenType.DECREMENT),
     make_test_params('.', TokenType.DOT),
-
-    # Special cases: token value is not the entire token.
-    ('/* ololo */', Token(type_=TokenType.COMMENT, value='/* ololo */', line_number=1, position=1)),
-    ('// abc', Token(type_=TokenType.COMMENT, value='// abc', line_number=1, position=1)),
+    make_test_params('/* ololo */', TokenType.COMMENT),
+    make_test_params('// abc', TokenType.COMMENT),
+    make_test_params('"string"', TokenType.STRING),
+    make_test_params("'string'", TokenType.STRING),
+    make_test_params(r'"string\n"', TokenType.STRING),
+    make_test_params(r'"string\""', TokenType.STRING),
+    make_test_params(r"'string\''", TokenType.STRING),
 
     # Expected failures.
     make_test_params('<=', TokenType.LESS_OR_EQUALS, True),
