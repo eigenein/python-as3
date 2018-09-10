@@ -30,8 +30,8 @@ class ASAny(ASObject):
             cls.__default__ = super().__new__(cls)
         return cls.__default__
 
-    def __eq__(self, other) -> bool:
-        return isinstance(other, ASAny)
+    def __eq__(self, other: Any) -> bool:
+        return other is None or isinstance(other, ASAny)
 
     def __hash__(self) -> int:
         return 0

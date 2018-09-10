@@ -38,6 +38,7 @@ class TokenType(Enum):
     DIVIDE = auto()
     EQUALS = auto()
     GREATER = auto()
+    GREATER_OR_EQUALS = auto()
     INCREMENT = auto()
     LEFT_SHIFT = auto()
     LESS = auto()
@@ -50,6 +51,7 @@ class TokenType(Enum):
     NOT_EQUALS = auto()
     PLUS = auto()
     RIGHT_SHIFT = auto()
+    STRICTLY_EQUALS = auto()
     UNSIGNED_RIGHT_SHIFT = auto()
 
     # Reserved identifiers and keywords.

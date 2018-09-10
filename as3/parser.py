@@ -5,7 +5,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
 from as3.ast_ import AST, make_ast, make_function
-from as3.constants import augmented_assign_operations, init_name, this_name, unary_operations
+from as3.constants import augmented_assign_operations, compare_operations, init_name, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
@@ -202,10 +202,7 @@ class Parser:
         return self.parse_equality_expression()
 
     def parse_equality_expression(self) -> ast.AST:
-        return self.parse_binary_operations(
-            self.parse_additive_expression,
-            TokenType.NOT_EQUALS,
-        )
+        return self.parse_binary_operations(self.parse_additive_expression, *compare_operations.keys())
 
     def parse_additive_expression(self) -> ast.AST:
         """

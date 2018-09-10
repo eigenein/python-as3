@@ -27,8 +27,9 @@ keyword_to_token_type = {
 }
 
 unary_operations: Dict[TokenType, ast.AST] = {
-    TokenType.PLUS: ast.UAdd(),
+    TokenType.LOGICAL_NOT: ast.Not(),
     TokenType.MINUS: ast.USub(),
+    TokenType.PLUS: ast.UAdd(),
 }
 
 binary_operations: Dict[TokenType, ast.AST] = {
@@ -43,6 +44,12 @@ augmented_assign_operations: Dict[TokenType, ast.AST] = {
 }
 
 compare_operations: Dict[TokenType, ast.AST] = {
+    # `STRICTLY_EQUALS` should be parsed separately.
+    TokenType.EQUALS: ast.Eq(),
+    TokenType.GREATER: ast.Gt(),
+    TokenType.GREATER_OR_EQUALS: ast.GtE(),
+    TokenType.LESS: ast.Lt(),
+    TokenType.LESS_OR_EQUALS: ast.LtE(),
     TokenType.NOT_EQUALS: ast.NotEq(),
 }
 

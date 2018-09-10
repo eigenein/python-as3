@@ -19,6 +19,7 @@ specification = re.compile(r'''
     (?P<WHITESPACE>[ \t\f\v]+) |
     
     # Normal tokens.
+    (?P<STRICTLY_EQUALS>===) |
     (?P<EQUALS>==) |
     (?P<NOT_EQUALS>!=) |
     (?P<ASSIGN_ADD>\+=) |
@@ -36,7 +37,10 @@ specification = re.compile(r'''
     (?P<DIVIDE>/) |
     (?P<IDENTIFIER>[_a-zA-Z]\w*) |
     (?P<INTEGER>\d+) |
+    (?P<LESS_OR_EQUALS><=) |
+    (?P<GREATER_OR_EQUALS>>=) |
     (?P<LESS><) |
+    (?P<GREATER>>) |
     (?P<LOGICAL_NOT>!) |
     (?P<MULTIPLY>\*) |
     (?P<PARENTHESIS_CLOSE>\)) |

@@ -47,9 +47,12 @@ def test_empty():
     make_test_params(r'"string\n"', TokenType.STRING),
     make_test_params(r'"string\""', TokenType.STRING),
     make_test_params(r"'string\''", TokenType.STRING),
+    make_test_params('<=', TokenType.LESS_OR_EQUALS),
+    make_test_params('>', TokenType.GREATER),
+    make_test_params('>=', TokenType.GREATER_OR_EQUALS),
+    make_test_params('===', TokenType.STRICTLY_EQUALS),
 
     # Expected failures.
-    make_test_params('<=', TokenType.LESS_OR_EQUALS, True),
     make_test_params('||', TokenType.LOGICAL_OR, True),
     make_test_params('&&', TokenType.LOGICAL_AND, True),
     make_test_params('new', TokenType.NEW, True),
