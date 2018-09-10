@@ -77,3 +77,4 @@ class TokenType(Enum):
     THIS = auto()
     TRUE = auto()
     VAR = auto()
+    WHILE = auto()

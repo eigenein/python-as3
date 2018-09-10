@@ -45,19 +45,21 @@ class Parser:
 
     def parse_statement(self) -> Iterable[ast.AST]:
         yield from self.switch({  # type: ignore
-            TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
-            TokenType.IMPORT: self.parse_import,
+            TokenType.BREAK: self.parse_break,
             TokenType.CLASS: self.parse_class,
-            TokenType.VAR: self.parse_variable_definition,
-            TokenType.IF: self.parse_if,
-            TokenType.SEMICOLON: self.parse_semicolon,
-            TokenType.RETURN: self.parse_return,
+            TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
             TokenType.FUNCTION: self.parse_function_definition,
-            TokenType.PUBLIC: self.parse_modifiers,
+            TokenType.IF: self.parse_if,
+            TokenType.IMPORT: self.parse_import,
+            TokenType.OVERRIDE: self.parse_modifiers,
             TokenType.PRIVATE: self.parse_modifiers,
             TokenType.PROTECTED: self.parse_modifiers,
+            TokenType.PUBLIC: self.parse_modifiers,
+            TokenType.RETURN: self.parse_return,
+            TokenType.SEMICOLON: self.parse_semicolon,
             TokenType.STATIC: self.parse_modifiers,
-            TokenType.OVERRIDE: self.parse_modifiers,
+            TokenType.VAR: self.parse_variable_definition,
+            TokenType.WHILE: self.parse_while,
         }, else_=self.parse_expression_statement)
 
         # Skip all semicolons.
@@ -173,6 +175,18 @@ class Parser:
             TokenType.VAR: self.parse_variable_definition,
             TokenType.FUNCTION: self.parse_function_definition,
         })  # FIXME: pass the modifiers into the switch.
+
+    def parse_break(self) -> Iterable[AST]:
+        token = self.expect(TokenType.BREAK)
+        yield AST.break_(token).node
+
+    def parse_while(self) -> Iterable[AST]:
+        token = self.expect(TokenType.WHILE)
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        test = self.parse_non_assignment_expression()
+        self.expect(TokenType.PARENTHESIS_CLOSE)
+        body = list(self.parse_statement())
+        yield AST.while_(token, test, body).node
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
