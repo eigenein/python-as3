@@ -91,6 +91,7 @@ scripts: List[Tuple[str, dict]] = [
         'var expected = Y().a;',
         {'expected': 42},
     ),
+    ('while (false) {}', {}),
     ('var foo = 42; while (false) { foo = 0 }', {'foo': 42}),
     ('var foo = 42; while (true) { break; foo = 0 }', {'foo': 42}),
 

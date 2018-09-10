@@ -174,7 +174,7 @@ class AST:
 
     @staticmethod
     def while_(location: Location, test: ast.AST, body: List[ast.AST]) -> AST:
-        return AST(make_ast(location, ast.While, test=test, body=body, orelse=[]))
+        return AST(make_ast(location, ast.While, test=test, body=[*body, make_ast(location, ast.Pass)], orelse=[]))
 
     def __init__(self, node: ast.AST) -> None:
         self.node = node
