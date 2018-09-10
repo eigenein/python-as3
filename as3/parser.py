@@ -60,6 +60,10 @@ class Parser:
             TokenType.OVERRIDE: self.parse_modifiers,
         }, else_=self.parse_expression_statement)
 
+        # Skip all semicolons.
+        while self.tokens.skip(TokenType.SEMICOLON):
+            pass
+
     def parse_code_block(self) -> Iterable[ast.AST]:
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.tokens.is_type(TokenType.CURLY_BRACKET_CLOSE):
@@ -183,6 +187,8 @@ class Parser:
         return self.switch({
             TokenType.ASSIGN: self.parse_chained_assignment_expression,
             TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
+            TokenType.DECREMENT: self.parse_decrement,  # FIXME: unfortunately, decrement doesn't return a value.
+            TokenType.INCREMENT: self.parse_increment,  # FIXME: unfortunately, increment doesn't return a value.
         }, else_=lambda **_: left, left=left)
 
     def parse_chained_assignment_expression(self, left: ast.AST) -> ast.AST:
@@ -197,6 +203,14 @@ class Parser:
         assignment_token = self.expect(*augmented_assign_operations)
         value = self.parse_non_assignment_expression()
         return AST(left).aug_assign(assignment_token, value).node
+
+    def parse_increment(self, left: ast.AST) -> ast.AST:
+        token = self.expect(TokenType.INCREMENT)
+        return AST(left).increment(token).node
+
+    def parse_decrement(self, left: ast.AST) -> ast.AST:
+        token = self.expect(TokenType.DECREMENT)
+        return AST(left).decrement(token).node
 
     def parse_non_assignment_expression(self) -> ast.AST:
         return self.parse_equality_expression()

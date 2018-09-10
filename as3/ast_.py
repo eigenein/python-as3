@@ -239,6 +239,18 @@ class AST:
         self.node = ast.Expr(value=self.node, lineno=self.node.lineno, col_offset=0)
         return self
 
+    def increment(self, location: Location) -> AST:
+        self.set_store_context()
+        value = make_ast(location, ast.Num, n=1)
+        self.node = make_ast(location, ast.AugAssign, target=self.node, op=ast.Add(), value=value)
+        return self
+
+    def decrement(self, location: Location) -> AST:
+        self.set_store_context()
+        value = make_ast(location, ast.Num, n=1)
+        self.node = make_ast(location, ast.AugAssign, target=self.node, op=ast.Sub(), value=value)
+        return self
+
 
 def make_ast(location: Location, init: Type[TAST], **kwargs) -> TAST:
     # noinspection PyProtectedMember

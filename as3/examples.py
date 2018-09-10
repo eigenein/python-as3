@@ -46,6 +46,8 @@ scripts: List[Tuple[str, dict]] = [
     ('var a = 42;', {'a': 42}),
     ('var a = 42; var b = 3', {'a': 42, 'b': 3}),
     ('var a = 42; a += 1;', {'a': 43}),
+    ('var a = 42; a++;', {'a': 43}),
+    ('var a = 42; a--;', {'a': 41}),
     ('var a: *', {'a': ASAny()}),
     ('foo(42);', {}),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
