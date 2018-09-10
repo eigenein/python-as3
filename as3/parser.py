@@ -53,6 +53,11 @@ class Parser:
             TokenType.SEMICOLON: self.parse_semicolon,
             TokenType.RETURN: self.parse_return,
             TokenType.FUNCTION: self.parse_function_definition,
+            TokenType.PUBLIC: self.parse_modifiers,
+            TokenType.PRIVATE: self.parse_modifiers,
+            TokenType.PROTECTED: self.parse_modifiers,
+            TokenType.STATIC: self.parse_modifiers,
+            TokenType.OVERRIDE: self.parse_modifiers,
         }, else_=self.parse_expression_statement)
 
     def parse_code_block(self) -> Iterable[ast.AST]:
@@ -148,6 +153,22 @@ class Parser:
         node.body.extend(cast(List[ast.stmt], self.parse_statement()))
 
         yield node
+
+    def parse_modifiers(self) -> Iterable[AST]:
+        modifiers: List[TokenType] = []
+        if self.tokens.skip(TokenType.OVERRIDE):
+            modifiers.append(TokenType.OVERRIDE)
+        visibility_token = self.tokens.skip(
+            TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED, TokenType.INTERNAL)
+        if visibility_token:
+            modifiers.append(visibility_token.type_)
+        if self.tokens.skip(TokenType.STATIC):
+            modifiers.append(TokenType.STATIC)
+        yield from self.switch({  # type: ignore
+            TokenType.CLASS: self.parse_class,
+            TokenType.VAR: self.parse_variable_definition,
+            TokenType.FUNCTION: self.parse_function_definition,
+        })  # FIXME: pass the modifiers into the switch.
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
@@ -347,14 +368,13 @@ class Peekable(Iterable[Token]):
         except StopIteration:
             return False
 
-    def skip(self, *types: TokenType) -> bool:
+    def skip(self, *types: TokenType) -> Optional[Token]:
         """
         Check the current token type and skip it if matches.
         """
         if self.is_type(*types):
-            next(self)
-            return True
-        return False
+            return next(self)
+        return None
 
 
 def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
