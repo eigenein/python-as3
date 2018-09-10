@@ -176,11 +176,11 @@ class Parser:
             TokenType.FUNCTION: self.parse_function_definition,
         })  # FIXME: pass the modifiers into the switch.
 
-    def parse_break(self) -> Iterable[AST]:
+    def parse_break(self) -> Iterable[ast.AST]:
         token = self.expect(TokenType.BREAK)
         yield AST.break_(token).node
 
-    def parse_while(self) -> Iterable[AST]:
+    def parse_while(self) -> Iterable[ast.AST]:
         token = self.expect(TokenType.WHILE)
         self.expect(TokenType.PARENTHESIS_OPEN)
         test = self.parse_non_assignment_expression()
