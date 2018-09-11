@@ -302,14 +302,15 @@ class Parser:
 
     def parse_terminal_or_parenthesized(self) -> ast.AST:
         return self.switch({
-            TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
-            TokenType.INTEGER: self.parse_integer_expression,
-            TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.TRUE: lambda: AST.name_constant(next(self.tokens), True).node,
             TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
-            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
-            TokenType.SUPER: self.parse_super_expression,
+            TokenType.IDENTIFIER: self.parse_name_expression,
+            TokenType.INTEGER: self.parse_integer_expression,
+            TokenType.NEW: self.parse_new,
+            TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.STRING: self.parse_string_expression,
+            TokenType.SUPER: self.parse_super_expression,
+            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
+            TokenType.TRUE: lambda: AST.name_constant(next(self.tokens), True).node,
         })
 
     def parse_parenthesized_expression(self) -> ast.AST:
@@ -342,6 +343,10 @@ class Parser:
 
     def parse_string_expression(self) -> ast.AST:
         return AST.string_expression(self.expect(TokenType.STRING)).node
+
+    def parse_new(self) -> ast.AST:
+        self.expect(TokenType.NEW)  # ignored
+        return self.parse_name_expression()
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------

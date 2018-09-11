@@ -20,6 +20,7 @@ expressions: List[Tuple[str, Any]] = [
     ('1 * (2 * (2 + 2))', 8),
     ('String.<Whatever>(2)', '2'),
     ('String(2)', '2'),
+    ('new String(2)', '2'),
     ('Math.abs(-2)', 2.0),
     ('Math.acos.__name__', 'acos'),
     ('foo.baz + foo.baz * foo.baz', 6),
@@ -105,6 +106,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { static var foo = 0; function bar() { foo = 42 } }; X().bar(); var baz = X.foo', {'baz': 42}),
     ('class X { static var foo = 42; static var bar = foo }; var baz = X.bar', {'baz': 42}),
     ('class X { static var foo = 0; static function bar() { foo = 42 } }; X.bar(); var baz = X.foo', {'baz': 42}),
+    ('class X { static var foo = 42 }; var x = new X(); var baz = x.foo', {'baz': 42}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
