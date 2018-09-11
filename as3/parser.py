@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast, Container
+from typing import Callable, Container, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
 from as3.ast_ import AST, make_ast, make_function
 from as3.constants import augmented_assign_operations, compare_operations, init_name, this_name, unary_operations
