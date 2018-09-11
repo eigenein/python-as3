@@ -44,6 +44,7 @@ expressions: List[Tuple[str, Any]] = [
     ('true || false', True),
     ('true || false && false', True),
     ('true && false', False),
+    ('null as ASString', None),
 ]
 
 scripts: List[Tuple[str, dict]] = [

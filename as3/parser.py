@@ -255,10 +255,11 @@ class Parser:
     def parse_relational_expression(self) -> ast.AST:
         return self.parse_binary_operations(
             self.parse_additive_expression,
-            TokenType.LESS,
+            TokenType.AS,
             TokenType.GREATER,
-            TokenType.LESS_OR_EQUAL,
             TokenType.GREATER_OR_EQUAL,
+            TokenType.LESS,
+            TokenType.LESS_OR_EQUAL,
         )
 
     def parse_additive_expression(self) -> ast.AST:

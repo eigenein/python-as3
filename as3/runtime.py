@@ -19,23 +19,11 @@ class ASObject:
 
     __default__: Any = None
 
-    @classmethod
-    def as_(cls, value: Any) -> Any:
-        """
-        Cast the value to the current type.
-        """
-        if value is None:
-            return None
-        raise TypeError(f'unable to cast {value!r} to {cls}')
-
 
 class ASAny(ASObject):
     """
     Not declared (equivalent to type annotation `*`).
     """
-    @classmethod
-    def as_(cls, value: Any) -> Any:
-        return ASAny()  # everything is cast to `undefined`
 
     def __new__(cls):
         # `ASAny` produces singleton `undefined` value.

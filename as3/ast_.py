@@ -245,6 +245,8 @@ class AST:
             self.node = make_ast(with_token, ast.Compare, left=self.node, ops=[compare_operations[type_]], comparators=[right])
         elif type_ in boolean_operations:
             self.node = make_ast(with_token, ast.BoolOp, values=[self.node, right], op=boolean_operations[type_])
+        elif type_ == TokenType.AS:
+            pass  # do nothing
         else:
             raise KeyError(with_token.type_)
         return self
