@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASAny, ASInteger
+from as3.runtime import ASAny, ASInteger, ASString
 
 # FIXME: arithmetic operations still return normal `int` instead of `ASInteger`.
 expressions: List[Tuple[str, Any]] = [
@@ -18,9 +18,9 @@ expressions: List[Tuple[str, Any]] = [
     ('2 + 2 * 2', 6),
     ('(2 + 2) * 2', 8),
     ('1 * (2 * (2 + 2))', 8),
-    ('String.<Whatever>(2)', '2'),
-    ('String(2)', '2'),
-    ('new String(2)', '2'),
+    ('String.<Whatever>(2)', ASString('2')),
+    ('String(2)', ASString('2')),
+    ('new String(2)', ASString('2')),
     ('Math.abs(-2)', 2.0),
     ('Math.acos.__name__', 'acos'),
     ('foo.baz + foo.baz * foo.baz', 6),
@@ -37,7 +37,7 @@ expressions: List[Tuple[str, Any]] = [
     ('1 != 2', True),
     ('1 != 1', False),
     ('undefined', ASAny()),
-    (r'"1\n2\n\""', '1\n2\n\"'),
+    (r'"1\n2\n\""', ASString('1\n2\n\"')),
     ('!true', False),
     ('!false', True),
     ('true && true', True),

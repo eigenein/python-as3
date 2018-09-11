@@ -5,14 +5,7 @@ from collections import deque
 from typing import Callable, Container, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
 from as3.ast_ import AST, make_ast, make_function
-from as3.constants import (
-    augmented_assign_operations,
-    compare_operations,
-    init_name,
-    static_prefix,
-    this_name,
-    unary_operations,
-)
+from as3.constants import augmented_assign_operations, init_name, static_prefix, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
