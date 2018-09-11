@@ -39,11 +39,11 @@ class TokenType(Enum):
     DIVIDE = auto()
     EQUALS = auto()
     GREATER = auto()
-    GREATER_OR_EQUALS = auto()
+    GREATER_OR_EQUAL = auto()
     INCREMENT = auto()
     LEFT_SHIFT = auto()
     LESS = auto()
-    LESS_OR_EQUALS = auto()
+    LESS_OR_EQUAL = auto()
     LOGICAL_AND = auto()
     LOGICAL_NOT = auto()
     LOGICAL_OR = auto()
@@ -52,7 +52,7 @@ class TokenType(Enum):
     NOT_EQUALS = auto()
     PLUS = auto()
     RIGHT_SHIFT = auto()
-    STRICTLY_EQUALS = auto()
+    STRICTLY_EQUAL = auto()
     UNSIGNED_RIGHT_SHIFT = auto()
 
     # Reserved identifiers and keywords.

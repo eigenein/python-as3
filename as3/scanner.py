@@ -22,7 +22,7 @@ specification = re.compile(r'''
     (?P<GENERIC_OPEN>\.<) |
     (?P<LOGICAL_OR>\|\|) |
     (?P<LOGICAL_AND>&&) |
-    (?P<STRICTLY_EQUALS>===) |
+    (?P<STRICTLY_EQUAL>===) |
     (?P<EQUALS>==) |
     (?P<NOT_EQUALS>!=) |
     (?P<ASSIGN_ADD>\+=) |
@@ -40,8 +40,8 @@ specification = re.compile(r'''
     (?P<DIVIDE>/) |
     (?P<IDENTIFIER>[_a-zA-Z]\w*) |
     (?P<INTEGER>\d+) |
-    (?P<LESS_OR_EQUALS><=) |
-    (?P<GREATER_OR_EQUALS>>=) |
+    (?P<LESS_OR_EQUAL><=) |
+    (?P<GREATER_OR_EQUAL>>=) |
     (?P<LESS><) |
     (?P<GREATER>>) |
     (?P<LOGICAL_NOT>!) |

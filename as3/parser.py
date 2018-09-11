@@ -253,12 +253,22 @@ class Parser:
         return builder.node
 
     def parse_equality_expression(self) -> ast.AST:
-        return self.parse_binary_operations(self.parse_additive_expression, *compare_operations.keys())
+        return self.parse_binary_operations(
+            self.parse_relational_expression,
+            TokenType.EQUALS,
+            TokenType.NOT_EQUALS,
+        )
+
+    def parse_relational_expression(self) -> ast.AST:
+        return self.parse_binary_operations(
+            self.parse_additive_expression,
+            TokenType.LESS,
+            TokenType.GREATER,
+            TokenType.LESS_OR_EQUAL,
+            TokenType.GREATER_OR_EQUAL,
+        )
 
     def parse_additive_expression(self) -> ast.AST:
-        """
-        Used where comma operator and assignment are not allowed.
-        """
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
 
     def parse_multiplicative_expression(self) -> ast.AST:

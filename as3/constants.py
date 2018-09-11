@@ -50,9 +50,9 @@ compare_operations: Dict[TokenType, ast.AST] = {
     # `STRICTLY_EQUALS` should be parsed separately.
     TokenType.EQUALS: ast.Eq(),
     TokenType.GREATER: ast.Gt(),
-    TokenType.GREATER_OR_EQUALS: ast.GtE(),
+    TokenType.GREATER_OR_EQUAL: ast.GtE(),
     TokenType.LESS: ast.Lt(),
-    TokenType.LESS_OR_EQUALS: ast.LtE(),
+    TokenType.LESS_OR_EQUAL: ast.LtE(),
     TokenType.NOT_EQUALS: ast.NotEq(),
 }
 
