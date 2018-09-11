@@ -123,6 +123,7 @@ default_globals: Dict[str, Any] = {
     'int': ASInteger,
     'Math': Math,
     'String': str,  # FIXME: `ASString`.
+    'null': None,
     'trace': print,
     'undefined': ASAny(),
 

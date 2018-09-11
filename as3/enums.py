@@ -55,6 +55,7 @@ class TokenType(Enum):
     UNSIGNED_RIGHT_SHIFT = auto()
 
     # Reserved identifiers and keywords.
+    AS = auto()
     BREAK = auto()
     CLASS = auto()
     ELSE = auto()

@@ -4,6 +4,7 @@ from typing import Dict
 from as3.enums import TokenType
 
 keyword_to_token_type = {
+    'as': TokenType.AS,
     'break': TokenType.BREAK,
     'class': TokenType.CLASS,
     'else': TokenType.ELSE,
@@ -13,6 +14,7 @@ keyword_to_token_type = {
     'if': TokenType.IF,
     'import': TokenType.IMPORT,
     'internal': TokenType.INTERNAL,
+    'new': TokenType.NEW,
     'override': TokenType.OVERRIDE,
     'package': TokenType.PACKAGE,
     'private': TokenType.PRIVATE,

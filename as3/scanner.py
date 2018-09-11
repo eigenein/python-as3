@@ -69,6 +69,9 @@ class Location:
 
 @dataclass
 class Token(Location):
+    # I have to re-define these two fields because my IDE is complaining.
+    line_number: int
+    position: int
     type_: TokenType
     value: Any
 
@@ -93,5 +96,4 @@ def scan(source: str) -> Iterable[Token]:
             continue
         if type_ == TokenType.IDENTIFIER and value in constants.keyword_to_token_type:
             type_ = constants.keyword_to_token_type[value]
-        # noinspection PyArgumentList
         yield Token(type_=type_, value=value, line_number=current_line_number, position=position)
