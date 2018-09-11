@@ -63,3 +63,6 @@ boolean_operations: Dict[TokenType, ast.AST] = {
 # Also, avoid confusion with possible `self` variable which is valid in ActionScript.
 this_name = '__this__'
 init_name = '__init__'
+
+# Yes, I know it's not the best way, but I use "@" to mark static fields for later use.
+static_prefix = '@'

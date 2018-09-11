@@ -5,7 +5,14 @@ from collections import deque
 from typing import Callable, Container, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
 from as3.ast_ import AST, make_ast, make_function
-from as3.constants import augmented_assign_operations, compare_operations, init_name, this_name, unary_operations
+from as3.constants import (
+    augmented_assign_operations,
+    compare_operations,
+    init_name,
+    static_prefix,
+    this_name,
+    unary_operations,
+)
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
@@ -111,8 +118,10 @@ class Parser:
             value = self.parse_non_assignment_expression()
         else:
             value = AST.type_default_value(name_token, type_).node
-        # TODO: static fields.
-        yield AST.identifier(name_token).assign(name_token, value).node
+        name = name_token.value
+        if TokenType.STATIC in modifiers:
+            name = f'{static_prefix}{name}'
+        yield AST.name(name_token, name).assign(name_token, value).node
 
     def parse_type_annotation(self) -> ast.AST:
         if self.tokens.is_type(TokenType.MULTIPLY):
@@ -134,7 +143,7 @@ class Parser:
     def parse_function_definition(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.FunctionDef]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
-        node = make_function(function_token, name=name)
+        node = make_function(function_token, name=name, is_class_method=(TokenType.STATIC in modifiers))
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
@@ -168,8 +177,8 @@ class Parser:
             TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED, TokenType.INTERNAL)
         if visibility_token:
             modifiers.append(visibility_token.type_)
-        # TODO: if self.tokens.skip(TokenType.STATIC):
-        # TODO:     modifiers.append(TokenType.STATIC)
+        if self.tokens.skip(TokenType.STATIC):
+            modifiers.append(TokenType.STATIC)
         yield from self.switch({  # type: ignore
             TokenType.CLASS: self.parse_class,
             TokenType.VAR: self.parse_variable_definition,

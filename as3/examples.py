@@ -99,6 +99,10 @@ scripts: List[Tuple[str, dict]] = [
     ('var foo = 42; while (false) { foo = 0 }', {'foo': 42}),
     ('var foo = 42; while (true) { break; foo = 0 }', {'foo': 42}),
     ('dict_[1] = 42', {'dict_': {1: 42}}),
+    ('class X { static var foo = 42 } var bar = X.foo', {'bar': 42}),
+    ('class X { static var foo = 42 } var bar = X().foo', {'bar': 42}),
+    ('class X { static var foo = 0; function bar() { foo = 42 } }; X().bar(); var baz = X.foo', {'baz': 42}),
+    ('class X { static var foo = 42; static var bar = foo }; var baz = X.bar', {'baz': 42}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),

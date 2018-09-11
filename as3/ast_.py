@@ -15,6 +15,7 @@ from as3.constants import (
     boolean_operations,
     compare_operations,
     init_name,
+    static_prefix,
     this_name,
     unary_operations,
 )
@@ -98,13 +99,13 @@ class AST:
     @staticmethod
     def name_expression(with_token: Token) -> AST:
         """
-        `__resolve__(name)[name]`.
+        `__resolve__(name).name`.
         """
         name_node = AST.string(with_token, with_token.value).node
         return AST \
             .name(with_token, '__resolve__') \
             .call(with_token, [name_node]) \
-            .subscript(with_token, name_node)
+            .attribute(with_token, with_token.value)
 
     @staticmethod
     def class_(*, location: Location, name: str, base: Optional[ast.AST], body: List[ast.AST]) -> AST:
@@ -114,14 +115,20 @@ class AST:
 
         for statement in body:
             if isinstance(statement, ast.Assign):
-                # Field initializer. Prepend `__this__` to each target.
-                statement.targets = [cast(ast.expr, AST.this_target(target).node) for target in statement.targets]
-                initializers.append(statement)
-                # Don't put it in the class body straight away, but defer to the `__init__`.
+                value = statement.value
+                for target in statement.targets:
+                    assert isinstance(target, ast.Name), f'unexpected target: {dump(target)}'
+                    if target.id.startswith(static_prefix):
+                        # Static field initializer. Strip the prefix and initialize it right away.
+                        target.id = target.id[len(static_prefix):]
+                        class_body.append(make_ast(location_of(statement), ast.Assign, targets=[target], value=value))
+                    else:
+                        # Non-static field initializer. Prepend `__this__` and postpone it until `__init__`.
+                        target = cast(ast.expr, AST.this_target(target).node)
+                        initializers.append(make_ast(location_of(statement), ast.Assign, targets=[target], value=value))
                 continue
             if isinstance(statement, ast.FunctionDef):
                 # It's a method.
-                # FIXME: static methods.
                 statement_location = location_of(statement)
                 # Prepend `__this__` argument.
                 statement.args.args.insert(0, cast(ast.arg, AST.argument(statement_location, this_name).node))
@@ -154,7 +161,6 @@ class AST:
         """
         `__this__.target`.
         """
-        assert isinstance(target, ast.Name), f'unexpected target: {dump(target)}'
         location = location_of(target)
         return AST.name(location, this_name).attribute(location, target.id).set_store_context()
 
@@ -282,17 +288,16 @@ def make_function(
     body: List[ast.AST] = None,
     args: List[ast.arg] = None,
     defaults: List[ast.AST] = None,
-    decorators: List[ast.AST] = None,
+    is_class_method=False,
 ) -> ast.FunctionDef:
+    body = body or []
+    body = [*body, make_ast(location, ast.Pass)]  # always add `pass` to make sure body is not empty
+    args = AST.arguments(args, defaults).node
+    decorator_list = []
+    if is_class_method:
+        decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
     return make_ast(
-        location,
-        ast.FunctionDef,
-        name=name,
-        args=AST.arguments(args, defaults).node,
-        body=[*(body or []), make_ast(location, ast.Pass)],  # always add `pass` to make sure body is not empty
-        decorator_list=(decorators or []),
-        returns=None,
-    )
+        location, ast.FunctionDef, name=name, args=args, body=body, decorator_list=decorator_list, returns=None)
 
 
 def has_super_call(node: ast.AST) -> bool:

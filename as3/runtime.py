@@ -76,25 +76,40 @@ class Math:
 # Runtime utilities.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def resolve_name(name: str) -> dict:
+class AttributeDict:
+    """
+    Allows access to a dictionary via attributes.
+    """
+
+    def __init__(self, dict_: dict) -> None:
+        self.__dict__['__wrapped_dict__'] = dict_
+
+    def __getattr__(self, item) -> Any:
+        return self.__wrapped_dict__[item]
+
+    def __setattr__(self, key, value):
+        self.__wrapped_dict__[key] = value
+
+
+def resolve_name(name: str) -> AttributeDict:
     """
     Find a scope which contains the specified name.
     """
     frame = inspect.stack()[1].frame
     # First, looking at the local scope.
     if name in frame.f_locals:
-        return frame.f_locals
+        return AttributeDict(frame.f_locals)
     # Then, look into `this`.
     if this_name in frame.f_locals:
         this = frame.f_locals[this_name]
         class_ = type(this)
         if name in class_.__dict__:
-            return class_.__dict__
+            return class_
         if name in this.__dict__:
-            return this.__dict__
+            return this
     # And the last attempt is globals.
     if name in frame.f_globals:
-        return frame.f_globals
+        return AttributeDict(frame.f_globals)
     raise NameError(f'unable to resolve name "{name}"')
 
 
