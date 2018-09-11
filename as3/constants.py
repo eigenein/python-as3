@@ -54,6 +54,11 @@ compare_operations: Dict[TokenType, ast.AST] = {
     TokenType.NOT_EQUALS: ast.NotEq(),
 }
 
+boolean_operations: Dict[TokenType, ast.AST] = {
+    TokenType.LOGICAL_AND: ast.And(),
+    TokenType.LOGICAL_OR: ast.Or(),
+}
+
 # `__this__` may be an instance _or_ a class itself.
 # Also, avoid confusion with possible `self` variable which is valid in ActionScript.
 this_name = '__this__'

@@ -51,10 +51,10 @@ def test_empty():
     make_test_params('>', TokenType.GREATER),
     make_test_params('>=', TokenType.GREATER_OR_EQUALS),
     make_test_params('===', TokenType.STRICTLY_EQUALS),
+    make_test_params('||', TokenType.LOGICAL_OR),
+    make_test_params('&&', TokenType.LOGICAL_AND),
 
     # Expected failures.
-    make_test_params('||', TokenType.LOGICAL_OR, True),
-    make_test_params('&&', TokenType.LOGICAL_AND, True),
     make_test_params('new', TokenType.NEW, True),
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
 ])

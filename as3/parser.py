@@ -227,7 +227,21 @@ class Parser:
         return AST(left).decrement(token).node
 
     def parse_non_assignment_expression(self) -> ast.AST:
-        return self.parse_equality_expression()
+        return self.parse_logical_or_expression()
+
+    def parse_logical_or_expression(self) -> ast.AST:
+        builder = AST(self.parse_logical_and_expression())
+        while self.tokens.is_type(TokenType.LOGICAL_OR):
+            token = next(self.tokens)
+            builder.binary_operation(token, self.parse_logical_and_expression())
+        return builder.node
+
+    def parse_logical_and_expression(self) -> ast.AST:
+        builder = AST(self.parse_equality_expression())
+        while self.tokens.is_type(TokenType.LOGICAL_OR):
+            token = next(self.tokens)
+            builder.binary_operation(token, self.parse_equality_expression())
+        return builder.node
 
     def parse_equality_expression(self) -> ast.AST:
         return self.parse_binary_operations(self.parse_additive_expression, *compare_operations.keys())

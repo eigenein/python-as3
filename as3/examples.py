@@ -38,6 +38,9 @@ expressions: List[Tuple[str, Any]] = [
     (r'"1\n2\n\""', '1\n2\n\"'),
     ('!true', False),
     ('!false', True),
+    ('true && true', True),
+    ('true || false', True),
+    ('true || false && false', True),
 ]
 
 scripts: List[Tuple[str, dict]] = [
