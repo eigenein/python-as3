@@ -103,9 +103,9 @@ def resolve_name(name: str) -> Any:
     if this_name in frame.f_locals:
         this = frame.f_locals[this_name]
         class_ = type(this)
-        if name in class_.__dict__:
+        if hasattr(class_, name):
             return class_
-        if name in this.__dict__:
+        if hasattr(this, name):
             return this
     # And the last attempt is globals.
     if name in frame.f_globals:
