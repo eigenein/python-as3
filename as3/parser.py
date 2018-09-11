@@ -250,6 +250,7 @@ class Parser:
     def parse_primary_expression(self) -> ast.AST:
         left = self.parse_terminal_or_parenthesized()
         cases = {
+            TokenType.BRACKET_OPEN: self.parse_subscript,
             TokenType.DOT: self.parse_attribute_expression,
             TokenType.PARENTHESIS_OPEN: self.parse_call_expression,
         }
@@ -269,6 +270,12 @@ class Parser:
             args.append(self.parse_non_assignment_expression())
             self.tokens.skip(TokenType.COMMA)
         return AST(left).call(call_token, args).node
+
+    def parse_subscript(self, left: ast.AST) -> ast.AST:
+        token = self.expect(TokenType.BRACKET_OPEN)
+        index = self.parse_non_assignment_expression()
+        self.expect(TokenType.BRACKET_CLOSE)
+        return AST(left).subscript(token, index).node
 
     def parse_terminal_or_parenthesized(self) -> ast.AST:
         return self.switch({

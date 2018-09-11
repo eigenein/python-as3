@@ -94,6 +94,7 @@ scripts: List[Tuple[str, dict]] = [
     ('while (false) {}', {}),
     ('var foo = 42; while (false) { foo = 0 }', {'foo': 42}),
     ('var foo = 42; while (true) { break; foo = 0 }', {'foo': 42}),
+    ('dict_[1] = 42', {'dict_': {1: 42}}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
