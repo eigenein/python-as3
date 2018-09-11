@@ -91,7 +91,7 @@ class AttributeDict:
         self.__wrapped_dict__[key] = value
 
 
-def resolve_name(name: str) -> AttributeDict:
+def resolve_name(name: str) -> Any:
     """
     Find a scope which contains the specified name.
     """

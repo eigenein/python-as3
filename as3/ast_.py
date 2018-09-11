@@ -142,7 +142,8 @@ class AST:
             class_body.append(statement)
 
         # Create a default constructor if not defined.
-        init = init or make_function(location, init_name, args=[cast(ast.arg, AST.argument(location, this_name).node)])
+        init = init or make_function(
+            location, init_name, arguments=[cast(ast.arg, AST.argument(location, this_name).node)])
         # Prepend field initializers before the constructor body.
         init.body = [*initializers, *init.body]
 
@@ -157,7 +158,7 @@ class AST:
         ))
 
     @staticmethod
-    def this_target(target: ast.AST) -> AST:
+    def this_target(target: ast.Name) -> AST:
         """
         `__this__.target`.
         """
@@ -286,13 +287,13 @@ def make_function(
     location: Location,
     name: str,
     body: List[ast.AST] = None,
-    args: List[ast.arg] = None,
+    arguments: List[ast.arg] = None,
     defaults: List[ast.AST] = None,
     is_class_method=False,
 ) -> ast.FunctionDef:
     body = body or []
     body = [*body, make_ast(location, ast.Pass)]  # always add `pass` to make sure body is not empty
-    args = AST.arguments(args, defaults).node
+    args = cast(ast.arguments, AST.arguments(arguments, defaults).node)
     decorator_list = []
     if is_class_method:
         decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
