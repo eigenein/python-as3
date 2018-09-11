@@ -54,6 +54,7 @@ def test_empty():
     make_test_params('||', TokenType.LOGICAL_OR),
     make_test_params('&&', TokenType.LOGICAL_AND),
     make_test_params('new', TokenType.NEW),
+    make_test_params('.<', TokenType.GENERIC_OPEN),
 
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),

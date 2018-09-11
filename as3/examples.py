@@ -18,6 +18,7 @@ expressions: List[Tuple[str, Any]] = [
     ('2 + 2 * 2', 6),
     ('(2 + 2) * 2', 8),
     ('1 * (2 * (2 + 2))', 8),
+    ('String.<Whatever>(2)', '2'),
     ('String(2)', '2'),
     ('Math.abs(-2)', 2.0),
     ('Math.acos.__name__', 'acos'),

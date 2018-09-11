@@ -18,6 +18,7 @@ class TokenType(Enum):
     CURLY_BRACKET_OPEN = auto()
     PARENTHESIS_CLOSE = auto()
     PARENTHESIS_OPEN = auto()
+    GENERIC_OPEN = auto()
 
     # Punctuation.
     COLON = auto()

@@ -322,7 +322,12 @@ class Parser:
         return AST.integer_expression(self.expect(TokenType.INTEGER)).node
 
     def parse_name_expression(self) -> ast.AST:
-        return AST.name_expression(self.expect(TokenType.IDENTIFIER)).node
+        name_token = self.expect(TokenType.IDENTIFIER)
+        if self.tokens.skip(TokenType.GENERIC_OPEN):
+            # Skip `.<Whatever>`.
+            self.parse_additive_expression()
+            self.expect(TokenType.GREATER)
+        return AST.name_expression(name_token).node
 
     def parse_super_expression(self) -> ast.AST:
         super_token = self.expect(TokenType.SUPER)

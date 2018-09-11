@@ -19,6 +19,7 @@ specification = re.compile(r'''
     (?P<WHITESPACE>[ \t\f\v]+) |
     
     # Normal tokens.
+    (?P<GENERIC_OPEN>\.<) |
     (?P<LOGICAL_OR>\|\|) |
     (?P<LOGICAL_AND>&&) |
     (?P<STRICTLY_EQUALS>===) |
