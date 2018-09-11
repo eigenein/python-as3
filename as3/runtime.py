@@ -65,16 +65,12 @@ class ASNumber(float, ASObject):
 # ActionScript standard library.
 # ----------------------------------------------------------------------------------------------------------------------
 
-class MathMetaclass(type):
-    def __getattr__(self, item):
-        # Let's hope the name matches.
-        return getattr(math, item)
 
-
-class Math(metaclass=MathMetaclass):
+class Math:
     POSITIVE_INFINITY = ASNumber(math.inf)
 
     abs = math.fabs
+    acos = math.acos
 
 
 # Runtime utilities.
