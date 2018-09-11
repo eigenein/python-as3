@@ -31,7 +31,7 @@ class ASAny(ASObject):
         return cls.__default__
 
     def __eq__(self, other: Any) -> bool:
-        return other is None or isinstance(other, ASAny)
+        return isinstance(other, ASAny)
 
     def __hash__(self) -> int:
         return 0
