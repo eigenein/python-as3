@@ -238,7 +238,7 @@ class Parser:
 
     def parse_logical_and_expression(self) -> ast.AST:
         builder = AST(self.parse_equality_expression())
-        while self.tokens.is_type(TokenType.LOGICAL_OR):
+        while self.tokens.is_type(TokenType.LOGICAL_AND):
             token = next(self.tokens)
             builder.binary_operation(token, self.parse_equality_expression())
         return builder.node
