@@ -17,6 +17,7 @@ class ASObject:
     Base class for all built ActionScript classes. Also known as `Object`.
     """
 
+    __alias__ = 'Object'
     __default__: Any = None
 
 
@@ -24,6 +25,8 @@ class ASAny(ASObject):
     """
     Not declared (equivalent to type annotation `*`).
     """
+
+    __alias__ = 'Any'
 
     def __new__(cls):
         # `ASAny` produces singleton `undefined` value.
@@ -42,23 +45,16 @@ class ASAny(ASObject):
 
 
 class ASInteger(int, ASObject):
-    """
-    `int`.
-    """
-
+    __alias__ = 'int'
     __default__ = 0
 
 
 class ASString(str, ASObject):
-    def __repr__(self) -> str:
-        return super().__repr__()
+    __alias__ = 'String'
 
 
 class ASNumber(float, ASObject):
-    """
-    `Number`.
-    """
-
+    __alias__ = 'Number'
     __default__ = math.nan
 
 
@@ -120,13 +116,13 @@ default_globals: Dict[str, Any] = {
     '__resolve__': resolve_name,
 
     # Standard names.
-    'int': ASInteger,
     'Math': Math,
     'null': None,
-    'Number': ASNumber,
-    'String': ASString,
     'trace': print,
-    'undefined': ASAny(),
+    ASInteger.__alias__: ASInteger,
+    ASNumber.__alias__: ASNumber,
+    ASString.__alias__: ASString,
+    str(ASAny()): ASAny(),
 
     # Standard types.
     ASAny.__name__: ASAny,

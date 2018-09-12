@@ -55,6 +55,13 @@ def test_empty():
     make_test_params('&&', TokenType.LOGICAL_AND),
     make_test_params('new', TokenType.NEW),
     make_test_params('.<', TokenType.GENERIC_OPEN),
+    make_test_params('42', TokenType.NUMBER),
+    make_test_params('0xABCDEF', TokenType.NUMBER),
+    make_test_params('0777', TokenType.NUMBER),
+    make_test_params('0.75', TokenType.NUMBER),
+    make_test_params('1.', TokenType.NUMBER),
+    make_test_params('.9', TokenType.NUMBER),
+    make_test_params('1e-10', TokenType.NUMBER),
 
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
@@ -71,7 +78,7 @@ def test_single_token(input_: str, expected: Token):
         [
             Token(type_=TokenType.IDENTIFIER, value='a', line_number=1, position=1),
             Token(type_=TokenType.ASSIGN, value='=', line_number=1, position=3),
-            Token(type_=TokenType.INTEGER, value='42', line_number=1, position=5),
+            Token(type_=TokenType.NUMBER, value='42', line_number=1, position=5),
             Token(type_=TokenType.SEMICOLON, value=';', line_number=1, position=7),
         ],
     ),
@@ -81,7 +88,7 @@ def test_single_token(input_: str, expected: Token):
             Token(type_=TokenType.IDENTIFIER, value='a', line_number=1, position=1),
             Token(type_=TokenType.ASSIGN, value='=', line_number=1, position=3),
             Token(type_=TokenType.COMMENT, value='/* what? */', line_number=1, position=5),
-            Token(type_=TokenType.INTEGER, value='42', line_number=1, position=17),
+            Token(type_=TokenType.NUMBER, value='42', line_number=1, position=17),
         ],
     ),
     (
@@ -129,14 +136,14 @@ def test_scanner_get_elemental_penetration():
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=4, position=15),
         Token(type_=TokenType.IDENTIFIER, value='param2', line_number=4, position=16),
         Token(type_=TokenType.LESS, value='<', line_number=4, position=23),
-        Token(type_=TokenType.INTEGER, value='0', line_number=4, position=25),
+        Token(type_=TokenType.NUMBER, value='0', line_number=4, position=25),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=4, position=26),
 
         Token(type_=TokenType.CURLY_BRACKET_OPEN, value='{', line_number=5, position=13),
 
         Token(type_=TokenType.IDENTIFIER, value='param2', line_number=6, position=17),
         Token(type_=TokenType.ASSIGN, value='=', line_number=6, position=24),
-        Token(type_=TokenType.INTEGER, value='0', line_number=6, position=26),
+        Token(type_=TokenType.NUMBER, value='0', line_number=6, position=26),
         Token(type_=TokenType.SEMICOLON, value=';', line_number=6, position=27),
 
         Token(type_=TokenType.CURLY_BRACKET_CLOSE, value='}', line_number=7, position=13),
@@ -149,11 +156,11 @@ def test_scanner_get_elemental_penetration():
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=8, position=33),
         Token(type_=TokenType.IDENTIFIER, value='Number', line_number=8, position=34),
         Token(type_=TokenType.PARENTHESIS_OPEN, value='(', line_number=8, position=40),
-        Token(type_=TokenType.INTEGER, value='1', line_number=8, position=41),
+        Token(type_=TokenType.NUMBER, value='1', line_number=8, position=41),
         Token(type_=TokenType.PLUS, value='+', line_number=8, position=43),
         Token(type_=TokenType.IDENTIFIER, value='param2', line_number=8, position=45),
         Token(type_=TokenType.DIVIDE, value='/', line_number=8, position=52),
-        Token(type_=TokenType.INTEGER, value='300000', line_number=8, position=54),
+        Token(type_=TokenType.NUMBER, value='300000', line_number=8, position=54),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=8, position=60),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=8, position=61),
         Token(type_=TokenType.PARENTHESIS_CLOSE, value=')', line_number=8, position=62),

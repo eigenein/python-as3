@@ -27,8 +27,7 @@ class TokenType(Enum):
     SEMICOLON = auto()
 
     # Literals.
-    FLOAT = auto()
-    INTEGER = auto()
+    NUMBER = auto()
     STRING = auto()
     STRING_1 = STRING_2 = STRING
 

@@ -308,8 +308,8 @@ class Parser:
         return self.switch({
             TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
             TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.INTEGER: self.parse_integer_expression,
             TokenType.NEW: self.parse_new,
+            TokenType.NUMBER: self.parse_number_expression,
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.STRING: self.parse_string_expression,
             TokenType.SUPER: self.parse_super_expression,
@@ -323,8 +323,8 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return inner
 
-    def parse_integer_expression(self) -> ast.AST:
-        return AST.integer_expression(self.expect(TokenType.INTEGER)).node
+    def parse_number_expression(self) -> ast.AST:
+        return AST.number_expression(self.expect(TokenType.NUMBER)).node
 
     def parse_name_expression(self) -> ast.AST:
         name_token = self.expect(TokenType.IDENTIFIER)

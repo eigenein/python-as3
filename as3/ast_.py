@@ -19,7 +19,7 @@ from as3.constants import (
     this_name,
     unary_operations,
 )
-from as3.runtime import ASObject
+from as3.runtime import ASInteger, ASNumber, ASObject
 from as3.scanner import Location, Token, TokenType
 
 TAST = TypeVar('TAST', bound=ast.AST)
@@ -43,10 +43,6 @@ class AST:
     @staticmethod
     def string(location: Location, value: str) -> AST:
         return AST(make_ast(location, ast.Str, s=value))
-
-    @staticmethod
-    def number(with_token: Token) -> AST:
-        return AST(make_ast(with_token, ast.Num, n=int(with_token.value)))
 
     @staticmethod
     def name_constant(with_token: Token, value: Any) -> AST:
@@ -85,10 +81,11 @@ class AST:
         return builder if isinstance(value, ast.stmt) else builder.expr()
 
     @staticmethod
-    def integer_expression(with_token: Token) -> AST:
+    def number_expression(with_token: Token) -> AST:
+        value = ast.literal_eval(with_token.value)
         return AST \
-            .name(with_token, 'int') \
-            .call(with_token, args=[AST.number(with_token).node])
+            .name(with_token, ASInteger.__alias__ if isinstance(value, int) else ASNumber.__alias__) \
+            .call(with_token, args=[make_ast(with_token, ast.Num, n=value)])
 
     @staticmethod
     def string_expression(with_token: Token) -> AST:
