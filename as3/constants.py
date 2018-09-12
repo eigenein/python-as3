@@ -26,6 +26,7 @@ keyword_to_token_type = {
     'this': TokenType.THIS,
     'true': TokenType.TRUE,
     'var': TokenType.VAR,
+    'void': TokenType.VOID,
     'while': TokenType.WHILE,
 }
 
