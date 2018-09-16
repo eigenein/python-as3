@@ -119,6 +119,8 @@ class Parser:
     def parse_type_annotation(self) -> ast.AST:
         if self.tokens.is_type(TokenType.MULTIPLY):
             return AST.name(next(self.tokens), ASAny.__name__).node
+        if self.tokens.is_type(TokenType.VOID):
+            return AST.name_constant(next(self.tokens), None).node
         return self.parse_primary_expression()
 
     def parse_semicolon(self) -> Iterable[ast.AST]:
@@ -155,7 +157,7 @@ class Parser:
 
         # Skip return type.
         if self.tokens.skip(TokenType.COLON):
-            self.parse_non_assignment_expression()
+            self.parse_type_annotation()
 
         # Parse body.
         node.body.extend(cast(List[ast.stmt], self.parse_statement()))
