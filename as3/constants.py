@@ -62,10 +62,11 @@ boolean_operations: Dict[TokenType, ast.AST] = {
     TokenType.LOGICAL_OR: ast.Or(),
 }
 
-# `__this__` may be an instance _or_ a class itself.
-# Also, avoid confusion with possible `self` variable which is valid in ActionScript.
 this_name = '__this__'
 init_name = '__init__'
+packages_path_name = '__packages_path__'
+resolve_name = '__resolve__'
+import_name = '__as_import__'
 
-# Yes, I know it's not the best way, but I use "@" to mark static fields for later use.
+# Yes, I know it's not the best way, but I use "@" to mark static fields.
 static_prefix = '@'

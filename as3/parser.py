@@ -87,7 +87,7 @@ class Parser:
 
     def parse_import(self) -> Iterable[ast.AST]:
         self.expect(TokenType.IMPORT)
-        qualified_name = tuple(self.parse_qualified_name())  # FIXME: `parse_non_assignment_expression`
+        qualified_name = tuple(self.parse_qualified_name())  # FIXME: parse this special case.
         self.expect(TokenType.SEMICOLON)
         return []  # FIXME: actually import name
 

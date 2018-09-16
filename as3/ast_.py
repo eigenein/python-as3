@@ -15,6 +15,7 @@ from as3.constants import (
     boolean_operations,
     compare_operations,
     init_name,
+    resolve_name,
     static_prefix,
     this_name,
     unary_operations,
@@ -100,7 +101,7 @@ class AST:
         """
         name_node = AST.string(with_token, with_token.value).node
         return AST \
-            .name(with_token, '__resolve__') \
+            .name(with_token, resolve_name) \
             .call(with_token, [name_node]) \
             .attribute(with_token, with_token.value)
 

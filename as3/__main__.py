@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import random
 import sys
 from pathlib import Path
@@ -12,17 +13,23 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.styles.native import NativeStyle
 
-from as3 import examples, execute_script
+from as3 import examples, execute_script, constants
 
 
 @click.command()
-@click.option('--shell', is_flag=True,  help='Start interactive shell.')
+@click.option('-s', '--shell', is_flag=True, help='Start interactive shell.')
+@click.option(
+    '-p', '--packages-path',
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    default=os.getcwd(),
+    help='Packages root path.',
+)
 @click.argument('scripts', type=click.Path(exists=True, dir_okay=False), nargs=-1)
-def main(shell: bool, scripts: Tuple[str]):
+def main(shell: bool, packages_path: str, scripts: Tuple[str]):
     """
     Execute ActionScript files.
     """
-    globals_: Dict[str, Any] = {}
+    globals_: Dict[str, Any] = {constants.packages_path_name: Path(packages_path)}
     for script in scripts:
         path = Path(script)
         # noinspection PyBroadException

@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import inspect
 import math
+from pathlib import Path
 from typing import Any, Dict
 
-from as3.constants import this_name
+from as3 import constants
 
 
 class ASObject:
@@ -96,8 +97,8 @@ def resolve_name(name: str) -> Any:
     if name in frame.f_locals:
         return AttributeDict(frame.f_locals)
     # Then, look into `this`.
-    if this_name in frame.f_locals:
-        this = frame.f_locals[this_name]
+    if constants.this_name in frame.f_locals:
+        this = frame.f_locals[constants.this_name]
         class_ = type(this)
         if hasattr(class_, name):
             return class_
@@ -113,7 +114,9 @@ default_globals: Dict[str, Any] = {
     # Internal interpreter names.
     '__dir__': dir,
     '__globals__': globals,
-    '__resolve__': resolve_name,
+    constants.import_name: ...,  # TODO
+    constants.packages_path_name: Path.cwd(),
+    constants.resolve_name: resolve_name,
 
     # Standard names.
     'Math': Math,
