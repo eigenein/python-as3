@@ -3,8 +3,7 @@ python: 3.7
 dist: xenial
 sudo: true
 install:
-  - pip install pipenv
-  - pipenv install
+  - pip install -r requirements-dev.txt
 script:
   - pytest
   - isort --check-only --diff
