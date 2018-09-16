@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 from typing import Any, Dict
 
+import as3
 from as3 import constants
 
 
@@ -70,7 +71,7 @@ class Math:
     acos = math.acos
 
 
-# Runtime utilities.
+# Runtime functions.
 # ----------------------------------------------------------------------------------------------------------------------
 
 class AttributeDict:
@@ -110,11 +111,47 @@ def resolve_name(name: str) -> Any:
     raise NameError(f'unable to resolve name "{name}"')
 
 
+def import_name(*args: str) -> None:
+    """
+    Implements the `import` statement.
+    """
+    # Inject names into the locals.
+    frame = inspect.stack()[1].frame
+    import_cache = frame.f_globals[constants.import_cache_name]
+
+    # Search the name in the global cache.
+    if args not in import_cache:
+        packages_path: Path = frame.f_globals[constants.packages_path_name]
+        script_path = packages_path
+
+        # Locate the file.
+        for arg in args:
+            if arg != '*':
+                script_path = script_path / arg
+            else:
+                raise NotImplementedError('star import is not implemented')  # TODO
+
+        # We need a script with the same name.
+        script_path = script_path.with_suffix(constants.actionscript_suffix)
+        script_globals = as3.execute_script(
+            script_path.read_text(),
+            filename=str(script_path),
+            **{constants.packages_path_name: packages_path},
+        )
+        import_cache[args] = script_globals[args[-1]]
+
+    frame.f_locals[args[-1]] = import_cache[args]
+
+
+# Interpreter globals.
+# ----------------------------------------------------------------------------------------------------------------------
+
 default_globals: Dict[str, Any] = {
     # Internal interpreter names.
     '__dir__': dir,
     '__globals__': globals,
-    constants.import_name: ...,  # TODO
+    constants.import_cache_name: {},
+    constants.import_name: import_name,
     constants.packages_path_name: Path.cwd(),
     constants.resolve_name: resolve_name,
 

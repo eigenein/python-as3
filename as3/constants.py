@@ -66,7 +66,10 @@ this_name = '__this__'
 init_name = '__init__'
 packages_path_name = '__packages_path__'
 resolve_name = '__resolve__'
-import_name = '__as_import__'
+import_name = '__import_name__'
+import_cache_name = '__import_cache__'
 
 # Yes, I know it's not the best way, but I use "@" to mark static fields.
 static_prefix = '@'
+
+actionscript_suffix = '.as'

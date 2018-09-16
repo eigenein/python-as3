@@ -13,7 +13,7 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.styles.native import NativeStyle
 
-from as3 import examples, execute_script, constants
+from as3 import constants, examples, execute_script
 
 
 @click.command()
@@ -36,7 +36,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
         try:
             globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), path.name, **globals_))
         except Exception as e:
-            click.echo(f'{click.style("Error", fg="red")}: {click.style(str(path), fg="blue")}: {e}')
+            click.echo(f'{click.style("Error", fg="red")}: {e}')
             sys.exit(1)
     if shell:
         run_shell(globals_)

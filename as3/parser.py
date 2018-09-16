@@ -4,8 +4,8 @@ import ast
 from collections import deque
 from typing import Callable, Container, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
 
+from as3 import constants
 from as3.ast_ import AST, make_ast, make_function
-from as3.constants import augmented_assign_operations, init_name, static_prefix, this_name, unary_operations
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASAny
@@ -13,8 +13,9 @@ from as3.scanner import Location, Token
 
 
 class Parser:
-    def __init__(self, tokens: Iterable[Token]) -> None:
+    def __init__(self, tokens: Iterable[Token], filename: str) -> None:
         self.tokens = Peekable(filter_tokens(tokens))
+        self.filename = filename
 
     # Rules.
     # ------------------------------------------------------------------------------------------------------------------
@@ -32,9 +33,11 @@ class Parser:
 
     def parse_package(self) -> Iterable[ast.AST]:
         self.expect(TokenType.PACKAGE)
-        package_name = tuple(self.parse_qualified_name()) if self.tokens.is_type(TokenType.IDENTIFIER) else ()
+        if self.tokens.is_type(TokenType.IDENTIFIER):
+            # TODO: for now just consume the name because we'll use the directory structure instead.
+            for _ in self.parse_qualified_name():
+                pass
         yield from self.parse_statement()
-        # TODO: export public members.
 
     def parse_class(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.AST]:
         class_token = self.expect(TokenType.CLASS)
@@ -86,10 +89,19 @@ class Parser:
             yield self.expect(TokenType.IDENTIFIER).value
 
     def parse_import(self) -> Iterable[ast.AST]:
-        self.expect(TokenType.IMPORT)
-        qualified_name = tuple(self.parse_qualified_name())  # FIXME: parse this special case.
-        self.expect(TokenType.SEMICOLON)
-        return []  # FIXME: actually import name
+        import_token = self.expect(TokenType.IMPORT)
+        args = []
+        while True:
+            token = self.expect(TokenType.IDENTIFIER, TokenType.MULTIPLY)
+            args.append(AST.string(token, token.value).node)
+            if not self.tokens.skip(TokenType.DOT):
+                break
+        self.tokens.skip(TokenType.SEMICOLON)
+        yield AST \
+            .name(import_token, constants.import_name) \
+            .call(import_token, args) \
+            .expr() \
+            .node
 
     def parse_if(self) -> Iterable[ast.AST]:
         if_token = self.expect(TokenType.IF)
@@ -113,7 +125,7 @@ class Parser:
             value = AST.type_default_value(name_token, type_).node
         name = name_token.value
         if TokenType.STATIC in modifiers:
-            name = f'{static_prefix}{name}'
+            name = f'{constants.static_prefix}{name}'
         yield AST.name(name_token, name).assign(name_token, value).node
 
     def parse_type_annotation(self) -> ast.AST:
@@ -218,7 +230,7 @@ class Parser:
         return builder.node
 
     def parse_augmented_assignment_expression(self, left: ast.AST) -> ast.AST:
-        assignment_token = self.expect(*augmented_assign_operations)
+        assignment_token = self.expect(*constants.augmented_assign_operations)
         value = self.parse_non_assignment_expression()
         return AST(left).aug_assign(assignment_token, value).node
 
@@ -281,7 +293,7 @@ class Parser:
         return self.parse_binary_operations(self.parse_unary_expression, TokenType.MULTIPLY, TokenType.DIVIDE)
 
     def parse_unary_expression(self) -> ast.AST:
-        if self.tokens.is_type(*unary_operations):
+        if self.tokens.is_type(*constants.unary_operations):
             token = next(self.tokens)
             return AST(self.parse_unary_expression()).unary_operation(token).node
         return self.parse_primary_expression()
@@ -325,7 +337,7 @@ class Parser:
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.STRING: self.parse_string_expression,
             TokenType.SUPER: self.parse_super_expression,
-            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=this_name, ctx=ast.Load()),
+            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=constants.this_name, ctx=ast.Load()),
             TokenType.TRUE: lambda: AST.name_constant(next(self.tokens), True).node,
         })
 
@@ -351,7 +363,7 @@ class Parser:
         builder = AST.identifier(super_token).call(super_token)
         if self.tokens.is_type(TokenType.PARENTHESIS_OPEN):
             # Call super constructor. Return `super().__init__` and let `parse_call_expression` do its job.
-            return self.parse_call_expression(builder.attribute(super_token, init_name).node)
+            return self.parse_call_expression(builder.attribute(super_token, constants.init_name).node)
         if self.tokens.is_type(TokenType.DOT):
             # Call super method. Return `super()` and let `parse_attribute_expression` do its job.
             return self.parse_attribute_expression(builder.node)
@@ -414,9 +426,13 @@ class Parser:
         try:
             token = self.tokens.peek()
         except StopIteration:
-            raise_syntax_error(f'unexpected end of file, expected one of: {types_string}')
+            raise_syntax_error(f'unexpected end of file, expected one of: {types_string}', filename=self.filename)
         else:
-            raise_syntax_error(f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}', token)
+            raise_syntax_error(
+                f'unexpected {token.type_.name} "{token.value}", expected one of: {types_string}',
+                location=token,
+                filename=self.filename,
+            )
 
 
 class Peekable(Iterable[Token]):
@@ -466,11 +482,14 @@ def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
     return (token for token in tokens if token.type_ != TokenType.COMMENT)
 
 
-def raise_syntax_error(message: str, location: Optional[Location] = None) -> NoReturn:
+def raise_syntax_error(message: str, location: Optional[Location] = None, filename: str = None) -> NoReturn:
     """
     Raise syntax error and provide some help message.
     """
+    if filename:
+        message = f'{filename}: {message}'
+    message = f'syntax error: {message}'
     if location:
-        raise ASSyntaxError(f'syntax error: {message} at line {location.line_number} position {location.position}')
+        raise ASSyntaxError(f'{message} at line {location.line_number} position {location.position}')
     else:
-        raise ASSyntaxError(f'syntax error: {message}')
+        raise ASSyntaxError(f'{message}')

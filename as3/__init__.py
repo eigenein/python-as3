@@ -9,16 +9,16 @@ from as3.runtime import default_globals
 from as3.scanner import scan
 
 
-def parse(source: str) -> Parser:
-    return Parser(scan(source))
+def parse(source: str, filename: str) -> Parser:
+    return Parser(scan(source), filename)
 
 
-def parse_script(source: str) -> AST:
-    return parse(source).parse_script()
+def parse_script(source: str, filename: str) -> AST:
+    return parse(source, filename).parse_script()
 
 
-def compile_script(source: str, filename: str = '<ast>') -> CodeType:
-    return compile(parse_script(source), filename, 'exec')
+def compile_script(source: str, filename: str) -> CodeType:
+    return compile(parse_script(source, filename), filename, 'exec')
 
 
 def execute_script(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
@@ -27,12 +27,12 @@ def execute_script(source: str, filename: str = '<ast>', **override_globals: Any
     return globals_
 
 
-def parse_expression(source: str) -> AST:
-    return parse(source).parse_expression()
+def parse_expression(source: str, filename: str) -> AST:
+    return parse(source, filename).parse_expression()
 
 
-def compile_expression(source: str, filename: str = '<ast>') -> CodeType:
-    return compile(Expression(parse_expression(source)), filename, 'eval')
+def compile_expression(source: str, filename: str) -> CodeType:
+    return compile(Expression(parse_expression(source, filename)), filename, 'eval')
 
 
 def evaluate_expression(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
