@@ -49,6 +49,8 @@ expressions: List[Tuple[str, Any]] = [
     ('0.25', ASNumber(0.25)),
     ('true ? 42 : 0', ASInteger(42)),
     ('false ? 0 : 42', ASInteger(42)),
+    ('[]', []),
+    ('["1", "2"]', [ASString('1'), ASString('2')]),
 ]
 
 scripts: List[Tuple[str, dict]] = [

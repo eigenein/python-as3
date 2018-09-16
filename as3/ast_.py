@@ -182,6 +182,10 @@ class AST:
     def while_(location: Location, test: ast.AST, body: List[ast.AST]) -> AST:
         return AST(make_ast(location, ast.While, test=test, body=[*body, make_ast(location, ast.Pass)], orelse=[]))
 
+    @staticmethod
+    def list_(location: Location, elements: List[ast.AST]) -> AST:
+        return AST(make_ast(location, ast.List, elts=elements, ctx=ast.Load()))
+
     def __init__(self, node: ast.AST) -> None:
         self.node = node
 
