@@ -229,7 +229,17 @@ class Parser:
         return AST(left).decrement(token).node
 
     def parse_non_assignment_expression(self) -> ast.AST:
-        return self.parse_logical_or_expression()
+        return self.parse_conditional_expression()
+
+    def parse_conditional_expression(self) -> ast.AST:
+        builder = AST(self.parse_logical_or_expression())
+        if self.tokens.is_type(TokenType.QUESTION_MARK):
+            token = next(self.tokens)
+            body = self.parse_logical_or_expression()
+            self.expect(TokenType.COLON)
+            or_else = self.parse_logical_or_expression()
+            builder.if_expression(token, body, or_else)
+        return builder.node
 
     def parse_logical_or_expression(self) -> ast.AST:
         builder = AST(self.parse_logical_and_expression())

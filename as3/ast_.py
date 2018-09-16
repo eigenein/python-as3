@@ -268,6 +268,10 @@ class AST:
         self.node = make_ast(location, ast.AugAssign, target=self.node, op=ast.Sub(), value=value)
         return self
 
+    def if_expression(self, location: Location, body: ast.AST, or_else: ast.AST) -> AST:
+        self.node = make_ast(location, ast.IfExp, test=self.node, body=body, orelse=or_else)
+        return self
+
 
 def make_ast(location: Location, init: Type[TAST], **kwargs) -> TAST:
     # noinspection PyProtectedMember
