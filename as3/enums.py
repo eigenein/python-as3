@@ -24,6 +24,7 @@ class TokenType(Enum):
     COLON = auto()
     COMMA = auto()
     DOT = auto()
+    QUESTION_MARK = auto()
     SEMICOLON = auto()
 
     # Literals.

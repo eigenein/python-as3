@@ -62,6 +62,7 @@ def test_empty():
     make_test_params('1.', TokenType.NUMBER),
     make_test_params('.9', TokenType.NUMBER),
     make_test_params('1e-10', TokenType.NUMBER),
+    make_test_params('?', TokenType.QUESTION_MARK),
 
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
