@@ -30,7 +30,7 @@ def test_evaluate_expression(expression: str, expected: Any):
 ])
 def test_parse_expression_syntax_error(expression: str):
     with raises(ASSyntaxError):
-        parse_expression(expression)
+        parse_expression(expression, '<ast>')
 
 
 @mark.parametrize('script, expected', scripts + bad_scripts)
