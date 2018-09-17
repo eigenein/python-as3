@@ -59,7 +59,7 @@ specification = re.compile(r'''
     
     # Fallback token to detect syntax errors.
     (?P<UNKNOWN>.)
-''', re.VERBOSE)
+''', re.VERBOSE | re.DOTALL)
 
 
 @dataclass

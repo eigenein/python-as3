@@ -65,6 +65,7 @@ def test_empty():
     make_test_params('?', TokenType.QUESTION_MARK),
     make_test_params('§§push', TokenType.IDENTIFIER),
     make_test_params('§§pop', TokenType.IDENTIFIER),
+    make_test_params('/*\n * * */', TokenType.COMMENT),
 
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
