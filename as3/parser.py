@@ -235,7 +235,15 @@ class Parser:
     # ------------------------------------------------------------------------------------------------------------------
 
     def parse_expression(self) -> ast.AST:
-        return self.parse_assignment_expression()
+        return self.parse_label()
+
+    def parse_label(self) -> ast.AST:
+        # For the sake of simplicity any expression is allowed as a label.
+        # Again, for the sake of simplicity any label is evaluated to `None`.
+        left = self.parse_assignment_expression()
+        if self.tokens.is_type(TokenType.COLON):
+            return AST.name_constant(next(self.tokens), None).node
+        return left
 
     def parse_assignment_expression(self) -> ast.AST:
         left = self.parse_non_assignment_expression()

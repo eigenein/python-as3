@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import inspect
 import math
+from functools import partial
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, NoReturn
 
 import as3
 from as3 import constants
@@ -143,8 +144,24 @@ def import_name(*args: str) -> None:
     frame.f_locals[args[-1]] = import_cache[args]
 
 
+def push(value: Any):
+    locals_ = inspect.stack()[1].frame.f_locals
+    if constants.operand_stack_name not in locals_:
+        locals_[constants.operand_stack_name] = []
+    stack: List[Any] = locals_[constants.operand_stack_name]
+    stack.append(value)
+
+
+def pop() -> Any:
+    return inspect.stack()[1].frame.f_locals[constants.operand_stack_name].pop()
+
+
 # Interpreter globals.
 # ----------------------------------------------------------------------------------------------------------------------
+
+def raise_not_implemented_error(name: str, *args: Any) -> NoReturn:
+    raise NotImplementedError(f'not implemented: {name}{args}')
+
 
 default_globals: Dict[str, Any] = {
     # Internal interpreter names.
@@ -166,4 +183,11 @@ default_globals: Dict[str, Any] = {
     # Standard types.
     ASAny.__name__: ASAny,
     ASObject.__name__: ASObject,
+
+    # FFDec decompilation quirks.
+    '§§dup': partial(raise_not_implemented_error, '§§dup'),
+    '§§goto': partial(raise_not_implemented_error, '§§goto'),
+    '§§nextname': partial(raise_not_implemented_error, '§§nextname'),
+    '§§pop': pop,
+    '§§push': push,
 }

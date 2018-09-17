@@ -39,7 +39,7 @@ specification = re.compile(r'''
     (?P<CURLY_BRACKET_CLOSE>}) |
     (?P<CURLY_BRACKET_OPEN>{) |
     (?P<DIVIDE>/) |
-    (?P<IDENTIFIER>[_a-zA-Z]\w*) |
+    (?P<IDENTIFIER>[_a-zA-Z§][\w§]*) |
     (?P<NUMBER>[-+]?(0[xX][\dA-Fa-f]+|(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)) |
     (?P<LESS_OR_EQUAL><=) |
     (?P<GREATER_OR_EQUAL>>=) |

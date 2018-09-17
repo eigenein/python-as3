@@ -8,7 +8,7 @@ class TokenType(Enum):
     UNKNOWN = auto()
     WHITESPACE = auto()
 
-    # Comments and whitespaces.
+    # Non-instructions.
     COMMENT = auto()
 
     # Brackets.

@@ -54,6 +54,9 @@ expressions: List[Tuple[str, Any]] = [
     ('1 is int', True),
     ('1 is String', False),
     ('null', None),
+
+    # For the sake of simplicity a label is evaluated to `None`.
+    ('addr58:', None),
 ]
 
 scripts: List[Tuple[str, dict]] = [
@@ -122,6 +125,8 @@ scripts: List[Tuple[str, dict]] = [
     ('var foo = 0; try { 1 / 0 } catch (e: FakeException) { foo = 43 } catch (e: *) { foo = 42 }', {'foo': 42}),
     ('var foo = 0; try { 1 / 0 } catch (e: *) { foo = 43 } finally { foo = 42 }', {'foo': 42}),
     ('var foo = 0; try { throw new FakeException() } catch (e: FakeException) { foo = 42 } catch (e: *) { foo = 43 }', {'foo': 42}),
+    ('addr58:', {}),
+    ('§§push(43); §§push(42); var foo = §§pop(); var bar = §§pop()', {'foo': 42, 'bar': 43}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
