@@ -132,6 +132,7 @@ scripts: List[Tuple[str, dict]] = [
     ('§§push(43); §§push(42); var foo = §§pop(); var bar = §§pop()', {'foo': 42, 'bar': 43}),
     ('import flash.display.MovieClip', {}),
     ('var map: Object = new Object(); map.name1 = "Lee"', {'map': {'name1': 'Lee'}}),
+    ('import flash.utils.getQualifiedClassName', {}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),

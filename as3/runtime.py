@@ -9,14 +9,13 @@ import inspect
 import math
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Tuple
+from typing import Any, Dict, List, NoReturn
 from unittest.mock import Mock
 
 import as3
 from as3 import constants
 
 
-# FIXME: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/associative-arrays.html
 class ASObject(dict):
     __alias__ = 'Object'
     __default__: Any = None
@@ -126,6 +125,8 @@ def import_name(*args: str) -> None:
     # Inject names into the locals.
     frame = inspect.stack()[1].frame
     import_cache = frame.f_globals[constants.import_cache_name]
+
+    # First, look it up in the import cache.
     value = import_cache.get(args)
 
     # Mock UI classes.
@@ -134,11 +135,10 @@ def import_name(*args: str) -> None:
         value.__default__ = None  # type: ignore
 
     # Standard library.
-    # FIXME: look up `'.'.join(args)` in globals instead.
     if value is None:
-        value = standard_imports.get(args)
+        value = frame.f_globals[constants.standard_imports_name].get(args)
 
-    # Search the name in the global cache.
+    # Search the name in the packages path.
     if value is None:
         packages_path: Path = frame.f_globals[constants.packages_path_name]
         script_path = packages_path
@@ -208,11 +208,11 @@ default_globals: Dict[str, Any] = {
     '§§nextname': partial(raise_not_implemented_error, '§§nextname'),
     '§§pop': pop,
     '§§push': push,
-}
 
-# FIXME: move to globals.
-standard_imports: Dict[Tuple[str, ...], Any] = {
-    ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
-    ('flash', 'utils', 'setInterval'): partial(raise_not_implemented_error, 'setInterval'),
-    ('flash', 'utils', 'setTimeout'): partial(raise_not_implemented_error, 'setTimeout'),
+    # Abuse globals for imports. This allows to override them.
+    constants.standard_imports_name: {
+        ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
+        ('flash', 'utils', 'setInterval'): partial(raise_not_implemented_error, 'setInterval'),
+        ('flash', 'utils', 'setTimeout'): partial(raise_not_implemented_error, 'setTimeout'),
+    },
 }
