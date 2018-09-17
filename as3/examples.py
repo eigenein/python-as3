@@ -11,7 +11,6 @@ from pytest import mark, param
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASInteger, ASNumber, ASObject, ASString, ASUndefined
 
-# FIXME: arithmetic operations still return normal `int` instead of `ASInteger`.
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
     ('2 + 2', 4),
@@ -147,7 +146,8 @@ scripts: List[Tuple[str, dict]] = [
 bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
-    param('42 +', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('class X { static var foo = 43 }; X().foo = 42; var bar = X.foo', {'bar': 42}, marks=mark.xfail),  # FIXME
+    param('class X { static var foo = X() }', {}, marks=mark.xfail(raises=NameError, strict=True)),  # FIXME
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
