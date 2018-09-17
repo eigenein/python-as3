@@ -117,11 +117,7 @@ class Parser:
     def parse_variable_definition(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.AST]:
         self.expect(TokenType.VAR)
         name_token = self.expect(TokenType.IDENTIFIER)
-        # FIXME: move entire `if` into `parse_type_annotation`.
-        if self.tokens.skip(TokenType.COLON):
-            type_ = self.parse_type_annotation()
-        else:
-            type_ = AST.name(name_token, ASUndefined.__alias__).node
+        type_ = self.parse_type_annotation(name_token)
         if self.tokens.skip(TokenType.ASSIGN):
             value = self.parse_non_assignment_expression()
         else:
@@ -131,7 +127,9 @@ class Parser:
             name = f'{constants.static_prefix}{name}'
         yield AST.name(name_token, name).assign(name_token, value).node
 
-    def parse_type_annotation(self) -> ast.AST:
+    def parse_type_annotation(self, name_token: Token) -> ast.AST:
+        if not self.tokens.skip(TokenType.COLON):
+            return AST.name(name_token, ASUndefined.__alias__).node
         if self.tokens.is_type(TokenType.MULTIPLY):
             return AST.name(next(self.tokens), ASUndefined.__alias__).node
         if self.tokens.is_type(TokenType.VOID):
@@ -160,11 +158,7 @@ class Parser:
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
             name_token = self.expect(TokenType.IDENTIFIER)
             node.args.args.append(AST.argument(name_token, name_token.value).node)  # type: ignore
-            # FIXME: move entire `if` into `parse_type_annotation`.
-            if self.tokens.skip(TokenType.COLON):
-                type_ = self.parse_type_annotation()
-            else:
-                type_ = AST.name(name_token, ASUndefined.__alias__).node
+            type_ = self.parse_type_annotation(name_token)
             if self.tokens.skip(TokenType.ASSIGN):
                 node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:
@@ -172,8 +166,7 @@ class Parser:
             self.tokens.skip(TokenType.COMMA)
 
         # Skip return type.
-        if self.tokens.skip(TokenType.COLON):
-            self.parse_type_annotation()
+        self.parse_type_annotation(function_token)
 
         # Parse body.
         node.body.extend(cast(List[ast.stmt], self.parse_statement()))
