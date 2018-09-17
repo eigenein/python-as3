@@ -1,4 +1,5 @@
 import ast
+import re
 from typing import Dict
 
 from as3.enums import TokenType
@@ -80,3 +81,7 @@ operand_stack_name = '__operand_stack__'
 static_prefix = '@'
 
 actionscript_suffix = '.as'
+
+mocked_imports = re.compile(r'''
+    flash\.(display|events|filters|text)\..+
+''', re.VERBOSE)

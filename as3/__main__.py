@@ -36,7 +36,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
         try:
             globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), path.name, **globals_))
         except Exception as e:
-            click.echo(f'{click.style("Error", fg="red")}: {e}')
+            echo_error(e)
             sys.exit(1)
     if shell:
         run_shell(globals_)
@@ -57,7 +57,11 @@ def run_shell(globals_: dict):
         try:
             globals_.update(execute_script(line, '<shell>', **globals_))
         except Exception as e:
-            click.echo(f'{click.style("Error", fg="red")}: {e}')
+            echo_error(e)
+
+
+def echo_error(exception: Exception):
+    click.echo(f'{click.style("Error", fg="red")}: {type(exception).__name__}: {exception}')
 
 
 if __name__ == '__main__':

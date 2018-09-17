@@ -9,7 +9,8 @@ import inspect
 import math
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn
+from typing import Any, Dict, List, NoReturn, Tuple
+from unittest.mock import Mock
 
 import as3
 from as3 import constants
@@ -52,6 +53,12 @@ class ASInteger(int, ASObject):
     __default__ = 0
 
 
+# FIXME: unsigned overflow.
+class ASUnsignedInteger(int, ASObject):
+    __alias__ = 'uint'
+    __default__ = 0
+
+
 class ASString(str, ASObject):
     __alias__ = 'String'
 
@@ -61,7 +68,15 @@ class ASNumber(float, ASObject):
     __default__ = math.nan
 
 
-# ActionScript standard library.
+class ASArray(list, ASObject):
+    __alias__ = 'Array'
+
+
+class ASError(Exception, ASObject):
+    __alias__ = 'Error'
+
+
+# ActionScript standard classes and methods.
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -119,9 +134,19 @@ def import_name(*args: str) -> None:
     # Inject names into the locals.
     frame = inspect.stack()[1].frame
     import_cache = frame.f_globals[constants.import_cache_name]
+    value = import_cache.get(args)
+
+    # Mock UI classes.
+    if value is None and constants.mocked_imports.match('.'.join(args)):
+        value = Mock()
+        value.__default__ = None
+
+    # Standard library.
+    if value is None:
+        value = standard_imports.get(args)
 
     # Search the name in the global cache.
-    if args not in import_cache:
+    if value is None:
         packages_path: Path = frame.f_globals[constants.packages_path_name]
         script_path = packages_path
 
@@ -139,9 +164,9 @@ def import_name(*args: str) -> None:
             filename=str(script_path),
             **{constants.packages_path_name: packages_path},
         )
-        import_cache[args] = script_globals[args[-1]]
+        value = import_cache[args] = script_globals[args[-1]]
 
-    frame.f_locals[args[-1]] = import_cache[args]
+    frame.f_locals[args[-1]] = value
 
 
 def push(value: Any):
@@ -167,7 +192,6 @@ default_globals: Dict[str, Any] = {
     # Internal interpreter names.
     '__dir__': dir,
     '__globals__': globals,
-    constants.import_cache_name: {},
     constants.import_name: import_name,
     constants.packages_path_name: Path.cwd(),
     constants.resolve_name: resolve_name,
@@ -175,9 +199,13 @@ default_globals: Dict[str, Any] = {
     # Standard names.
     'Math': Math,
     'trace': print,
+    ASArray.__alias__: ASArray,
+    ASError.__alias__: ASError,
     ASInteger.__alias__: ASInteger,
     ASNumber.__alias__: ASNumber,
+    ASObject.__alias__: ASObject,
     ASString.__alias__: ASString,
+    ASUnsignedInteger.__alias__: ASUnsignedInteger,
     str(ASAny()): ASAny(),
 
     # Standard types.
@@ -190,4 +218,10 @@ default_globals: Dict[str, Any] = {
     '§§nextname': partial(raise_not_implemented_error, '§§nextname'),
     '§§pop': pop,
     '§§push': push,
+}
+
+standard_imports: Dict[Tuple[str, ...], Any] = {
+    ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
+    ('flash', 'utils', 'setInterval'): partial(raise_not_implemented_error, 'setInterval'),
+    ('flash', 'utils', 'setTimeout'): partial(raise_not_implemented_error, 'setTimeout'),
 }
