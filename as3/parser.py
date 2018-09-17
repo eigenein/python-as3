@@ -277,9 +277,9 @@ class Parser:
         builder = AST(self.parse_logical_or_expression())
         if self.tokens.is_type(TokenType.QUESTION_MARK):
             token = next(self.tokens)
-            body = self.parse_logical_or_expression()
+            body = self.parse_conditional_expression()
             self.expect(TokenType.COLON)
-            or_else = self.parse_logical_or_expression()
+            or_else = self.parse_conditional_expression()
             builder.if_expression(token, body, or_else)
         return builder.node
 
@@ -376,7 +376,7 @@ class Parser:
 
     def parse_parenthesized_expression(self) -> ast.AST:
         self.expect(TokenType.PARENTHESIS_OPEN)
-        inner = self.parse_expression()
+        inner = self.parse_non_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return inner
 

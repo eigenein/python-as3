@@ -57,6 +57,9 @@ expressions: List[Tuple[str, Any]] = [
     ('{}', ASObject()),
     ('{1: 2}', ASObject({ASInteger(1): ASInteger(2)})),
     ('{1: {2: 3}}', ASObject({ASInteger(1): ASObject({ASInteger(2): ASInteger(3)})})),
+    ('(true ? 1 : true ? 2 : 3)', ASInteger(1)),
+    ('(false ? 1 : true ? 2 : 3)', ASInteger(2)),
+    ('(false ? 1 : false ? 2 : 3)', ASInteger(3)),
 
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),
