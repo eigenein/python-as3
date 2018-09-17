@@ -143,7 +143,7 @@ class AST:
         init = init or make_function(
             location, init_name, arguments=[cast(ast.arg, AST.argument(location, this_name).node)])
         # Prepend field initializers before the constructor body.
-        init.body = [*initializers, *init.body]
+        init.body = [*initializers, *init.body, make_ast(location, ast.Pass)]
 
         return AST(make_ast(
             location,
@@ -180,11 +180,23 @@ class AST:
 
     @staticmethod
     def while_(location: Location, test: ast.AST, body: List[ast.AST]) -> AST:
-        return AST(make_ast(location, ast.While, test=test, body=[*body, make_ast(location, ast.Pass)], orelse=[]))
+        return AST(make_ast(location, ast.While, test=test, body=body, orelse=[]))
 
     @staticmethod
     def list_(location: Location, elements: List[ast.AST]) -> AST:
         return AST(make_ast(location, ast.List, elts=elements, ctx=ast.Load()))
+
+    @staticmethod
+    def pass_(location: Location) -> AST:
+        return AST(make_ast(location, ast.Pass))
+
+    @staticmethod
+    def try_(location: Location, body: List[ast.AST], handlers: List[ast.AST], final_body: List[ast.AST]) -> AST:
+        return AST(make_ast(location, ast.Try, body=body, handlers=handlers, orelse=[], finalbody=final_body))
+
+    @staticmethod
+    def except_handler(location: Location, type_: ast.AST, name: str, body: List[ast.AST]) -> AST:
+        return AST(make_ast(location, ast.ExceptHandler, type=type_, name=name, body=body))
 
     def __init__(self, node: ast.AST) -> None:
         self.node = node
@@ -279,6 +291,10 @@ class AST:
         self.node = make_ast(location, ast.IfExp, test=self.node, body=body, orelse=or_else)
         return self
 
+    def throw(self, location: Location) -> AST:
+        self.node = make_ast(location, ast.Raise, exc=self.node, cause=None)
+        return self
+
 
 def make_ast(location: Location, init: Type[TAST], **kwargs) -> TAST:
     # noinspection PyProtectedMember
@@ -302,7 +318,6 @@ def make_function(
     is_class_method=False,
 ) -> ast.FunctionDef:
     body = body or []
-    body = [*body, make_ast(location, ast.Pass)]  # always add `pass` to make sure body is not empty
     args = cast(ast.arguments, AST.arguments(arguments, defaults).node)
     decorator_list = []
     if is_class_method:

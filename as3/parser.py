@@ -61,6 +61,8 @@ class Parser:
             TokenType.RETURN: self.parse_return,
             TokenType.SEMICOLON: self.parse_semicolon,
             TokenType.STATIC: self.parse_modifiers,
+            TokenType.THROW: self.parse_throw,
+            TokenType.TRY: self.parse_try,
             TokenType.VAR: self.parse_variable_definition,
             TokenType.WHILE: self.parse_while,
         }, else_=self.parse_expression_statement)
@@ -73,7 +75,7 @@ class Parser:
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.tokens.is_type(TokenType.CURLY_BRACKET_CLOSE):
             yield from self.parse_statement()
-        self.expect(TokenType.CURLY_BRACKET_CLOSE)
+        yield AST.pass_(self.expect(TokenType.CURLY_BRACKET_CLOSE)).node
 
     def parse_expression_statement(self) -> Iterable[ast.AST]:
         value = self.parse_expression()
@@ -203,6 +205,29 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_CLOSE)
         body = list(self.parse_statement())
         yield AST.while_(token, test, body).node
+
+    def parse_try(self) -> Iterable[ast.AST]:
+        try_token = self.expect(TokenType.TRY)
+        try_body = list(self.parse_statement())
+        handlers: List[ast.AST] = []
+        while self.tokens.is_type(TokenType.CATCH):
+            catch_token = next(self.tokens)
+            self.expect(TokenType.PARENTHESIS_OPEN)
+            name = self.expect(TokenType.IDENTIFIER).value
+            self.expect(TokenType.COLON)
+            if not self.tokens.is_type(TokenType.MULTIPLY):
+                type_ = self.parse_non_assignment_expression()
+            else:
+                type_ = AST.name(next(self.tokens), 'Exception').node
+            self.expect(TokenType.PARENTHESIS_CLOSE)
+            catch_body = list(self.parse_statement())
+            handlers.append(AST.except_handler(catch_token, type_, name, catch_body).node)
+        final_body = list(self.parse_statement()) if self.tokens.skip(TokenType.FINALLY) else []
+        yield AST.try_(try_token, try_body, handlers, final_body).node
+
+    def parse_throw(self) -> Iterable[ast.AST]:
+        token = self.expect(TokenType.THROW)
+        yield AST(self.parse_non_assignment_expression()).throw(token).node
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.

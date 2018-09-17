@@ -35,7 +35,9 @@ def test_parse_expression_syntax_error(expression: str):
 
 @mark.parametrize('script, expected', scripts + bad_scripts)
 def test_execute_script(script: str, expected: Dict[str, Any]):
-    globals_ = execute_script(script, foo=lambda x: x, dict_={})
+    class FakeException(Exception):
+        pass
+    globals_ = execute_script(script, foo=lambda x: x, dict_={}, FakeException=FakeException)
     for key, value in expected.items():
         assert globals_[key] == value, f'actual: {globals_[key]}'
 
