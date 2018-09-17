@@ -282,6 +282,7 @@ class Parser:
             TokenType.AS,
             TokenType.GREATER,
             TokenType.GREATER_OR_EQUAL,
+            TokenType.IS,
             TokenType.LESS,
             TokenType.LESS_OR_EQUAL,
         )

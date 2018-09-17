@@ -65,6 +65,7 @@ class TokenType(Enum):
     FUNCTION = auto()
     IDENTIFIER = auto()
     IF = auto()
+    IS = auto()
     IMPORT = auto()
     INTERNAL = auto()
     NEW = auto()

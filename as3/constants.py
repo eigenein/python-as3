@@ -12,6 +12,7 @@ keyword_to_token_type = {
     'false': TokenType.FALSE,
     'function': TokenType.FUNCTION,
     'if': TokenType.IF,
+    'is': TokenType.IS,
     'import': TokenType.IMPORT,
     'internal': TokenType.INTERNAL,
     'new': TokenType.NEW,

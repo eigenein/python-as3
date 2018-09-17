@@ -249,6 +249,8 @@ class AST:
             self.node = make_ast(with_token, ast.BoolOp, values=[self.node, right], op=boolean_operations[type_])
         elif type_ == TokenType.AS:
             pass  # do nothing
+        elif type_ == TokenType.IS:
+            self.node = AST.name(with_token, 'isinstance').call(with_token, [self.node, right]).node
         else:
             raise KeyError(with_token.type_)
         return self
