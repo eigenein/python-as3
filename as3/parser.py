@@ -360,6 +360,7 @@ class Parser:
     def parse_terminal_or_parenthesized(self) -> ast.AST:
         return self.switch({
             TokenType.BRACKET_OPEN: self.parse_compound_literal,
+            TokenType.CURLY_BRACKET_OPEN: self.parse_map_literal,
             TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
             TokenType.IDENTIFIER: self.parse_name_expression,
             TokenType.NEW: self.parse_new,
@@ -415,6 +416,17 @@ class Parser:
             elements.append(self.parse_non_assignment_expression())
             self.tokens.skip(TokenType.COMMA)
         return AST.list_(token, elements).node
+
+    def parse_map_literal(self) -> ast.AST:
+        token = self.expect(TokenType.CURLY_BRACKET_OPEN)
+        keys: List[ast.AST] = []
+        values: List[ast.AST] = []
+        while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
+            keys.append(self.parse_non_assignment_expression())
+            self.expect(TokenType.COLON)
+            values.append(self.parse_non_assignment_expression())
+            self.tokens.skip(TokenType.COMMA)
+        return AST.dict_expression(token, keys, values).node
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------

@@ -20,7 +20,7 @@ from as3.constants import (
     this_name,
     unary_operations,
 )
-from as3.runtime import ASInteger, ASNumber, ASObject
+from as3.runtime import ASInteger, ASNumber, ASObject, ASString
 from as3.scanner import Location, Token, TokenType
 
 TAST = TypeVar('TAST', bound=ast.AST)
@@ -91,8 +91,14 @@ class AST:
     @staticmethod
     def string_expression(with_token: Token) -> AST:
         return AST \
-            .name(with_token, 'String') \
+            .name(with_token, ASString.__alias__) \
             .call(with_token, args=[AST.string(with_token, ast.literal_eval(with_token.value)).node])
+
+    @staticmethod
+    def dict_expression(location: Location, keys: List[ast.AST], values: List[ast.AST]) -> AST:
+        return AST \
+            .name(location, ASObject.__alias__) \
+            .call(location, [make_ast(location, ast.Dict, keys=keys, values=values)])
 
     @staticmethod
     def name_expression(with_token: Token) -> AST:
