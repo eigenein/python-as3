@@ -16,6 +16,7 @@ import as3
 from as3 import constants
 
 
+# FIXME: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/associative-arrays.html
 class ASObject:
     """
     Base class for all built ActionScript classes. Also known as `Object`.
@@ -142,6 +143,7 @@ def import_name(*args: str) -> None:
         value.__default__ = None  # type: ignore
 
     # Standard library.
+    # FIXME: look up `'.'.join(args)` in globals instead.
     if value is None:
         value = standard_imports.get(args)
 
@@ -199,7 +201,8 @@ default_globals: Dict[str, Any] = {
     # Standard names.
     'Math': Math,
     'trace': print,
-    ASArray.__alias__: ASArray,
+    ASAny.__alias__: ASAny,
+    ASArray.__alias__: ASArray,  # FIXME: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/associative-arrays.html
     ASError.__alias__: ASError,
     ASInteger.__alias__: ASInteger,
     ASNumber.__alias__: ASNumber,
@@ -207,10 +210,6 @@ default_globals: Dict[str, Any] = {
     ASString.__alias__: ASString,
     ASUnsignedInteger.__alias__: ASUnsignedInteger,
     str(ASAny()): ASAny(),
-
-    # Standard types.
-    ASAny.__name__: ASAny,
-    ASObject.__name__: ASObject,
 
     # FFDec decompilation quirks.
     '§§dup': partial(raise_not_implemented_error, '§§dup'),
@@ -220,6 +219,7 @@ default_globals: Dict[str, Any] = {
     '§§push': push,
 }
 
+# FIXME: move to globals.
 standard_imports: Dict[Tuple[str, ...], Any] = {
     ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
     ('flash', 'utils', 'setInterval'): partial(raise_not_implemented_error, 'setInterval'),

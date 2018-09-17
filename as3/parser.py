@@ -117,10 +117,11 @@ class Parser:
     def parse_variable_definition(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.AST]:
         self.expect(TokenType.VAR)
         name_token = self.expect(TokenType.IDENTIFIER)
+        # FIXME: move entire `if` into `parse_type_annotation`.
         if self.tokens.skip(TokenType.COLON):
             type_ = self.parse_type_annotation()
         else:
-            type_ = AST.name(name_token, ASAny.__name__).node
+            type_ = AST.name(name_token, ASAny.__alias__).node
         if self.tokens.skip(TokenType.ASSIGN):
             value = self.parse_non_assignment_expression()
         else:
@@ -132,7 +133,7 @@ class Parser:
 
     def parse_type_annotation(self) -> ast.AST:
         if self.tokens.is_type(TokenType.MULTIPLY):
-            return AST.name(next(self.tokens), ASAny.__name__).node
+            return AST.name(next(self.tokens), ASAny.__alias__).node
         if self.tokens.is_type(TokenType.VOID):
             return AST.name_constant(next(self.tokens), None).node
         return self.parse_primary_expression()
@@ -159,10 +160,11 @@ class Parser:
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
             name_token = self.expect(TokenType.IDENTIFIER)
             node.args.args.append(AST.argument(name_token, name_token.value).node)  # type: ignore
+            # FIXME: move entire `if` into `parse_type_annotation`.
             if self.tokens.skip(TokenType.COLON):
                 type_ = self.parse_type_annotation()
             else:
-                type_ = AST.name(name_token, ASAny.__name__).node
+                type_ = AST.name(name_token, ASAny.__alias__).node
             if self.tokens.skip(TokenType.ASSIGN):
                 node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:

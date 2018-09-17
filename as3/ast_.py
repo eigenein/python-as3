@@ -149,7 +149,7 @@ class AST:
             location,
             ast.ClassDef,
             name=name,
-            bases=[base or AST.name(location, ASObject.__name__).node],
+            bases=[base or AST.name(location, ASObject.__alias__).node],
             keywords=[],
             body=[*class_body, init],
             decorator_list=[],
