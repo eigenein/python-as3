@@ -33,7 +33,7 @@ class AST:
 
     @staticmethod
     def identifier(with_token: Token) -> AST:
-        assert with_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER)
+        assert with_token.type_ in (TokenType.IDENTIFIER, TokenType.SUPER, TokenType.UNDEFINED)
         return AST.name(with_token, with_token.value)
 
     @staticmethod
@@ -134,16 +134,18 @@ class AST:
                     init = statement
                     # It's a constructor. Rename it to `__init__`.
                     statement.name = init_name
-                    if not has_super_call(statement):
-                        # ActionScript calls `super()` implicitly if not called explicitly.
-                        statement.body.insert(0, cast(ast.stmt, AST.super_constructor_call(statement_location).node))
             class_body.append(statement)
 
         # Create a default constructor if not defined.
         init = init or make_function(
             location, init_name, arguments=[cast(ast.arg, AST.argument(location, this_name).node)])
-        # Prepend field initializers before the constructor body.
-        init.body = [*initializers, *init.body, make_ast(location, ast.Pass)]
+
+        # Prepend field initializers.
+        init.body = [*initializers, *init.body]
+
+        # ActionScript calls `super()` implicitly if not called explicitly.
+        if not has_super_call(init):
+            init.body.insert(0, cast(ast.stmt, AST.super_constructor_call(location).node))
 
         return AST(make_ast(
             location,

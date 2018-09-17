@@ -84,6 +84,7 @@ class TokenType(Enum):
     THROW = auto()
     TRUE = auto()
     TRY = auto()
+    UNDEFINED = auto()
     VAR = auto()
     VOID = auto()
     WHILE = auto()

@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASAny, ASInteger, ASNumber, ASString
+from as3.runtime import ASUndefined, ASInteger, ASNumber, ASString
 
 # FIXME: arithmetic operations still return normal `int` instead of `ASInteger`.
 expressions: List[Tuple[str, Any]] = [
@@ -36,7 +36,7 @@ expressions: List[Tuple[str, Any]] = [
     ('-1 + -1', -2),
     ('1 != 2', True),
     ('1 != 1', False),
-    ('undefined', ASAny()),
+    ('undefined', ASUndefined()),
     (r'"1\n2\n\""', ASString('1\n2\n\"')),
     ('!true', False),
     ('!false', True),
@@ -67,7 +67,7 @@ scripts: List[Tuple[str, dict]] = [
     ('var a = 42; a += 1;', {'a': 43}),
     ('var a = 42; a++;', {'a': 43}),
     ('var a = 42; a--;', {'a': 41}),
-    ('var a: *', {'a': ASAny()}),
+    ('var a: *', {'a': ASUndefined()}),
     ('foo(42);', {}),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
@@ -79,7 +79,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
-    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASAny()}),
+    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASUndefined()}),
     ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
     (
         'class X { var a = 43 } '
@@ -128,6 +128,7 @@ scripts: List[Tuple[str, dict]] = [
     ('addr58:', {}),
     ('§§push(43); §§push(42); var foo = §§pop(); var bar = §§pop()', {'foo': 42, 'bar': 43}),
     ('import flash.display.MovieClip', {}),
+    ('var map: Object = new Object(); map.name1 = "Lee"', {'map': {'name1': 'Lee'}}),
 
     # Yes, I made it possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),

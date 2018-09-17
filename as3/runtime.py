@@ -17,30 +17,27 @@ from as3 import constants
 
 
 # FIXME: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/associative-arrays.html
-class ASObject:
-    """
-    Base class for all built ActionScript classes. Also known as `Object`.
-    """
-
+class ASObject(dict):
     __alias__ = 'Object'
     __default__: Any = None
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.__dict__ = self
 
-class ASAny(ASObject):
-    """
-    Not declared (equivalent to type annotation `*`).
-    """
 
+class ASUndefined:
     __alias__ = 'Any'
+    __default__ = None
 
     def __new__(cls):
-        # `ASAny` produces singleton `undefined` value.
+        # `undefined` is a singleton.
         if cls.__default__ is None:
             cls.__default__ = super().__new__(cls)
         return cls.__default__
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, ASAny)
+        return isinstance(other, ASUndefined)
 
     def __hash__(self) -> int:
         return 0
@@ -49,32 +46,36 @@ class ASAny(ASObject):
         return 'undefined'
 
 
-class ASInteger(int, ASObject):
+class ASInteger(int):
     __alias__ = 'int'
     __default__ = 0
 
 
 # FIXME: unsigned overflow.
-class ASUnsignedInteger(int, ASObject):
+class ASUnsignedInteger(int):
     __alias__ = 'uint'
     __default__ = 0
 
 
-class ASString(str, ASObject):
+class ASString(str):
     __alias__ = 'String'
+    __default__ = None
 
 
-class ASNumber(float, ASObject):
+class ASNumber(float):
     __alias__ = 'Number'
     __default__ = math.nan
 
 
-class ASArray(list, ASObject):
+class ASArray(list):
+    """https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/arrays.html"""
     __alias__ = 'Array'
+    __default__ = None
 
 
-class ASError(Exception, ASObject):
+class ASError(Exception):
     __alias__ = 'Error'
+    __default__ = None
 
 
 # ActionScript standard classes and methods.
@@ -91,19 +92,9 @@ class Math:
 # Runtime functions.
 # ----------------------------------------------------------------------------------------------------------------------
 
-class AttributeDict:
-    """
-    Allows access to a dictionary via attributes.
-    """
-
+class NamespaceObject:
     def __init__(self, dict_: dict) -> None:
-        self.__dict__['__wrapped_dict__'] = dict_
-
-    def __getattr__(self, item) -> Any:
-        return self.__wrapped_dict__[item]
-
-    def __setattr__(self, key, value):
-        self.__wrapped_dict__[key] = value
+        self.__dict__ = dict_
 
 
 def resolve_name(name: str) -> Any:
@@ -113,7 +104,7 @@ def resolve_name(name: str) -> Any:
     frame = inspect.stack()[1].frame
     # First, looking at the local scope.
     if name in frame.f_locals:
-        return AttributeDict(frame.f_locals)
+        return NamespaceObject(frame.f_locals)
     # Then, look into `this`.
     if constants.this_name in frame.f_locals:
         this = frame.f_locals[constants.this_name]
@@ -124,7 +115,7 @@ def resolve_name(name: str) -> Any:
             return this
     # And the last attempt is globals.
     if name in frame.f_globals:
-        return AttributeDict(frame.f_globals)
+        return NamespaceObject(frame.f_globals)
     raise NameError(f'unable to resolve name "{name}"')
 
 
@@ -201,15 +192,15 @@ default_globals: Dict[str, Any] = {
     # Standard names.
     'Math': Math,
     'trace': print,
-    ASAny.__alias__: ASAny,
-    ASArray.__alias__: ASArray,  # FIXME: https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/associative-arrays.html
+    ASArray.__alias__: ASArray,
     ASError.__alias__: ASError,
     ASInteger.__alias__: ASInteger,
     ASNumber.__alias__: ASNumber,
     ASObject.__alias__: ASObject,
     ASString.__alias__: ASString,
+    ASUndefined.__alias__: ASUndefined,
     ASUnsignedInteger.__alias__: ASUnsignedInteger,
-    str(ASAny()): ASAny(),
+    str(ASUndefined()): ASUndefined(),
 
     # FFDec decompilation quirks.
     '§§dup': partial(raise_not_implemented_error, '§§dup'),

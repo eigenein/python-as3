@@ -8,7 +8,7 @@ from as3 import constants
 from as3.ast_ import AST, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASAny
+from as3.runtime import ASUndefined
 from as3.scanner import Location, Token
 
 
@@ -121,7 +121,7 @@ class Parser:
         if self.tokens.skip(TokenType.COLON):
             type_ = self.parse_type_annotation()
         else:
-            type_ = AST.name(name_token, ASAny.__alias__).node
+            type_ = AST.name(name_token, ASUndefined.__alias__).node
         if self.tokens.skip(TokenType.ASSIGN):
             value = self.parse_non_assignment_expression()
         else:
@@ -133,7 +133,7 @@ class Parser:
 
     def parse_type_annotation(self) -> ast.AST:
         if self.tokens.is_type(TokenType.MULTIPLY):
-            return AST.name(next(self.tokens), ASAny.__alias__).node
+            return AST.name(next(self.tokens), ASUndefined.__alias__).node
         if self.tokens.is_type(TokenType.VOID):
             return AST.name_constant(next(self.tokens), None).node
         return self.parse_primary_expression()
@@ -164,7 +164,7 @@ class Parser:
             if self.tokens.skip(TokenType.COLON):
                 type_ = self.parse_type_annotation()
             else:
-                type_ = AST.name(name_token, ASAny.__alias__).node
+                type_ = AST.name(name_token, ASUndefined.__alias__).node
             if self.tokens.skip(TokenType.ASSIGN):
                 node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:
@@ -377,6 +377,7 @@ class Parser:
             TokenType.SUPER: self.parse_super_expression,
             TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=constants.this_name, ctx=ast.Load()),
             TokenType.TRUE: lambda: AST.name_constant(next(self.tokens), True).node,
+            TokenType.UNDEFINED: lambda: AST.identifier(next(self.tokens)).node,
         })
 
     def parse_parenthesized_expression(self) -> ast.AST:

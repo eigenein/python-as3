@@ -32,6 +32,7 @@ keyword_to_token_type = {
     'throw': TokenType.THROW,
     'true': TokenType.TRUE,
     'try': TokenType.TRY,
+    'undefined': TokenType.UNDEFINED,
     'var': TokenType.VAR,
     'void': TokenType.VOID,
     'while': TokenType.WHILE,
