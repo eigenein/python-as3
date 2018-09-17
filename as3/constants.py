@@ -16,6 +16,7 @@ keyword_to_token_type = {
     'import': TokenType.IMPORT,
     'internal': TokenType.INTERNAL,
     'new': TokenType.NEW,
+    'null': TokenType.NULL,
     'override': TokenType.OVERRIDE,
     'package': TokenType.PACKAGE,
     'private': TokenType.PRIVATE,

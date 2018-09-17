@@ -335,6 +335,7 @@ class Parser:
             TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
             TokenType.IDENTIFIER: self.parse_name_expression,
             TokenType.NEW: self.parse_new,
+            TokenType.NULL: lambda: AST.name_constant(next(self.tokens), None).node,
             TokenType.NUMBER: self.parse_number_expression,
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
             TokenType.STRING: self.parse_string_expression,

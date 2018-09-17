@@ -69,6 +69,7 @@ class TokenType(Enum):
     IMPORT = auto()
     INTERNAL = auto()
     NEW = auto()
+    NULL = auto()
     OVERRIDE = auto()
     PACKAGE = auto()
     PRIVATE = auto()

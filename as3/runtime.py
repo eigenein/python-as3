@@ -157,7 +157,6 @@ default_globals: Dict[str, Any] = {
 
     # Standard names.
     'Math': Math,
-    'null': None,
     'trace': print,
     ASInteger.__alias__: ASInteger,
     ASNumber.__alias__: ASNumber,
