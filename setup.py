@@ -14,6 +14,7 @@ setuptools.setup(
     install_requires=[
         'click>=6.7,<7.0',
         'prompt-toolkit>=2.0.4,<2.1.0',
+        'Pygments>=2.2.0,<3.0.0',
     ],
     extras_require={},
     entry_points={

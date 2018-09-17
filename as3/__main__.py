@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import random
 import sys
+import traceback
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -10,7 +11,10 @@ import click
 from prompt_toolkit import PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments_cls
+from pygments import highlight
+from pygments.formatters.terminal import TerminalFormatter
 from pygments.lexers.actionscript import ActionScript3Lexer
+from pygments.lexers.python import Python3TracebackLexer
 from pygments.styles.native import NativeStyle
 
 from as3 import constants, examples, execute_script
@@ -35,8 +39,8 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
         # noinspection PyBroadException
         try:
             globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), path.name, **globals_))
-        except Exception as e:
-            echo_error(e)
+        except Exception as _:
+            print_exception()
             sys.exit(1)
     if shell:
         run_shell(globals_)
@@ -56,12 +60,12 @@ def run_shell(globals_: dict):
         # noinspection PyBroadException
         try:
             globals_.update(execute_script(line, '<shell>', **globals_))
-        except Exception as e:
-            echo_error(e)
+        except Exception as _:
+            print_exception()
 
 
-def echo_error(exception: Exception):
-    click.echo(f'{click.style("Error", fg="red")}: {type(exception).__name__}: {exception}')
+def print_exception():
+    print(highlight(traceback.format_exc(), Python3TracebackLexer(), TerminalFormatter()))
 
 
 if __name__ == '__main__':
