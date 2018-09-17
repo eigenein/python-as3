@@ -23,7 +23,7 @@ def compile_script(source: str, filename: str) -> CodeType:
 
 
 def execute_script(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
-    globals_ = {**default_globals, **override_globals, constants.import_cache_name: {}}
+    globals_: Dict[str, Any] = {**default_globals, **override_globals, constants.import_cache_name: {}}
     exec(compile_script(source, filename), globals_)
     return globals_
 
@@ -37,5 +37,5 @@ def compile_expression(source: str, filename: str) -> CodeType:
 
 
 def evaluate_expression(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
-    globals_ = {**default_globals, **override_globals, constants.import_cache_name: {}}
+    globals_: Dict[str, Any] = {**default_globals, **override_globals, constants.import_cache_name: {}}
     return eval(compile_expression(source, filename), globals_)

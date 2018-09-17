@@ -139,7 +139,7 @@ def import_name(*args: str) -> None:
     # Mock UI classes.
     if value is None and constants.mocked_imports.match('.'.join(args)):
         value = Mock()
-        value.__default__ = None
+        value.__default__ = None  # type: ignore
 
     # Standard library.
     if value is None:
