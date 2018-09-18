@@ -149,28 +149,46 @@ def resolve_name(name: str) -> Any:
     Find a scope which contains the specified name.
     """
     frame = inspect.stack()[1].frame
+
     # First, looking at the local scope.
     if name in frame.f_locals:
         return NamespaceObject(frame.f_locals)
+
     # Then, look into `this`.
     if constants.this_name in frame.f_locals:
         this = frame.f_locals[constants.this_name]
         with suppress(AttributeError):
             getattr(this, name)
             return this
-    # And the last attempt is globals.
+
+    # Maybe it's in globals.
     if name in frame.f_globals:
         return NamespaceObject(frame.f_globals)
+
+    # Try to import it from the current package.
+    frame_info = inspect.getframeinfo(frame)
+    packages_path: Path = frame.f_globals[constants.packages_path_name]
+    qualified_name = (*Path(frame_info.filename).relative_to(packages_path).parent.parts, name)
+    try:
+        import_name(*qualified_name, frame_index=2)  # one frame is occupied with `resolve_name`
+    except ImportError:
+        pass
+    else:
+        return NamespaceObject(frame.f_locals)  # `import_name` imported it into the locals
+
+    # Give up.
     raise NameError(f'unable to resolve name "{name}"')
 
 
-def import_name(*args: str) -> None:
+def import_name(*args: str, frame_index: int = 1) -> Any:
     """
     Implements the `import` statement.
     """
     # Inject names into the locals.
-    frame = inspect.stack()[1].frame
+    frame = inspect.stack()[frame_index].frame
     import_cache = frame.f_globals[constants.import_cache_name]
+    print(f'Importing: {args} from {inspect.getframeinfo(frame).filename}:{inspect.getframeinfo(frame).lineno}')
+    print(f'Cache: {import_cache}')
 
     # First, look it up in the import cache.
     value = import_cache.get(args)
@@ -198,14 +216,21 @@ def import_name(*args: str) -> None:
 
         # We need a script with the same name.
         script_path = script_path.with_suffix(constants.actionscript_suffix)
-        script_globals = as3.execute_script(
-            script_path.read_text(),
-            filename=str(script_path),
-            **{constants.packages_path_name: packages_path},
-        )
-        value = import_cache[args] = script_globals[args[-1]]
+        try:
+            source = script_path.read_text()
+        except FileNotFoundError:
+            raise ImportError
+        globals_ = {
+            # Import-related globals.
+            constants.import_cache_name: import_cache,
+            constants.packages_path_name: packages_path,
+        }
+        output_globals = as3.execute_script(source, filename=str(script_path), **globals_)
+        value = import_cache[args] = output_globals[args[-1]]
 
+    print('Imported:', args)
     frame.f_locals[args[-1]] = value
+    return value
 
 
 def push(value: Any):
