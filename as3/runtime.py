@@ -168,10 +168,10 @@ def resolve_name(name: str) -> Any:
     # Try to import it from the current package.
     frame_info = inspect.getframeinfo(frame)
     packages_path: Path = frame.f_globals[constants.packages_path_name]
-    qualified_name = (*Path(frame_info.filename).relative_to(packages_path).parent.parts, name)
     try:
+        qualified_name = (*Path(frame_info.filename).relative_to(packages_path).parent.parts, name)
         import_name(*qualified_name, frame_index=2)  # one frame is occupied with `resolve_name`
-    except ImportError:
+    except (ValueError, ImportError):
         pass
     else:
         return NamespaceObject(frame.f_locals)  # `import_name` imported it into the locals
@@ -187,8 +187,6 @@ def import_name(*args: str, frame_index: int = 1) -> Any:
     # Inject names into the locals.
     frame = inspect.stack()[frame_index].frame
     import_cache = frame.f_globals[constants.import_cache_name]
-    print(f'Importing: {args} from {inspect.getframeinfo(frame).filename}:{inspect.getframeinfo(frame).lineno}')
-    print(f'Cache: {import_cache}')
 
     # First, look it up in the import cache.
     value = import_cache.get(args)
@@ -216,6 +214,7 @@ def import_name(*args: str, frame_index: int = 1) -> Any:
 
         # We need a script with the same name.
         script_path = script_path.with_suffix(constants.actionscript_suffix)
+        assert script_path != Path(inspect.getframeinfo(frame).filename), f'{script_path} tries to import itself'
         try:
             source = script_path.read_text()
         except FileNotFoundError:
@@ -228,7 +227,6 @@ def import_name(*args: str, frame_index: int = 1) -> Any:
         output_globals = as3.execute_script(source, filename=str(script_path), **globals_)
         value = import_cache[args] = output_globals[args[-1]]
 
-    print('Imported:', args)
     frame.f_locals[args[-1]] = value
     return value
 
