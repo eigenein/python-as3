@@ -15,8 +15,9 @@ from as3.constants import (
     compare_operations,
     init_name,
     resolve_name,
+    this_name,
     unary_operations,
-    this_name)
+)
 from as3.runtime import ASInteger, ASNumber, ASObject, ASString
 from as3.scanner import Location, Token, TokenType
 

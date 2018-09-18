@@ -10,7 +10,7 @@ import math
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Callable, Type
+from typing import Any, Callable, Dict, List, NoReturn, Type
 from unittest.mock import Mock
 
 import as3

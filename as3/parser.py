@@ -5,7 +5,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, TypeVar, cast
 
 from as3 import constants
-from as3.ast_ import AST, make_ast, make_function, location_of, has_super_call
+from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASUndefined
