@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import inspect
 import math
+from contextlib import suppress
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn
+from typing import Any, Dict, List, NoReturn, Callable, Type
 from unittest.mock import Mock
 
 import as3
@@ -17,6 +18,10 @@ from as3 import constants
 
 
 class ASObject(dict):
+    """
+    Base class for ActionScript classes. Behaves like an object and a map.
+    """
+
     __alias__ = 'Object'
     __default__: Any = None
 
@@ -92,8 +97,51 @@ class Math:
 # ----------------------------------------------------------------------------------------------------------------------
 
 class NamespaceObject:
+    """
+    Same as `ASObject` but wraps an external dictionary.
+    """
+
     def __init__(self, dict_: dict) -> None:
         self.__dict__ = dict_
+
+
+class Field:
+    """
+    Object field descriptor.
+    """
+
+    def __init__(self, initializer: Callable[[Any], Any]) -> None:
+        self.initializer = initializer
+
+    def __set_name__(self, instance: Any, name: str) -> None:
+        self.name = name
+
+    def __get__(self, instance: Any, type_: Type) -> Any:
+        if instance is None:
+            raise AttributeError(f'{self.name} is not a static field')
+        if self.name not in instance.__dict__:
+            # First reference.
+            instance.__dict__[self.name] = self.initializer(instance)
+        return instance.__dict__[self.name]
+
+    def __set__(self, instance: Any, value: Any) -> Any:
+        instance.__dict__[self.name] = value
+
+
+class StaticField:
+    undefined = object()
+
+    def __init__(self, initializer: Callable[[Any], Any]) -> None:
+        self.initializer = initializer
+        self.value: Any = self.undefined
+
+    def __get__(self, instance: Any, type_: Type) -> Any:
+        if self.value is self.undefined:
+            self.value = self.initializer(type_)
+        return self.value
+
+    def __set__(self, instance: Any, value: Any) -> None:
+        self.value = value
 
 
 def resolve_name(name: str) -> Any:
@@ -107,10 +155,8 @@ def resolve_name(name: str) -> Any:
     # Then, look into `this`.
     if constants.this_name in frame.f_locals:
         this = frame.f_locals[constants.this_name]
-        class_ = type(this)
-        if hasattr(class_, name):
-            return class_
-        if hasattr(this, name):
+        with suppress(AttributeError):
+            getattr(this, name)
             return this
     # And the last attempt is globals.
     if name in frame.f_globals:
@@ -182,12 +228,16 @@ def raise_not_implemented_error(name: str, *args: Any) -> NoReturn:
 
 
 default_globals: Dict[str, Any] = {
-    # Internal interpreter names.
+    # Helper names.
     '__dir__': dir,
     '__globals__': globals,
+
+    # Internal interpreter names.
+    constants.field_name: Field,
     constants.import_name: import_name,
     constants.packages_path_name: Path.cwd(),
     constants.resolve_name: resolve_name,
+    constants.static_field_name: StaticField,
 
     # Standard names.
     'Math': Math,

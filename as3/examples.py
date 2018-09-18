@@ -135,19 +135,19 @@ scripts: List[Tuple[str, dict]] = [
     ('import flash.display.MovieClip', {}),
     ('var map: Object = new Object(); map.name1 = "Lee"', {'map': {'name1': 'Lee'}}),
     ('import flash.utils.getQualifiedClassName', {}),
+    ('class X { var a = 42 } var expected = X().a', {'expected': 42}),
+    ('class X { static var foo = X() }', {}),
+    ('class X { static var foo = 43 }; X().foo = 42; var bar = X.foo', {'bar': 42}),
+    ('class X { static var foo = bar; static var bar = 42 } var baz = X.foo', {'baz': 42}),
+    ('class X { var foo = bar; static var bar = 42 } var baz = X().foo', {'baz': 42}),
 
-    # Yes, I made it possible to have a function of one statement.
+    # Yes, it's possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
-
-    # Yeah, 1-statement class is also possible because why not?
-    ('class X var a = 42; var expected = X().a', {'expected': 42}),
 ]
 
 bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
-    param('class X { static var foo = 43 }; X().foo = 42; var bar = X.foo', {'bar': 42}, marks=mark.xfail),  # FIXME
-    param('class X { static var foo = X() }', {}, marks=mark.xfail(raises=NameError, strict=True)),  # FIXME
     param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
     param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),

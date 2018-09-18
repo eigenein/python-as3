@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ast
 from collections import deque
-from typing import Callable, Container, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, TypeVar, cast
+from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, TypeVar, cast
 
 from as3 import constants
-from as3.ast_ import AST, make_ast, make_function
+from as3.ast_ import AST, make_ast, make_function, location_of, has_super_call
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.runtime import ASUndefined
@@ -39,12 +39,63 @@ class Parser:
                 pass
         yield from self.parse_statement()
 
-    def parse_class(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.AST]:
+    def parse_class(self) -> Iterable[ast.AST]:
+        # Definition.
+        self.parse_modifiers()
         class_token = self.expect(TokenType.CLASS)
         name = self.expect(TokenType.IDENTIFIER).value
         base: Optional[ast.AST] = self.parse_primary_expression() if self.tokens.skip(TokenType.EXTENDS) else None
-        body = list(self.parse_statement())
-        yield AST.class_(location=class_token, name=name, base=base, body=body).node
+
+        # Body.
+        init: Optional[ast.FunctionDef] = None
+        body: List[ast.AST] = []
+        self.expect(TokenType.CURLY_BRACKET_OPEN)
+        while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
+            # Parse definition.
+            modifiers = self.parse_modifiers()
+            statements: List[ast.AST] = list(self.switch({
+                TokenType.FUNCTION: self.parse_function_definition,
+                TokenType.VAR: self.parse_variable_definition,
+            }, is_static=(TokenType.STATIC in modifiers), is_field=True))
+
+            # Post-process methods.
+            for statement in statements:
+                if isinstance(statement, ast.FunctionDef):
+                    # Method should have `__this__` argument.
+                    statement.args.args.insert(0, cast(ast.arg, AST.this_arg(location_of(statement)).node))
+                    if statement.name == name:
+                        # Constructor should be named `__init__`.
+                        init = statement
+                        init.name = constants.init_name
+                        # Append later on.
+                        continue
+                body.append(statement)
+
+            # Skip all semicolons.
+            while self.tokens.skip(TokenType.SEMICOLON):
+                pass
+
+        # Create a default constructor if not defined.
+        init = init or make_function(
+            class_token, constants.init_name, arguments=[cast(ast.arg, AST.this_arg(class_token).node)])
+
+        # ActionScript calls `super()` implicitly if not called explicitly.
+        if not has_super_call(init):
+            init.body.insert(0, cast(ast.stmt, AST.super_constructor_call(location_of(init)).node))
+
+        yield AST.class_(location=class_token, name=name, base=base, body=[init, *body]).node
+
+    def parse_modifiers(self) -> Set[TokenType]:
+        modifiers: List[TokenType] = []
+        if self.tokens.skip(TokenType.OVERRIDE):
+            modifiers.append(TokenType.OVERRIDE)
+        visibility_token = self.tokens.skip(
+            TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED, TokenType.INTERNAL)
+        if visibility_token:
+            modifiers.append(visibility_token.type_)
+        if self.tokens.skip(TokenType.STATIC):
+            modifiers.append(TokenType.STATIC)
+        return set(modifiers)
 
     def parse_statement(self) -> Iterable[ast.AST]:
         yield from self.switch({  # type: ignore
@@ -54,13 +105,12 @@ class Parser:
             TokenType.FUNCTION: self.parse_function_definition,
             TokenType.IF: self.parse_if,
             TokenType.IMPORT: self.parse_import,
-            TokenType.OVERRIDE: self.parse_modifiers,
-            TokenType.PRIVATE: self.parse_modifiers,
-            TokenType.PROTECTED: self.parse_modifiers,
-            TokenType.PUBLIC: self.parse_modifiers,
+            TokenType.PRIVATE: self.parse_class,
+            TokenType.PROTECTED: self.parse_class,
+            TokenType.PUBLIC: self.parse_class,
             TokenType.RETURN: self.parse_return,
             TokenType.SEMICOLON: self.parse_semicolon,
-            TokenType.STATIC: self.parse_modifiers,
+            TokenType.STATIC: self.parse_class,
             TokenType.THROW: self.parse_throw,
             TokenType.TRY: self.parse_try,
             TokenType.VAR: self.parse_variable_definition,
@@ -114,18 +164,27 @@ class Parser:
         or_else = list(self.parse_statement()) if self.tokens.skip(TokenType.ELSE) else []
         yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
-    def parse_variable_definition(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.AST]:
+    def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> Iterable[ast.AST]:
         self.expect(TokenType.VAR)
         name_token = self.expect(TokenType.IDENTIFIER)
         type_ = self.parse_type_annotation(name_token)
-        if self.tokens.skip(TokenType.ASSIGN):
+        if self.tokens.is_type(TokenType.ASSIGN):
+            assign_token = next(self.tokens)
             value = self.parse_non_assignment_expression()
         else:
+            assign_token = name_token
             value = AST.type_default_value(name_token, type_).node
-        name = name_token.value
-        if TokenType.STATIC in modifiers:
-            name = f'{constants.static_prefix}{name}'
-        yield AST.name(name_token, name).assign(name_token, value).node
+        builder = AST.identifier(name_token)
+        if is_field:
+            descriptor_name = constants.static_field_name if is_static else constants.field_name
+            # Lambda is used to defer field value evaluation.
+            lambda_ = AST.lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value).node
+            # `Field(lambda __this__: value)`
+            value = AST \
+                .name(name_token, descriptor_name) \
+                .call(assign_token, [lambda_]) \
+                .node
+        yield builder.assign(assign_token, value).node
 
     def parse_type_annotation(self, name_token: Token) -> ast.AST:
         if not self.tokens.skip(TokenType.COLON):
@@ -148,10 +207,10 @@ class Parser:
             builder = AST.name_constant(return_token, None)
         yield builder.return_it(return_token).node
 
-    def parse_function_definition(self, modifiers: Container[TokenType] = frozenset()) -> Iterable[ast.FunctionDef]:
+    def parse_function_definition(self, is_static: bool = False, **_) -> Iterable[ast.FunctionDef]:
         function_token = self.expect(TokenType.FUNCTION)
         name = self.expect(TokenType.IDENTIFIER).value
-        node = make_function(function_token, name=name, is_class_method=(TokenType.STATIC in modifiers))
+        node = make_function(function_token, name=name, is_class_method=is_static)
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
@@ -172,22 +231,6 @@ class Parser:
         node.body.extend(cast(List[ast.stmt], self.parse_statement()))
 
         yield node
-
-    def parse_modifiers(self) -> Iterable[AST]:
-        modifiers: List[TokenType] = []
-        if self.tokens.skip(TokenType.OVERRIDE):
-            modifiers.append(TokenType.OVERRIDE)
-        visibility_token = self.tokens.skip(
-            TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED, TokenType.INTERNAL)
-        if visibility_token:
-            modifiers.append(visibility_token.type_)
-        if self.tokens.skip(TokenType.STATIC):
-            modifiers.append(TokenType.STATIC)
-        yield from self.switch({  # type: ignore
-            TokenType.CLASS: self.parse_class,
-            TokenType.VAR: self.parse_variable_definition,
-            TokenType.FUNCTION: self.parse_function_definition,
-        }, modifiers=set(modifiers))
 
     def parse_break(self) -> Iterable[ast.AST]:
         token = self.expect(TokenType.BREAK)

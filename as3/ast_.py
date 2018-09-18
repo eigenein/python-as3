@@ -5,7 +5,6 @@ Wrappers around standard `ast` module.
 from __future__ import annotations
 
 import ast
-from ast import dump
 from typing import Any, List, Optional, Type, TypeVar, cast
 
 import as3.parser
@@ -16,10 +15,8 @@ from as3.constants import (
     compare_operations,
     init_name,
     resolve_name,
-    static_prefix,
-    this_name,
     unary_operations,
-)
+    this_name)
 from as3.runtime import ASInteger, ASNumber, ASObject, ASString
 from as3.scanner import Location, Token, TokenType
 
@@ -113,63 +110,15 @@ class AST:
 
     @staticmethod
     def class_(*, location: Location, name: str, base: Optional[ast.AST], body: List[ast.AST]) -> AST:
-        class_body: List[ast.AST] = []
-        initializers: List[ast.stmt] = []
-        init: Optional[ast.FunctionDef] = None
-
-        for statement in body:
-            if isinstance(statement, ast.Assign):
-                value = statement.value
-                for target in statement.targets:
-                    assert isinstance(target, ast.Name), f'unexpected target: {dump(target)}'
-                    if target.id.startswith(static_prefix):
-                        # Static field initializer. Strip the prefix and initialize it right away.
-                        target.id = target.id[len(static_prefix):]
-                        class_body.append(make_ast(location_of(statement), ast.Assign, targets=[target], value=value))
-                    else:
-                        # Non-static field initializer. Prepend `__this__` and postpone it until `__init__`.
-                        target = cast(ast.expr, AST.this_target(target).node)
-                        initializers.append(make_ast(location_of(statement), ast.Assign, targets=[target], value=value))
-                continue
-            if isinstance(statement, ast.FunctionDef):
-                # It's a method.
-                statement_location = location_of(statement)
-                # Prepend `__this__` argument.
-                statement.args.args.insert(0, cast(ast.arg, AST.argument(statement_location, this_name).node))
-                if statement.name == name:
-                    init = statement
-                    # It's a constructor. Rename it to `__init__`.
-                    statement.name = init_name
-            class_body.append(statement)
-
-        # Create a default constructor if not defined.
-        init = init or make_function(
-            location, init_name, arguments=[cast(ast.arg, AST.argument(location, this_name).node)])
-
-        # Prepend field initializers.
-        init.body = [*initializers, *init.body]
-
-        # ActionScript calls `super()` implicitly if not called explicitly.
-        if not has_super_call(init):
-            init.body.insert(0, cast(ast.stmt, AST.super_constructor_call(location).node))
-
         return AST(make_ast(
             location,
             ast.ClassDef,
             name=name,
             bases=[base or AST.name(location, ASObject.__alias__).node],
             keywords=[],
-            body=[*class_body, init],
+            body=body,
             decorator_list=[],
         ))
-
-    @staticmethod
-    def this_target(target: ast.Name) -> AST:
-        """
-        `__this__.target`.
-        """
-        location = location_of(target)
-        return AST.name(location, this_name).attribute(location, target.id).set_store_context()
 
     @staticmethod
     def arguments(args: List[ast.arg] = None, defaults: List[ast.AST] = None) -> AST:
@@ -205,6 +154,14 @@ class AST:
     @staticmethod
     def except_handler(location: Location, type_: ast.AST, name: str, body: List[ast.AST]) -> AST:
         return AST(make_ast(location, ast.ExceptHandler, type=type_, name=name, body=body))
+
+    @staticmethod
+    def this_arg(location: Location) -> AST:
+        return AST.argument(location, this_name)
+
+    @staticmethod
+    def lambda_(location: Location, arguments: List[ast.arg], value: ast.AST) -> AST:
+        return AST(make_ast(location, ast.Lambda, args=AST.arguments(args=arguments).node, body=value))
 
     def __init__(self, node: ast.AST) -> None:
         self.node = node
