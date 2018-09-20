@@ -8,7 +8,7 @@ from as3 import constants
 from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASUndefined
+from as3.runtime import ASBoolean, ASInteger, ASNumber, ASUndefined, ASUnsignedInteger
 from as3.scanner import Location, Token
 
 
@@ -166,34 +166,45 @@ class Parser:
 
     def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> Iterable[ast.AST]:
         self.expect(TokenType.VAR)
-        name_token = self.expect(TokenType.IDENTIFIER)
-        type_ = self.parse_type_annotation(name_token)
+        assign_token = name_token = self.expect(TokenType.IDENTIFIER)
+        value = self.parse_type_annotation(name_token)
         if self.tokens.is_type(TokenType.ASSIGN):
             assign_token = next(self.tokens)
             value = self.parse_non_assignment_expression()
-        else:
-            assign_token = name_token
-            value = AST.type_default_value(name_token, type_).node
         builder = AST.identifier(name_token)
         if is_field:
             descriptor_name = constants.static_field_name if is_static else constants.field_name
-            # Lambda is used to defer field value evaluation.
-            lambda_ = AST.lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value).node
             # `Field(lambda __this__: value)`
             value = AST \
-                .name(name_token, descriptor_name) \
-                .call(assign_token, [lambda_]) \
+                .lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value) \
+                .wrap_with(assign_token, descriptor_name) \
                 .node
         yield builder.assign(assign_token, value).node
 
     def parse_type_annotation(self, name_token: Token) -> ast.AST:
+        """
+        Parse type annotation and return its _default value_.
+        https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
+        """
+        # Corner cases.
         if not self.tokens.skip(TokenType.COLON):
-            return AST.name(name_token, ASUndefined.__alias__).node
+            return AST.name(name_token, repr(ASUndefined())).node
         if self.tokens.is_type(TokenType.MULTIPLY):
-            return AST.name(next(self.tokens), ASUndefined.__alias__).node
+            return AST.name(next(self.tokens), repr(ASUndefined())).node
         if self.tokens.is_type(TokenType.VOID):
             return AST.name_constant(next(self.tokens), None).node
-        return self.parse_primary_expression()
+
+        # Standard types.
+        identifier_token = self.expect(TokenType.IDENTIFIER)
+        if identifier_token.value == ASBoolean.__alias__:
+            return AST.name_constant_expression(identifier_token, False, ASBoolean.__alias__).node
+        if identifier_token.value in (ASInteger.__alias__, ASUnsignedInteger.__alias__, ASNumber.__alias__):
+            return AST.number(identifier_token, 0).wrap_with(identifier_token, identifier_token.value).node
+
+        # `None` for other standard types and all user classes. Skip the rest of the annotation.
+        while self.tokens.skip(TokenType.DOT):
+            self.expect(TokenType.IDENTIFIER)
+        return AST.name_constant(name_token, None).node
 
     def parse_semicolon(self) -> Iterable[ast.AST]:
         pass_token = self.expect(TokenType.SEMICOLON)
@@ -217,18 +228,21 @@ class Parser:
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
             name_token = self.expect(TokenType.IDENTIFIER)
             node.args.args.append(AST.argument(name_token, name_token.value).node)  # type: ignore
-            type_ = self.parse_type_annotation(name_token)
+            default_value = self.parse_type_annotation(name_token)
             if self.tokens.skip(TokenType.ASSIGN):
                 node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
             else:
-                node.args.defaults.append(AST.type_default_value(name_token, type_).node)  # type: ignore
+                node.args.defaults.append(cast(ast.expr, default_value))
             self.tokens.skip(TokenType.COMMA)
 
         # Skip return type.
-        self.parse_type_annotation(function_token)
+        default_return_value = self.parse_type_annotation(function_token)
 
         # Parse body.
         node.body.extend(cast(List[ast.stmt], self.parse_statement()))
+
+        # Add guard `return default_return_value`.
+        # FIXME: node.body.append(cast(ast.stmt, AST(default_return_value).return_it(location_of(default_return_value)).node))
 
         yield node
 
@@ -404,7 +418,7 @@ class Parser:
         return self.switch({
             TokenType.BRACKET_OPEN: self.parse_compound_literal,
             TokenType.CURLY_BRACKET_OPEN: self.parse_map_literal,
-            TokenType.FALSE: lambda: AST.name_constant(next(self.tokens), False).node,
+            TokenType.FALSE: lambda: AST.name_constant_expression(next(self.tokens), False, ASBoolean.__alias__).node,
             TokenType.IDENTIFIER: self.parse_name_expression,
             TokenType.NEW: self.parse_new,
             TokenType.NULL: lambda: AST.name_constant(next(self.tokens), None).node,
@@ -413,7 +427,7 @@ class Parser:
             TokenType.STRING: self.parse_string_expression,
             TokenType.SUPER: self.parse_super_expression,
             TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=constants.this_name, ctx=ast.Load()),
-            TokenType.TRUE: lambda: AST.name_constant(next(self.tokens), True).node,
+            TokenType.TRUE: lambda: AST.name_constant_expression(next(self.tokens), True, ASBoolean.__alias__).node,
             TokenType.UNDEFINED: lambda: AST.identifier(next(self.tokens)).node,
         })
 

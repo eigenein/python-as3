@@ -23,7 +23,6 @@ class ASObject(dict):
     """
 
     __alias__ = 'Object'
-    __default__: Any = None
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -52,34 +51,36 @@ class ASUndefined:
 
 class ASInteger(int):
     __alias__ = 'int'
-    __default__ = 0
 
 
 # FIXME: unsigned overflow.
 class ASUnsignedInteger(int):
     __alias__ = 'uint'
-    __default__ = 0
 
 
 class ASString(str):
     __alias__ = 'String'
-    __default__ = None
 
 
 class ASNumber(float):
     __alias__ = 'Number'
-    __default__ = math.nan
+
+
+class ASBoolean(int):
+    # `bool` can't be inherited.
+    __alias__ = 'Boolean'
+
+    def __repr__(self) -> str:
+        return repr(bool(self))
 
 
 class ASArray(list):
     """https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/arrays.html"""
     __alias__ = 'Array'
-    __default__ = None
 
 
 class ASError(Exception):
     __alias__ = 'Error'
-    __default__ = None
 
 
 # ActionScript standard classes and methods.
@@ -266,6 +267,7 @@ default_globals: Dict[str, Any] = {
     'Math': Math,
     'trace': print,
     ASArray.__alias__: ASArray,
+    ASBoolean.__alias__: ASBoolean,
     ASError.__alias__: ASError,
     ASInteger.__alias__: ASInteger,
     ASNumber.__alias__: ASNumber,

@@ -44,8 +44,12 @@ class AST:
         return AST(make_ast(location, ast.Str, s=value))
 
     @staticmethod
-    def name_constant(with_token: Token, value: Any) -> AST:
-        return AST(make_ast(with_token, ast.NameConstant, value=value))
+    def name_constant(location: Location, value: Any) -> AST:
+        return AST(make_ast(location, ast.NameConstant, value=value))
+
+    @staticmethod
+    def name_constant_expression(location: Location, value: Any, wrap_with_name: str) -> AST:
+        return AST(make_ast(location, ast.NameConstant, value=value)).wrap_with(location, wrap_with_name)
 
     @staticmethod
     def script(statements: List[ast.AST]) -> AST:
@@ -68,35 +72,26 @@ class AST:
             .as_expression(location)
 
     @staticmethod
-    def type_default_value(with_token: Token, type_node: ast.AST) -> AST:
-        """
-        `type_.__default__`
-        """
-        return AST(type_node).attribute(with_token, '__default__')
-
-    @staticmethod
     def expression_statement(value: ast.AST) -> AST:
         builder = AST(value)
         return builder if isinstance(value, ast.stmt) else builder.expr()
 
     @staticmethod
+    def number(location: Location, value: int) -> AST:
+        return AST(make_ast(location, ast.Num, n=value)) \
+            .wrap_with(location, ASInteger.__alias__ if isinstance(value, int) else ASNumber.__alias__)
+
+    @staticmethod
     def number_expression(with_token: Token) -> AST:
-        value = ast.literal_eval(with_token.value)
-        return AST \
-            .name(with_token, ASInteger.__alias__ if isinstance(value, int) else ASNumber.__alias__) \
-            .call(with_token, args=[make_ast(with_token, ast.Num, n=value)])
+        return AST.number(with_token, ast.literal_eval(with_token.value))
 
     @staticmethod
     def string_expression(with_token: Token) -> AST:
-        return AST \
-            .name(with_token, ASString.__alias__) \
-            .call(with_token, args=[AST.string(with_token, ast.literal_eval(with_token.value)).node])
+        return AST.string(with_token, ast.literal_eval(with_token.value)).wrap_with(with_token, ASString.__alias__)
 
     @staticmethod
     def dict_expression(location: Location, keys: List[ast.AST], values: List[ast.AST]) -> AST:
-        return AST \
-            .name(location, ASObject.__alias__) \
-            .call(location, [make_ast(location, ast.Dict, keys=keys, values=values)])
+        return AST(make_ast(location, ast.Dict, keys=keys, values=values)).wrap_with(location, ASObject.__alias__)
 
     @staticmethod
     def name_expression(with_token: Token) -> AST:
@@ -233,8 +228,8 @@ class AST:
             raise KeyError(with_token.type_)
         return self
 
-    def return_it(self, with_token: Token) -> AST:
-        self.node = make_ast(with_token, ast.Return, value=self.node)
+    def return_it(self, location: Location) -> AST:
+        self.node = make_ast(location, ast.Return, value=self.node)
         return self
 
     def expr(self) -> AST:
@@ -261,6 +256,10 @@ class AST:
         self.node = make_ast(location, ast.Raise, exc=self.node, cause=None)
         return self
 
+    def wrap_with(self, location: Location, name: str) -> AST:
+        self.node = AST.name(location, name).call(location, [self.node]).node
+        return self
+
 
 def make_ast(location: Location, init: Type[TAST], **kwargs) -> TAST:
     # noinspection PyProtectedMember
@@ -275,6 +274,7 @@ def set_store_context(node: ast.AST) -> ast.AST:
     return node
 
 
+# FIXME: move into `AST`.
 def make_function(
     location: Location,
     name: str,

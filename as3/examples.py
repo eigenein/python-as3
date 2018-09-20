@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASInteger, ASNumber, ASObject, ASString, ASUndefined
+from as3.runtime import ASInteger, ASNumber, ASObject, ASString, ASUndefined, ASBoolean
 
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
@@ -26,8 +26,8 @@ expressions: List[Tuple[str, Any]] = [
     ('(foo.baz + foo.baz) * foo.baz', 8),
     ('bar(2, 42)', 44),
     ('baz()', 42),
-    ('false', False),
-    ('true', True),
+    ('false', ASBoolean(False)),
+    ('true', ASBoolean(True)),
     ('+1', ASInteger(1)),
     ('-1', ASInteger(-1)),
     ('+-1', -1),
@@ -39,10 +39,10 @@ expressions: List[Tuple[str, Any]] = [
     (r'"1\n2\n\""', ASString('1\n2\n\"')),
     ('!true', False),
     ('!false', True),
-    ('true && true', True),
-    ('true || false', True),
-    ('true || false && false', True),
-    ('true && false', False),
+    ('true && true', ASBoolean(True)),
+    ('true || false', ASBoolean(True)),
+    ('true || false && false', ASBoolean(True)),
+    ('true && false', ASBoolean(False)),
     ('null as ASString', None),
     ('0x2A', ASInteger(42)),
     ('0.25', ASNumber(0.25)),
@@ -59,6 +59,7 @@ expressions: List[Tuple[str, Any]] = [
     ('(true ? 1 : true ? 2 : 3)', ASInteger(1)),
     ('(false ? 1 : true ? 2 : 3)', ASInteger(2)),
     ('(false ? 1 : false ? 2 : 3)', ASInteger(3)),
+    ('1 == 1', True),
 
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),
@@ -140,6 +141,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { static var foo = 43 }; X().foo = 42; var bar = X.foo', {'bar': 42}),
     ('class X { static var foo = bar; static var bar = 42 } var baz = X.foo', {'baz': 42}),
     ('class X { var foo = bar; static var bar = 42 } var baz = X().foo', {'baz': 42}),
+    ('class X { static var x = X() }', {}),
 
     # Yes, it's possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
