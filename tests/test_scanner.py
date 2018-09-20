@@ -67,6 +67,8 @@ def test_empty():
     make_test_params('§§pop', TokenType.IDENTIFIER),
     make_test_params('/*\n * * */', TokenType.COMMENT),
     make_test_params('in', TokenType.IN),
+    make_test_params('implements', TokenType.IMPLEMENTS),
+    make_test_params('^', TokenType.BITWISE_XOR),
 
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),

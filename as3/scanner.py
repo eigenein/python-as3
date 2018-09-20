@@ -19,6 +19,7 @@ specification = re.compile(r'''
     (?P<WHITESPACE>[ \t\f\v]+) |
     
     # Normal tokens.
+    (?P<BITWISE_XOR>\^) |
     (?P<QUESTION_MARK>\?) |
     (?P<GENERIC_OPEN>\.<) |
     (?P<LOGICAL_OR>\|\|) |
@@ -77,7 +78,7 @@ class Token(Location):
     value: Any
 
 
-def scan(source: str) -> Iterable[Token]:
+def scan(source: str, filename: str = '<string>') -> Iterable[Token]:
     current_line_number = 1
     current_line_start_index = 0
 
@@ -86,7 +87,7 @@ def scan(source: str) -> Iterable[Token]:
         value = match.group(match.lastgroup)
         position = match.start() - current_line_start_index + 1  # indexing starts from one
         if type_ == TokenType.UNKNOWN:
-            raise ASSyntaxError(f'unexpected character "{value}" at line {current_line_number} position {position}')
+            raise ASSyntaxError(f'{filename}: unexpected character "{value}" at line {current_line_number} position {position}')
         if type_ == TokenType.WHITESPACE:
             # Don't flood the parser with whitespaces.
             continue

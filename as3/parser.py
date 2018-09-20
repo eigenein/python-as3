@@ -42,9 +42,11 @@ class Parser:
     def parse_class(self) -> Iterable[ast.AST]:
         # Definition.
         self.parse_modifiers()
-        class_token = self.expect(TokenType.CLASS)
+        class_token = self.expect(TokenType.CLASS, TokenType.INTERFACE)  # treat interface as a class with empty methods
         name = self.expect(TokenType.IDENTIFIER).value
         base: Optional[ast.AST] = self.parse_primary_expression() if self.tokens.skip(TokenType.EXTENDS) else None
+        if self.tokens.skip(TokenType.IMPLEMENTS):
+            self.parse_primary_expression()
 
         # Body.
         init: Optional[ast.FunctionDef] = None

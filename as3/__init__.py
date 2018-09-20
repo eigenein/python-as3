@@ -11,7 +11,7 @@ from as3.scanner import scan
 
 
 def parse(source: str, filename: str) -> Parser:
-    return Parser(scan(source), filename)
+    return Parser(scan(source, filename), filename)
 
 
 def parse_script(source: str, filename: str) -> AST:

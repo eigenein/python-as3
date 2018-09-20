@@ -144,6 +144,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { static var x = X() }', {}),
     ('function foo(bar: Vector.<Whatever>) { return bar }; var baz = foo()', {'baz': None}),
     ('var bar = {"baz": "hello"}; var baz = "baz" in bar; var qux = "qux" in bar', {'baz': True, 'qux': False}),
+    ('public interface IDisposable { function dispose() : void; }', {}),
 
     # Yes, it's possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),

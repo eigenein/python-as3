@@ -73,11 +73,15 @@ uninitialized = ASObject()
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-class Math:
+class ASMath:
     POSITIVE_INFINITY = ASNumber(math.inf)
 
     abs = math.fabs
     acos = math.acos
+
+
+class ASDictionary(dict):
+    pass
 
 
 # Runtime functions.
@@ -250,7 +254,7 @@ default_globals: Dict[str, Any] = {
     constants.static_field_name: StaticField,
 
     # Standard names.
-    'Math': Math,
+    'Math': ASMath,
     'trace': print,
     ASArray.__alias__: ASArray,
     ASBoolean.__alias__: ASBoolean,
@@ -271,6 +275,7 @@ default_globals: Dict[str, Any] = {
 
     # Abuse globals for imports. This allows to override them.
     constants.standard_imports_name: {
+        ('flash', 'utils', 'Dictionary'): ASDictionary,
         ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
     },
 }
