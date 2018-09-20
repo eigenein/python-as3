@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined
+from as3.runtime import ASBoolean, ASInteger, ASNumber, ASObject, ASString, uninitialized
 
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
@@ -35,7 +35,7 @@ expressions: List[Tuple[str, Any]] = [
     ('-1 + -1', -2),
     ('1 != 2', True),
     ('1 != 1', False),
-    ('undefined', undefined),
+    ('undefined', uninitialized),
     (r'"1\n2\n\""', ASString('1\n2\n\"')),
     ('!true', False),
     ('!false', True),
@@ -73,7 +73,7 @@ scripts: List[Tuple[str, dict]] = [
     ('var a = 42; a += 1;', {'a': 43}),
     ('var a = 42; a++;', {'a': 43}),
     ('var a = 42; a--;', {'a': 41}),
-    ('var a: *', {'a': undefined}),
+    ('var a: *', {'a': uninitialized}),
     ('foo(42);', {}),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
@@ -85,7 +85,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
-    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': undefined}),
+    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': uninitialized}),
     ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
     (
         'class X { var a = 43 } '
@@ -143,6 +143,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { var foo = bar; static var bar = 42 } var baz = X().foo', {'baz': 42}),
     ('class X { static var x = X() }', {}),
     ('function foo(bar: Vector.<Whatever>) { return bar }; var baz = foo()', {'baz': None}),
+    ('var bar = {"baz": "hello"}; var baz = "baz" in bar; var qux = "qux" in bar', {'baz': True, 'qux': False}),
 
     # Yes, it's possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
@@ -151,7 +152,8 @@ scripts: List[Tuple[str, dict]] = [
 bad_scripts: List = [
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
-    param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
-    param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
-    param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError, strict=True)),
+    param('class X { var foo }; var bar = "foo" in X()', {'bar': True}, marks=mark.xfail),
+    param('a = 1 = b;', {}, marks=mark.xfail(raises=ASSyntaxError)),
+    param('a += b += a;', {}, marks=mark.xfail(raises=ASSyntaxError)),
+    param('var foo = function() {}', {}, marks=mark.xfail(raises=ASSyntaxError)),
 ]

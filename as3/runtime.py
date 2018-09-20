@@ -29,7 +29,7 @@ class ASObject(dict):
         self.__dict__ = self
 
     def __repr__(self) -> str:
-        return 'undefined' if self is undefined else super().__repr__()
+        return 'undefined' if self is uninitialized else super().__repr__()
 
 
 class ASInteger(int):
@@ -66,7 +66,7 @@ class ASError(Exception):
     __alias__ = 'Error'
 
 
-undefined = ASObject()
+uninitialized = ASObject()
 
 
 # ActionScript standard classes and methods.
@@ -100,10 +100,10 @@ class Field:
     def __init__(self, initializer: Callable[[Any], Any]) -> None:
         self.initializer = initializer
 
-    def __set_name__(self, instance: Any, name: str) -> None:
-        self.name = name
+    def __set_name__(self, instance: ASObject, name: str) -> None:
+        self.name = ASString(name)
 
-    def __get__(self, instance: Any, type_: Type) -> Any:
+    def __get__(self, instance: Any, type_: Type[ASObject]) -> Any:
         if instance is None:
             raise AttributeError(f'{self.name} is not a static field')
         if self.name not in instance.__dict__:
@@ -116,18 +116,18 @@ class Field:
 
 
 class StaticField:
-    undefined = object()
+    uninitialized = object()
 
     def __init__(self, initializer: Callable[[Any], Any]) -> None:
         self.initializer = initializer
-        self.value: Any = self.undefined
+        self.value: Any = self.uninitialized
 
-    def __get__(self, instance: Any, type_: Type) -> Any:
-        if self.value is self.undefined:
+    def __get__(self, instance: ASObject, type_: Type[ASObject]) -> Any:
+        if self.value is self.uninitialized:
             self.value = self.initializer(type_)
         return self.value
 
-    def __set__(self, instance: Any, value: Any) -> None:
+    def __set__(self, instance: ASObject, value: Any) -> None:
         self.value = value
 
 
@@ -260,7 +260,7 @@ default_globals: Dict[str, Any] = {
     ASObject.__alias__: ASObject,
     ASString.__alias__: ASString,
     ASUnsignedInteger.__alias__: ASUnsignedInteger,
-    'undefined': undefined,
+    'undefined': uninitialized,
 
     # FFDec decompilation quirks.
     '§§dup': partial(raise_not_implemented_error, '§§dup'),

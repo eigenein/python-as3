@@ -17,6 +17,7 @@ keyword_to_token_type = {
     'if': TokenType.IF,
     'import': TokenType.IMPORT,
     'internal': TokenType.INTERNAL,
+    'in': TokenType.IN,
     'is': TokenType.IS,
     'new': TokenType.NEW,
     'null': TokenType.NULL,
@@ -56,10 +57,11 @@ augmented_assign_operations: Dict[TokenType, ast.AST] = {
 }
 
 compare_operations: Dict[TokenType, ast.AST] = {
-    # `STRICTLY_EQUALS` should be parsed separately.
+    # `STRICTLY_EQUALS` should be handled separately because it has to test types as well.
     TokenType.EQUALS: ast.Eq(),
     TokenType.GREATER: ast.Gt(),
     TokenType.GREATER_OR_EQUAL: ast.GtE(),
+    TokenType.IN: ast.In(),
     TokenType.LESS: ast.Lt(),
     TokenType.LESS_OR_EQUAL: ast.LtE(),
     TokenType.NOT_EQUALS: ast.NotEq(),

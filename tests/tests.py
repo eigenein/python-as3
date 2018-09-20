@@ -39,7 +39,7 @@ def test_execute_script(script: str, expected: Dict[str, Any]):
         pass
     globals_ = execute_script(script, foo=lambda x: x, dict_={}, FakeException=FakeException)
     for key, value in expected.items():
-        assert globals_[key] == value, f'actual: {globals_[key]}'
+        assert globals_[key] == value, f'{key}: actual: {globals_[key]}'
 
 
 @mark.parametrize('script', [

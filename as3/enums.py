@@ -69,6 +69,7 @@ class TokenType(Enum):
     IF = auto()
     IMPORT = auto()
     INTERNAL = auto()
+    IN = auto()
     IS = auto()
     NEW = auto()
     NULL = auto()
