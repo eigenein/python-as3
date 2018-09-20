@@ -38,7 +38,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
         path = Path(script)
         # noinspection PyBroadException
         try:
-            globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), path.name, **globals_))
+            globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), str(path), **globals_))
         except Exception as _:
             print_exception()
             sys.exit(1)

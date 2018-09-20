@@ -18,8 +18,8 @@ from as3.constants import (
     this_name,
     unary_operations,
 )
-from as3.runtime import ASInteger, ASNumber, ASObject, ASString
 from as3.scanner import Location, Token, TokenType
+from as3.stdlib import ASInteger, ASNumber, ASObject, ASString
 
 TAST = TypeVar('TAST', bound=ast.AST)
 

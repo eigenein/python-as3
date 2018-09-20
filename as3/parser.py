@@ -8,8 +8,8 @@ from as3 import constants
 from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
 from as3.scanner import Location, Token
+from as3.stdlib import ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
 
 
 class Parser:

@@ -85,6 +85,7 @@ operand_stack_name = '__operand_stack__'
 standard_imports_name = '__standard_imports__'
 static_field_name = '__static_field__'
 field_name = '__field__'
+lazy_imports_name = '__lazy_imports__'
 
 actionscript_suffix = '.as'
 
