@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASBoolean, ASInteger, ASNumber, ASObject, ASString, ASUndefined
+from as3.runtime import ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined
 
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
@@ -35,7 +35,7 @@ expressions: List[Tuple[str, Any]] = [
     ('-1 + -1', -2),
     ('1 != 2', True),
     ('1 != 1', False),
-    ('undefined', ASUndefined()),
+    ('undefined', undefined),
     (r'"1\n2\n\""', ASString('1\n2\n\"')),
     ('!true', False),
     ('!false', True),
@@ -73,7 +73,7 @@ scripts: List[Tuple[str, dict]] = [
     ('var a = 42; a += 1;', {'a': 43}),
     ('var a = 42; a++;', {'a': 43}),
     ('var a = 42; a--;', {'a': 41}),
-    ('var a: *', {'a': ASUndefined()}),
+    ('var a: *', {'a': undefined}),
     ('foo(42);', {}),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
@@ -85,7 +85,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
-    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': ASUndefined()}),
+    ('function foo(bar: *) { return bar } var expected = foo();', {'expected': undefined}),
     ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
     (
         'class X { var a = 43 } '

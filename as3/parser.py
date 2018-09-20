@@ -8,7 +8,7 @@ from as3 import constants
 from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.runtime import ASBoolean, ASInteger, ASNumber, ASUndefined, ASUnsignedInteger
+from as3.runtime import ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
 from as3.scanner import Location, Token
 
 
@@ -188,9 +188,9 @@ class Parser:
         """
         # Corner cases.
         if not generic_parameter and not self.tokens.skip(TokenType.COLON):
-            return AST.name(name_location, repr(ASUndefined())).node
+            return AST.name(name_location, 'undefined').node
         if self.tokens.is_type(TokenType.MULTIPLY):
-            return AST.name(next(self.tokens), repr(ASUndefined())).node
+            return AST.name(next(self.tokens), 'undefined').node
         if self.tokens.is_type(TokenType.VOID):
             return AST.name_constant(next(self.tokens), None).node
 

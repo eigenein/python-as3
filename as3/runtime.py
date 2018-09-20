@@ -28,25 +28,8 @@ class ASObject(dict):
         super().__init__(*args, **kwargs)
         self.__dict__ = self
 
-
-class ASUndefined:
-    __alias__ = 'Any'
-    __default__ = None
-
-    def __new__(cls):
-        # `undefined` is a singleton.
-        if cls.__default__ is None:
-            cls.__default__ = super().__new__(cls)
-        return cls.__default__
-
-    def __eq__(self, other: Any) -> bool:
-        return isinstance(other, ASUndefined)
-
-    def __hash__(self) -> int:
-        return 0
-
     def __repr__(self) -> str:
-        return 'undefined'
+        return 'undefined' if self is undefined else super().__repr__()
 
 
 class ASInteger(int):
@@ -81,6 +64,9 @@ class ASArray(list):
 
 class ASError(Exception):
     __alias__ = 'Error'
+
+
+undefined = ASObject()
 
 
 # ActionScript standard classes and methods.
@@ -273,9 +259,8 @@ default_globals: Dict[str, Any] = {
     ASNumber.__alias__: ASNumber,
     ASObject.__alias__: ASObject,
     ASString.__alias__: ASString,
-    ASUndefined.__alias__: ASUndefined,
     ASUnsignedInteger.__alias__: ASUnsignedInteger,
-    str(ASUndefined()): ASUndefined(),
+    'undefined': undefined,
 
     # FFDec decompilation quirks.
     '§§dup': partial(raise_not_implemented_error, '§§dup'),
