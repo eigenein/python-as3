@@ -84,5 +84,11 @@ field_name = '__field__'
 actionscript_suffix = '.as'
 
 mocked_imports = re.compile(r'''
-    flash\.(display|events|filters|text)\..+
+    flash\.(
+        display\. |
+        events\. |
+        filters\. |
+        text\. |
+        (utils\.(getTimer|setInterval|setTimeout))
+    ).*
 ''', re.VERBOSE)

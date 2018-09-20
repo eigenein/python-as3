@@ -205,7 +205,7 @@ def import_name(*args: str, frame_index: int = 1) -> Any:
         try:
             source = script_path.read_text()
         except FileNotFoundError:
-            raise ImportError
+            raise ImportError(f'could not find {".".join(args)}')
         globals_ = {
             # Import-related globals.
             constants.import_cache_name: import_cache,
@@ -272,7 +272,5 @@ default_globals: Dict[str, Any] = {
     # Abuse globals for imports. This allows to override them.
     constants.standard_imports_name: {
         ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
-        ('flash', 'utils', 'setInterval'): partial(raise_not_implemented_error, 'setInterval'),
-        ('flash', 'utils', 'setTimeout'): partial(raise_not_implemented_error, 'setTimeout'),
     },
 }
