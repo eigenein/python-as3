@@ -142,6 +142,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { static var foo = bar; static var bar = 42 } var baz = X.foo', {'baz': 42}),
     ('class X { var foo = bar; static var bar = 42 } var baz = X().foo', {'baz': 42}),
     ('class X { static var x = X() }', {}),
+    ('function foo(bar: Vector.<Whatever>) { return bar }; var baz = foo()', {'baz': None}),
 
     # Yes, it's possible to have a function of one statement.
     ('function bar() return 42; var expected = bar()', {'expected': 42}),

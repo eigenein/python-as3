@@ -181,14 +181,14 @@ class Parser:
                 .node
         yield builder.assign(assign_token, value).node
 
-    def parse_type_annotation(self, name_token: Token) -> ast.AST:
+    def parse_type_annotation(self, name_location: Location, generic_parameter: bool = False) -> ast.AST:
         """
         Parse type annotation and return its _default value_.
         https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
         """
         # Corner cases.
-        if not self.tokens.skip(TokenType.COLON):
-            return AST.name(name_token, repr(ASUndefined())).node
+        if not generic_parameter and not self.tokens.skip(TokenType.COLON):
+            return AST.name(name_location, repr(ASUndefined())).node
         if self.tokens.is_type(TokenType.MULTIPLY):
             return AST.name(next(self.tokens), repr(ASUndefined())).node
         if self.tokens.is_type(TokenType.VOID):
@@ -202,9 +202,15 @@ class Parser:
             return AST.number(identifier_token, 0).wrap_with(identifier_token, identifier_token.value).node
 
         # `None` for other standard types and all user classes. Skip the rest of the annotation.
-        while self.tokens.skip(TokenType.DOT):
-            self.expect(TokenType.IDENTIFIER)
-        return AST.name_constant(name_token, None).node
+        while True:
+            if self.tokens.skip(TokenType.DOT):
+                self.expect(TokenType.IDENTIFIER)
+            elif self.tokens.skip(TokenType.GENERIC_OPEN):
+                self.parse_type_annotation(name_location, True)
+                self.expect(TokenType.GREATER)
+            else:
+                break
+        return AST.name_constant(name_location, None).node
 
     def parse_semicolon(self) -> Iterable[ast.AST]:
         pass_token = self.expect(TokenType.SEMICOLON)
