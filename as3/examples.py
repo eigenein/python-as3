@@ -60,6 +60,8 @@ expressions: List[Tuple[str, Any]] = [
     ('(false ? 1 : true ? 2 : 3)', ASInteger(2)),
     ('(false ? 1 : false ? 2 : 3)', ASInteger(3)),
     ('1 == 1', True),
+    ('1 ^ 2', 3),
+    ('3 ^ 1 ^ 2', 0),
 
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),

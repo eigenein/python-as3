@@ -48,10 +48,11 @@ unary_operations: Dict[TokenType, ast.AST] = {
 }
 
 binary_operations: Dict[TokenType, ast.AST] = {
-    TokenType.MINUS: ast.Sub(),
-    TokenType.PLUS: ast.Add(),
+    TokenType.BITWISE_XOR: ast.BitXor(),
     TokenType.DIVIDE: ast.Div(),
+    TokenType.MINUS: ast.Sub(),
     TokenType.MULTIPLY: ast.Mult(),
+    TokenType.PLUS: ast.Add(),
 }
 
 augmented_assign_operations: Dict[TokenType, ast.AST] = {
