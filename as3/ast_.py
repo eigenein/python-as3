@@ -12,6 +12,7 @@ from as3.constants import (
     augmented_assign_operations,
     binary_operations,
     boolean_operations,
+    class_property_name,
     compare_operations,
     init_name,
     resolve_name,
@@ -159,6 +160,17 @@ class AST:
     def lambda_(location: Location, arguments: List[ast.arg], value: ast.AST) -> AST:
         return AST(make_ast(location, ast.Lambda, args=AST.arguments(args=arguments).node, body=value))
 
+    @staticmethod
+    def for_each(location: Location, name_token: Token, iterated_value: ast.AST, body: List[ast.AST]) -> AST:
+        return AST(make_ast(
+            location,
+            ast.For,
+            target=make_ast(name_token, ast.Name, id=name_token.value, ctx=ast.Store()),
+            iter=iterated_value,
+            body=body,
+            orelse=[],
+        ))
+
     def __init__(self, node: ast.AST) -> None:
         self.node = node
 
@@ -284,14 +296,16 @@ def make_function(
     is_class_method: bool = False,
     is_property: bool = False,
 ) -> ast.FunctionDef:
-    assert not is_class_method or not is_property
     body = body or []
     args = cast(ast.arguments, AST.arguments(arguments, defaults).node)
     decorator_list = []
-    if is_class_method:
-        decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
-    if is_property:
-        decorator_list.append(make_ast(location, ast.Name, id='property', ctx=ast.Load()))
+    if is_class_method and is_property:
+        decorator_list.append(make_ast(location, ast.Name, id=class_property_name, ctx=ast.Load()))
+    else:
+        if is_class_method:
+            decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
+        if is_property:
+            decorator_list.append(make_ast(location, ast.Name, id='property', ctx=ast.Load()))
     return make_ast(
         location, ast.FunctionDef, name=name, args=args, body=body, decorator_list=decorator_list, returns=None)
 

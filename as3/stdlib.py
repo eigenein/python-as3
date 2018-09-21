@@ -12,6 +12,7 @@ class ASObject(dict):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.update(self.__dict__)  # preserve old values if `super()` is called after initialization
         self.__dict__ = self
 
     def __repr__(self) -> str:

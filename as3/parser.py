@@ -105,6 +105,7 @@ class Parser:
             TokenType.BREAK: self.parse_break,
             TokenType.CLASS: self.parse_class,
             TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
+            TokenType.FOR: self.parse_for,
             TokenType.FUNCTION: self.parse_function_definition,
             TokenType.IF: self.parse_if,
             TokenType.IMPORT: self.parse_import,
@@ -290,6 +291,21 @@ class Parser:
     def parse_throw(self) -> Iterable[ast.AST]:
         token = self.expect(TokenType.THROW)
         yield AST(self.parse_non_assignment_expression()).throw(token).node
+
+    def parse_for(self) -> Iterable[ast.AST]:
+        for_token = self.expect(TokenType.FOR)
+        is_each = self.tokens.skip(TokenType.EACH) is not None
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        self.expect(TokenType.VAR)
+        name_token = self.expect(TokenType.IDENTIFIER)
+        self.expect(TokenType.IN)
+        iterated_value_builder = AST(self.parse_non_assignment_expression())
+        if is_each:
+            # `.values()`
+            iterated_value_builder.attribute(name_token, 'values').call(name_token)
+        self.expect(TokenType.PARENTHESIS_CLOSE)
+        body = list(self.parse_statement())
+        yield AST.for_each(for_token, name_token, iterated_value_builder.node, body).node
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.

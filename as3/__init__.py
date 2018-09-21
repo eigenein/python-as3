@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from ast import AST, Expression
+from pathlib import Path
 from types import CodeType
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from as3 import constants
 from as3.parser import Parser
-from as3.runtime import default_globals
+from as3.runtime import default_globals, import_name_from_file
 from as3.scanner import scan
 
 
@@ -39,3 +40,7 @@ def compile_expression(source: str, filename: str) -> CodeType:
 def evaluate_expression(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
     globals_: Dict[str, Any] = {**default_globals, constants.import_cache_name: {}, **override_globals}
     return eval(compile_expression(source, filename), globals_)
+
+
+def import_qualified_name(name: str, packages_path: Path, import_cache: Dict[Tuple[str, ...], Any]) -> Any:
+    return import_name_from_file(*name.split('.'), packages_path=packages_path, import_cache=import_cache)

@@ -30,13 +30,13 @@ class Field:
     Object field descriptor.
     """
 
-    def __init__(self, initializer: Callable[[Any], Any]) -> None:
+    def __init__(self, initializer: Callable[[stdlib.ASObject], Any]) -> None:
         self.initializer = initializer
 
     def __set_name__(self, instance: stdlib.ASObject, name: str) -> None:
         self.name = stdlib.ASString(name)
 
-    def __get__(self, instance: Any, type_: Type[stdlib.ASObject]) -> Any:
+    def __get__(self, instance: stdlib.ASObject, type_: Type[stdlib.ASObject]) -> Any:
         if instance is None:
             raise AttributeError(f'{self.name} is not a static field')
         if self.name not in instance.__dict__:
@@ -46,6 +46,14 @@ class Field:
 
     def __set__(self, instance: Any, value: Any) -> Any:
         instance.__dict__[self.name] = value
+
+
+class ClassProperty:
+    def __init__(self, getter: Callable[[Type[stdlib.ASObject]], Any]):
+        self.getter = getter
+
+    def __get__(self, instance: stdlib.ASObject, type_: Type[stdlib.ASObject]) -> Any:
+        return self.getter(type_)
 
 
 class StaticField:
@@ -188,6 +196,7 @@ default_globals: Dict[str, Any] = {
     '__globals__': globals,
 
     # Internal interpreter names.
+    constants.class_property_name: ClassProperty,
     constants.field_name: Field,
     constants.import_name: import_name,
     constants.packages_path_name: Path.cwd(),

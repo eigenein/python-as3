@@ -10,10 +10,12 @@ keyword_to_token_type = {
     'catch': TokenType.CATCH,
     'class': TokenType.CLASS,
     'const': TokenType.CONST,
+    'each': TokenType.EACH,
     'else': TokenType.ELSE,
     'extends': TokenType.EXTENDS,
     'false': TokenType.FALSE,
     'finally': TokenType.FINALLY,
+    'for': TokenType.FOR,
     'function': TokenType.FUNCTION,
     'if': TokenType.IF,
     'get': TokenType.GET,
@@ -88,6 +90,7 @@ standard_imports_name = '__standard_imports__'
 static_field_name = '__static_field__'
 field_name = '__field__'
 lazy_imports_name = '__lazy_imports__'
+class_property_name = 'classproperty'
 
 actionscript_suffix = '.as'
 

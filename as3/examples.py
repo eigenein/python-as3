@@ -89,12 +89,7 @@ scripts: List[Tuple[str, dict]] = [
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
     ('function foo(bar: *) { return bar } var expected = foo();', {'expected': undefined}),
     ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
-    (
-        'class X { var a = 43 } '
-        'class Y extends X { var a = 42 } '
-        'var expected = Y().a',
-        {'expected': 42},
-    ),
+    ('class X { var a = 43 } class Y extends X { var a = 42 } var expected = Y().a', {'expected': 42}),
     (
         'class X { var a: int; function X() { this.a = 42 } function baz() { return this.a; } }; '
         'var expected = X().baz()',
@@ -148,8 +143,10 @@ scripts: List[Tuple[str, dict]] = [
     ('var bar = {"baz": "hello"}; var baz = "baz" in bar; var qux = "qux" in bar', {'baz': True, 'qux': False}),
     ('public interface IDisposable { function dispose() : void; }', {}),
     ('class X { public function get foo() { return 42 } }; var foo = X().foo', {'foo': 42}),
-
-    # Yes, it's possible to have a function of one statement.
+    ('var foo = 0; for each (var i in {"a": 1, "b": 2, "c": 3}) foo += i', {'foo': 6}),
+    ('var foo = 0; for (var i in {2: 1, 3: 2, 4: 3}) foo += i', {'foo': 9}),
+    ('class X { var foo = 0; function X() { foo = 42 } }; var foo = X().foo', {'foo': 42}),
+    ('class X { var foo = 0; function X() { foo = 42; super() } }; var foo = X().foo', {'foo': 42}),
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
 ]
 
