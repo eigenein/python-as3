@@ -281,13 +281,17 @@ def make_function(
     body: List[ast.AST] = None,
     arguments: List[ast.arg] = None,
     defaults: List[ast.AST] = None,
-    is_class_method=False,
+    is_class_method: bool = False,
+    is_property: bool = False,
 ) -> ast.FunctionDef:
+    assert not is_class_method or not is_property
     body = body or []
     args = cast(ast.arguments, AST.arguments(arguments, defaults).node)
     decorator_list = []
     if is_class_method:
         decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
+    if is_property:
+        decorator_list.append(make_ast(location, ast.Name, id='property', ctx=ast.Load()))
     return make_ast(
         location, ast.FunctionDef, name=name, args=args, body=body, decorator_list=decorator_list, returns=None)
 

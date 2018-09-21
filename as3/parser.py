@@ -56,6 +56,7 @@ class Parser:
             # Parse definition.
             modifiers = self.parse_modifiers()
             statements: List[ast.AST] = list(self.switch({
+                TokenType.CONST: self.parse_variable_definition,
                 TokenType.FUNCTION: self.parse_function_definition,
                 TokenType.VAR: self.parse_variable_definition,
             }, is_static=(TokenType.STATIC in modifiers), is_field=True))
@@ -88,16 +89,16 @@ class Parser:
         yield AST.class_(location=class_token, name=name, base=base, body=[init, *body]).node
 
     def parse_modifiers(self) -> Set[TokenType]:
-        modifiers: List[TokenType] = []
+        modifiers: Set[TokenType] = set()
         if self.tokens.skip(TokenType.OVERRIDE):
-            modifiers.append(TokenType.OVERRIDE)
+            modifiers.add(TokenType.OVERRIDE)
         visibility_token = self.tokens.skip(
             TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED, TokenType.INTERNAL)
         if visibility_token:
-            modifiers.append(visibility_token.type_)
+            modifiers.add(visibility_token.type_)
         if self.tokens.skip(TokenType.STATIC):
-            modifiers.append(TokenType.STATIC)
-        return set(modifiers)
+            modifiers.add(TokenType.STATIC)
+        return modifiers
 
     def parse_statement(self) -> Iterable[ast.AST]:
         yield from self.switch({  # type: ignore
@@ -167,7 +168,7 @@ class Parser:
         yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
 
     def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> Iterable[ast.AST]:
-        self.expect(TokenType.VAR)
+        self.expect(TokenType.VAR, TokenType.CONST)
         assign_token = name_token = self.expect(TokenType.IDENTIFIER)
         value = self.parse_type_annotation(name_token)
         if self.tokens.is_type(TokenType.ASSIGN):
@@ -228,8 +229,9 @@ class Parser:
 
     def parse_function_definition(self, is_static: bool = False, **_) -> Iterable[ast.FunctionDef]:
         function_token = self.expect(TokenType.FUNCTION)
+        is_property = self.tokens.skip(TokenType.GET) is not None
         name = self.expect(TokenType.IDENTIFIER).value
-        node = make_function(function_token, name=name, is_class_method=is_static)
+        node = make_function(function_token, name=name, is_class_method=is_static, is_property=is_property)
 
         # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)

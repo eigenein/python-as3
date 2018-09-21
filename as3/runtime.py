@@ -98,14 +98,12 @@ def import_name(*parts: str, frame_index: int = 1, lazy: bool = True) -> Any:
     """
     Implements the `import` statement.
     """
-    print(parts)
-
     # Inject names into the locals.
     frame = inspect.stack()[frame_index].frame
     import_cache: Dict[Tuple[str, ...], Any] = frame.f_globals[constants.import_cache_name]
     packages_path: Path = frame.f_globals[constants.packages_path_name]
     frame.f_globals.setdefault(constants.lazy_imports_name, {})
-    lazy_imports: Dict[str, Tuple[str, ...]] = frame.f_globals[constants.lazy_imports_name]
+    lazy_imports: Dict[str, Tuple[str, ...]] = frame.f_globals[constants.lazy_imports_name]  # FIXME: should be locals?
 
     # First, look it up in the import cache.
     value = import_cache.get(parts)
