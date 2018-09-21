@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple
 
 from as3 import constants
 from as3.parser import Parser
-from as3.runtime import default_globals, import_name_from_file
+from as3.runtime import default_globals, import_from_file
 from as3.scanner import scan
 
 
@@ -24,7 +24,7 @@ def compile_script(source: str, filename: str) -> CodeType:
 
 
 def execute_script(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
-    globals_: Dict[str, Any] = {**default_globals, constants.import_cache_name: {}, **override_globals}
+    globals_: Dict[str, Any] = {**default_globals, constants.import_cache_key: {}, **override_globals}
     exec(compile_script(source, filename), globals_)
     return globals_
 
@@ -38,9 +38,9 @@ def compile_expression(source: str, filename: str) -> CodeType:
 
 
 def evaluate_expression(source: str, filename: str = '<ast>', **override_globals: Any) -> Dict[str, Any]:
-    globals_: Dict[str, Any] = {**default_globals, constants.import_cache_name: {}, **override_globals}
+    globals_: Dict[str, Any] = {**default_globals, constants.import_cache_key: {}, **override_globals}
     return eval(compile_expression(source, filename), globals_)
 
 
 def import_qualified_name(name: str, packages_path: Path, import_cache: Dict[Tuple[str, ...], Any]) -> Any:
-    return import_name_from_file(*name.split('.'), packages_path=packages_path, import_cache=import_cache)
+    return import_from_file(tuple(name.split('.')), packages_path, import_cache)

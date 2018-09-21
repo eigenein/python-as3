@@ -154,7 +154,7 @@ class Parser:
                 break
         self.tokens.skip(TokenType.SEMICOLON)
         yield AST \
-            .name(import_token, constants.import_name) \
+            .name(import_token, constants.import_key) \
             .call(import_token, args) \
             .expr() \
             .node
@@ -177,7 +177,7 @@ class Parser:
             value = self.parse_non_assignment_expression()
         builder = AST.identifier(name_token)
         if is_field:
-            descriptor_name = constants.static_field_name if is_static else constants.field_name
+            descriptor_name = constants.static_field_key if is_static else constants.field_key
             # `Field(lambda __this__: value)`
             value = AST \
                 .lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value) \
@@ -466,7 +466,7 @@ class Parser:
         name_token = self.expect(TokenType.IDENTIFIER)
         if self.tokens.skip(TokenType.GENERIC_OPEN):
             # Skip `.<Whatever>`.
-            self.parse_additive_expression()
+            self.parse_type_annotation(name_token, True)
             self.expect(TokenType.GREATER)
         return AST.name_expression(name_token).node
 

@@ -148,6 +148,7 @@ scripts: List[Tuple[str, dict]] = [
     ('class X { var foo = 0; function X() { foo = 42 } }; var foo = X().foo', {'foo': 42}),
     ('class X { var foo = 0; function X() { foo = 42; super() } }; var foo = X().foo', {'foo': 42}),
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
+    ('new Vector.<*>()', {}),
 ]
 
 bad_scripts: List = [

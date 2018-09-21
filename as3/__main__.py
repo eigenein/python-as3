@@ -33,7 +33,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
     """
     Execute ActionScript files.
     """
-    globals_: Dict[str, Any] = {constants.packages_path_name: Path(packages_path)}
+    globals_: Dict[str, Any] = {constants.packages_path_key: Path(packages_path)}
     for script in scripts:
         path = Path(script)
         # noinspection PyBroadException

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from contextlib import suppress
+from typing import Any
 
 
 class ASObject(dict):
@@ -10,6 +12,20 @@ class ASObject(dict):
 
     __alias__ = 'Object'
 
+    @staticmethod
+    def from_dict(dict_: dict) -> ASObject:
+        return ASObject({
+            key: (
+                ASObject.from_dict(value) if isinstance(value, dict) else
+                ASBoolean(value) if isinstance(value, bool) else
+                ASInteger(value) if isinstance(value, int) else
+                ASNumber(value) if isinstance(value, float) else
+                ASString(value) if isinstance(value, str) else
+                ASArray(value) if isinstance(value, list) else
+                value
+            ) for key, value in dict_.items()}
+        )
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.update(self.__dict__)  # preserve old values if `super()` is called after initialization
@@ -17,6 +33,13 @@ class ASObject(dict):
 
     def __repr__(self) -> str:
         return 'undefined' if self is undefined else super().__repr__()
+
+    # noinspection PyPep8Naming
+    def hasOwnProperty(self, name: str) -> ASBoolean:
+        # FIXME: should not take parent classes into account.
+        with suppress(AttributeError):
+            getattr(self, name)
+        return ASBoolean(name in self)
 
 
 undefined = ASObject()
@@ -37,6 +60,15 @@ class ASString(str):
 
 class ASNumber(float):
     __alias__ = 'Number'
+
+    def __new__(cls, *args) -> Any:
+        if not args:
+            return super().__new__(cls)
+        value, = args
+        try:
+            return super().__new__(cls, float(value))
+        except TypeError:
+            return undefined
 
 
 class ASBoolean(int):

@@ -6,6 +6,7 @@ This includes internal constructs as well as parts of standard ActionScript libr
 from __future__ import annotations
 
 import inspect
+import traceback
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
@@ -49,7 +50,7 @@ class Field:
 
 
 class ClassProperty:
-    def __init__(self, getter: Callable[[Type[stdlib.ASObject]], Any]):
+    def __init__(self, getter: Callable[[Type[stdlib.ASObject]], Any]) -> None:
         self.getter = getter
 
     def __get__(self, instance: stdlib.ASObject, type_: Type[stdlib.ASObject]) -> Any:
@@ -93,66 +94,66 @@ def resolve_name(name: str) -> Any:
     if name in frame.f_globals:
         return NamespaceObject(frame.f_globals)
 
-    # Try to import it from the current package.
+    # Try to import the name.
     with suppress(ImportError):
-        import_name(name, frame_index=2, lazy=False)  # one frame is occupied with `resolve_name`
+        import_name((name,), frame)
         return NamespaceObject(frame.f_locals)  # `import_name` imported it into the locals
 
     # noinspection PyUnreachableCode, PyUnresolvedReferences
     raise NameError(f'unable to resolve name "{name}"')
 
 
-def import_name(*parts: str, frame_index: int = 1, lazy: bool = True) -> Any:
-    """
-    Implements the `import` statement.
-    """
-    # Inject names into the locals.
-    frame = inspect.stack()[frame_index].frame
-    import_cache: Dict[Tuple[str, ...], Any] = frame.f_globals[constants.import_cache_name]
-    packages_path: Path = frame.f_globals[constants.packages_path_name]
-    frame.f_globals.setdefault(constants.lazy_imports_name, {})
-    lazy_imports: Dict[str, Tuple[str, ...]] = frame.f_globals[constants.lazy_imports_name]  # FIXME: should be locals?
+TParts = Tuple[str, ...]
 
-    # First, look it up in the import cache.
+
+def import_(*parts: str) -> None:
+    """Implements `import` statement."""
+    frame = inspect.stack()[1].frame
+    frame.f_globals.setdefault(constants.imports_key, {})
+    frame.f_globals[constants.imports_key][parts[-1]] = parts
+
+
+def import_name(parts: TParts, frame: Any) -> None:
+    """Actually imports the name."""
+    import_cache: Dict[TParts, Any] = frame.f_globals[constants.import_cache_key]
+    packages_path: Path = frame.f_globals[constants.packages_path_key]
+    frame.f_globals.setdefault(constants.imports_key, {})
+    imports: Dict[str, TParts] = frame.f_globals[constants.imports_key]
+
+    if len(parts) == 1:
+        # It's imported with `import` statement.
+        parts = imports.get(parts[0], parts)
+
     value = import_cache.get(parts)
-
-    # Standard library.
     if value is None:
-        value = frame.f_globals[constants.standard_imports_name].get(parts)
-
-    # Mock UI classes.
+        value = standard_imports.get(parts)
     if value is None and constants.mocked_imports.match('.'.join(parts)):
         value = Mock()
-        value.__default__ = None  # type: ignore
-
-    # Search the name in the packages path.
+    if value is None and len(parts) == 1:
+        # Imports from the same package are implicit.
+        value = import_from_same_package(parts[0], packages_path, Path(inspect.getframeinfo(frame).filename), import_cache)
     if value is None:
-        if lazy:
-            # Deal with circular imports: remember the location of the name and do actual import at the first reference.
-            lazy_imports[parts[-1]] = parts
-            return
-        if len(parts) == 1:
-            name, = parts
-            if name in lazy_imports:
-                # We remembered the full path earlier.
-                parts = lazy_imports[name]
-            else:
-                # Look up in the same directory.
-                frame_info = inspect.getframeinfo(frame)
-                caller_path = Path(frame_info.filename)
-                if (caller_path.parent / name).with_suffix(constants.actionscript_suffix).exists():
-                    with suppress(ValueError):
-                        parts = (*caller_path.relative_to(packages_path).parent.parts, name)
-        value = import_name_from_file(*parts, packages_path=packages_path, import_cache=import_cache)
+        # Qualified name.
+        value = import_from_file(parts, packages_path, import_cache)
 
+    if value is None:
+        raise ImportError(f'could not find {".".join(parts)}')
     frame.f_locals[parts[-1]] = value
-    return value
 
 
-def import_name_from_file(*parts: str, packages_path: Path, import_cache: Dict[Tuple[str, ...], Any]) -> Any:
-    path = packages_path
+def import_from_same_package(name: str, packages_path: Path, caller_path: Path, import_cache: Dict[TParts, Any]) -> Any:
+    if not (caller_path.parent / name).with_suffix(constants.actionscript_suffix).exists():
+        return None
+    with suppress(ValueError):
+        parts = (*caller_path.relative_to(packages_path).parent.parts, name)
+        return import_from_file(parts, packages_path, import_cache)
+
+
+def import_from_file(parts: TParts, packages_path: Path, import_cache: Dict[TParts, Any]) -> Any:
+    assert parts not in import_cache, f'`{".".join(parts)}` is being imported but already cached'
 
     # Locate the file.
+    path = packages_path
     for arg in parts:
         if arg != '*':
             path = path / arg
@@ -161,29 +162,27 @@ def import_name_from_file(*parts: str, packages_path: Path, import_cache: Dict[T
 
     # We need a script with the same name.
     path = path.with_suffix(constants.actionscript_suffix)
-    try:
-        source = path.read_text()
-    except FileNotFoundError:
-        raise ImportError(f'could not find {".".join(parts)}')
+    if not path.exists():
+        return None
 
     # Import-related globals.
-    globals_ = {constants.import_cache_name: import_cache, constants.packages_path_name: packages_path}
+    globals_ = {constants.import_cache_key: import_cache, constants.packages_path_key: packages_path}
 
-    output_globals = as3.execute_script(source, filename=str(path), **globals_)
+    output_globals = as3.execute_script(path.read_text(), filename=str(path), **globals_)
     value = import_cache[parts] = output_globals[parts[-1]]
     return value
 
 
 def push(value: Any):
     locals_ = inspect.stack()[1].frame.f_locals
-    if constants.operand_stack_name not in locals_:
-        locals_[constants.operand_stack_name] = []
-    stack: List[Any] = locals_[constants.operand_stack_name]
+    if constants.operand_stack_key not in locals_:
+        locals_[constants.operand_stack_key] = []
+    stack: List[Any] = locals_[constants.operand_stack_key]
     stack.append(value)
 
 
 def pop() -> Any:
-    return inspect.stack()[1].frame.f_locals[constants.operand_stack_name].pop()
+    return inspect.stack()[1].frame.f_locals[constants.operand_stack_key].pop()
 
 
 def raise_not_implemented_error(name: str, *args: Any) -> NoReturn:
@@ -194,14 +193,16 @@ default_globals: Dict[str, Any] = {
     # Helper names.
     '__dir__': dir,
     '__globals__': globals,
+    '__hasattr__': hasattr,
+    '__print_stack__': traceback.print_stack,
 
     # Internal interpreter names.
-    constants.class_property_name: ClassProperty,
-    constants.field_name: Field,
-    constants.import_name: import_name,
-    constants.packages_path_name: Path.cwd(),
-    constants.resolve_name: resolve_name,
-    constants.static_field_name: StaticField,
+    constants.class_property_key: ClassProperty,
+    constants.field_key: Field,
+    constants.import_key: import_,
+    constants.packages_path_key: Path.cwd(),
+    constants.resolve_key: resolve_name,
+    constants.static_field_key: StaticField,
 
     # Standard names.
     'Math': stdlib.ASMath,
@@ -223,11 +224,10 @@ default_globals: Dict[str, Any] = {
     '§§nextname': partial(raise_not_implemented_error, '§§nextname'),
     '§§pop': pop,
     '§§push': push,
+}
 
-    # Abuse globals for imports. This allows to override them.
-    constants.standard_imports_name: {
-        ('flash', 'display', 'MovieClip'): stdlib.ASObject,  # let's hope its implementation is not needed
-        ('flash', 'utils', 'Dictionary'): stdlib.ASDictionary,
-        ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
-    },
+standard_imports: Dict[TParts, Any] = {
+    ('flash', 'display', 'MovieClip'): stdlib.ASObject,  # let's hope its implementation is not needed
+    ('flash', 'utils', 'Dictionary'): stdlib.ASDictionary,
+    ('flash', 'utils', 'getQualifiedClassName'): partial(raise_not_implemented_error, 'getQualifiedClassName'),
 }

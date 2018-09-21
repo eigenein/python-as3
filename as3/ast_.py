@@ -12,10 +12,10 @@ from as3.constants import (
     augmented_assign_operations,
     binary_operations,
     boolean_operations,
-    class_property_name,
+    class_property_key,
     compare_operations,
     init_name,
-    resolve_name,
+    resolve_key,
     this_name,
     unary_operations,
 )
@@ -101,7 +101,7 @@ class AST:
         """
         name_node = AST.string(with_token, with_token.value).node
         return AST \
-            .name(with_token, resolve_name) \
+            .name(with_token, resolve_key) \
             .call(with_token, [name_node]) \
             .attribute(with_token, with_token.value)
 
@@ -300,7 +300,7 @@ def make_function(
     args = cast(ast.arguments, AST.arguments(arguments, defaults).node)
     decorator_list = []
     if is_class_method and is_property:
-        decorator_list.append(make_ast(location, ast.Name, id=class_property_name, ctx=ast.Load()))
+        decorator_list.append(make_ast(location, ast.Name, id=class_property_key, ctx=ast.Load()))
     else:
         if is_class_method:
             decorator_list.append(make_ast(location, ast.Name, id='classmethod', ctx=ast.Load()))
