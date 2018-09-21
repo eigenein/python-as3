@@ -66,9 +66,11 @@ class ASNumber(float):
             return super().__new__(cls)
         value, = args
         try:
-            return super().__new__(cls, float(value))
+            float(value)
         except TypeError:
             return undefined
+        else:
+            return super().__new__(cls)
 
 
 class ASBoolean(int):

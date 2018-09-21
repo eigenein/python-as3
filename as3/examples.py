@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.stdlib import ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined, ASArray
+from as3.stdlib import ASArray, ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined
 
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
