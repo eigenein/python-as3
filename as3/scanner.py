@@ -21,7 +21,6 @@ specification = re.compile(r'''
     # Normal tokens.
     (?P<BITWISE_XOR>\^) |
     (?P<QUESTION_MARK>\?) |
-    (?P<GENERIC_OPEN>\.<) |
     (?P<LOGICAL_OR>\|\|) |
     (?P<LOGICAL_AND>&&) |
     (?P<STRICTLY_EQUAL>===) |

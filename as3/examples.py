@@ -9,7 +9,7 @@ from typing import Any, List, Tuple
 from pytest import mark, param
 
 from as3.exceptions import ASSyntaxError
-from as3.stdlib import ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined
+from as3.stdlib import ASBoolean, ASInteger, ASNumber, ASObject, ASString, undefined, ASArray
 
 expressions: List[Tuple[str, Any]] = [
     ('42', ASInteger(42)),
@@ -48,8 +48,8 @@ expressions: List[Tuple[str, Any]] = [
     ('0.25', ASNumber(0.25)),
     ('true ? 42 : 0', ASInteger(42)),
     ('false ? 0 : 42', ASInteger(42)),
-    ('[]', []),
-    ('["1", "2"]', [ASString('1'), ASString('2')]),
+    ('[]', ASArray()),
+    ('["1", "2"]', ASArray(ASString('1'), ASString('2'))),
     ('1 is int', True),
     ('1 is String', False),
     ('null', None),
@@ -62,6 +62,8 @@ expressions: List[Tuple[str, Any]] = [
     ('1 == 1', True),
     ('1 ^ 2', 3),
     ('3 ^ 1 ^ 2', 0),
+    ('new <String>["1", "2", "3"]', ASArray(ASString('1'), ASString('2'), ASString('3'))),
+    ('new Array.<String>("1", "2", "3")', ASArray(ASString('1'), ASString('2'), ASString('3'))),
 
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),
@@ -83,34 +85,34 @@ scripts: List[Tuple[str, dict]] = [
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
     ('{ { } }', {}),
     ('class X { }', {}),
-    ('class X { var a = 1; function X() { a = 42; } } var expected = X().a;', {'expected': 42}),
+    ('class X { var a = 1; function X() { a = 42; } } var expected = new X().a;', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo();', {'expected': 0}),
     ('function foo(bar: *) { return bar } var expected = foo();', {'expected': undefined}),
-    ('class X { var bar; function X(foo: int) { bar = foo } }; var a = X(42).bar', {'a': 42}),
-    ('class X { var a = 43 } class Y extends X { var a = 42 } var expected = Y().a', {'expected': 42}),
+    ('class X { var bar; function X(foo: int) { bar = foo } }; var a = new X(42).bar', {'a': 42}),
+    ('class X { var a = 43 } class Y extends X { var a = 42 } var expected = new Y().a', {'expected': 42}),
     (
         'class X { var a: int; function X() { this.a = 42 } function baz() { return this.a; } }; '
-        'var expected = X().baz()',
+        'var expected = new X().baz()',
         {'expected': 42},
     ),
     (
         'class X { var foo = 0; function X() { foo = 42; } } '
         'class Y extends X { function Y() { super(); } } '
-        'var expected = Y().foo;',
+        'var expected = new Y().foo;',
         {'expected': 42},
     ),
     (
         'class X { function foo() { return 42 } } '
         'class Y extends X { function foo() { return super.foo() } } '
-        'var expected = Y().foo();',
+        'var expected = new Y().foo();',
         {'expected': 42},
     ),
     (
         'class X { var a; function X() { a = 42 } } '
         'class Y extends X { function Y() { /* No explicit `super()` call. */ } } '
-        'var expected = Y().a;',
+        'var expected = new Y().a;',
         {'expected': 42},
     ),
     ('while (false) {}', {}),
@@ -118,8 +120,8 @@ scripts: List[Tuple[str, dict]] = [
     ('var foo = 42; while (true) { break; foo = 0 }', {'foo': 42}),
     ('dict_[1] = 42', {'dict_': {1: 42}}),
     ('class X { static var foo = 42 } var bar = X.foo', {'bar': 42}),
-    ('class X { static var foo = 42 } var bar = X().foo', {'bar': 42}),
-    ('class X { static var foo = 0; function bar() { foo = 42 } }; X().bar(); var baz = X.foo', {'baz': 42}),
+    ('class X { static var foo = 42 } var bar = new X().foo', {'bar': 42}),
+    ('class X { static var foo = 0; function bar() { foo = 42 } }; new X().bar(); var baz = X.foo', {'baz': 42}),
     ('class X { static var foo = 42; static var bar = foo }; var baz = X.bar', {'baz': 42}),
     ('class X { static var foo = 0; static function bar() { foo = 42 } }; X.bar(); var baz = X.foo', {'baz': 42}),
     ('class X { static var foo = 42 }; var x = new X(); var baz = x.foo', {'baz': 42}),
@@ -133,20 +135,20 @@ scripts: List[Tuple[str, dict]] = [
     ('import flash.display.MovieClip', {}),
     ('var map: Object = new Object(); map.name1 = "Lee"', {'map': {'name1': 'Lee'}}),
     ('import flash.utils.getQualifiedClassName', {}),
-    ('class X { var a = 42 } var expected = X().a', {'expected': 42}),
+    ('class X { var a = 42 } var expected = new X().a', {'expected': 42}),
     ('class X { static var foo = X() }', {}),
-    ('class X { static var foo = 43 }; X().foo = 42; var bar = X.foo', {'bar': 42}),
+    ('class X { static var foo = 43 }; new X().foo = 42; var bar = X.foo', {'bar': 42}),
     ('class X { static var foo = bar; static var bar = 42 } var baz = X.foo', {'baz': 42}),
-    ('class X { var foo = bar; static var bar = 42 } var baz = X().foo', {'baz': 42}),
-    ('class X { static var x = X() }', {}),
+    ('class X { var foo = bar; static var bar = 42 } var baz = new X().foo', {'baz': 42}),
+    ('class X { static var x = new X() }', {}),
     ('function foo(bar: Vector.<Whatever>) { return bar }; var baz = foo()', {'baz': None}),
     ('var bar = {"baz": "hello"}; var baz = "baz" in bar; var qux = "qux" in bar', {'baz': True, 'qux': False}),
     ('public interface IDisposable { function dispose() : void; }', {}),
-    ('class X { public function get foo() { return 42 } }; var foo = X().foo', {'foo': 42}),
+    ('class X { public function get foo() { return 42 } }; var foo = new X().foo', {'foo': 42}),
     ('var foo = 0; for each (var i in {"a": 1, "b": 2, "c": 3}) foo += i', {'foo': 6}),
     ('var foo = 0; for (var i in {2: 1, 3: 2, 4: 3}) foo += i', {'foo': 9}),
-    ('class X { var foo = 0; function X() { foo = 42 } }; var foo = X().foo', {'foo': 42}),
-    ('class X { var foo = 0; function X() { foo = 42; super() } }; var foo = X().foo', {'foo': 42}),
+    ('class X { var foo = 0; function X() { foo = 42 } }; var foo = new X().foo', {'foo': 42}),
+    ('class X { var foo = 0; function X() { foo = 42; super() } }; var foo = new X().foo', {'foo': 42}),
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
     ('new Vector.<*>()', {}),
 ]

@@ -54,7 +54,6 @@ def test_empty():
     make_test_params('||', TokenType.LOGICAL_OR),
     make_test_params('&&', TokenType.LOGICAL_AND),
     make_test_params('new', TokenType.NEW),
-    make_test_params('.<', TokenType.GENERIC_OPEN),
     make_test_params('42', TokenType.NUMBER),
     make_test_params('0xABCDEF', TokenType.NUMBER),
     make_test_params('0777', TokenType.NUMBER),

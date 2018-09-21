@@ -21,7 +21,7 @@ class ASObject(dict):
                 ASInteger(value) if isinstance(value, int) else
                 ASNumber(value) if isinstance(value, float) else
                 ASString(value) if isinstance(value, str) else
-                ASArray(value) if isinstance(value, list) else
+                ASArray(*value) if isinstance(value, list) else
                 value
             ) for key, value in dict_.items()}
         )
@@ -82,6 +82,9 @@ class ASBoolean(int):
 class ASArray(list):
     """https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/arrays.html"""
     __alias__ = 'Array'
+
+    def __init__(self, *args):
+        super().__init__(args)
 
 
 class ASError(Exception):

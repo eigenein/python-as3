@@ -9,7 +9,7 @@ from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 from as3.scanner import Location, Token
-from as3.stdlib import ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
+from as3.stdlib import ASArray, ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
 
 
 class Parser:
@@ -207,13 +207,12 @@ class Parser:
 
         # `None` for other standard types and all user classes. Skip the rest of the annotation.
         while True:
-            if self.tokens.skip(TokenType.DOT):
-                self.expect(TokenType.IDENTIFIER)
-            elif self.tokens.skip(TokenType.GENERIC_OPEN):
+            if not self.tokens.skip(TokenType.DOT):
+                break
+            if not self.tokens.skip(TokenType.IDENTIFIER):
+                self.expect(TokenType.LESS)
                 self.parse_type_annotation(name_location, True)
                 self.expect(TokenType.GREATER)
-            else:
-                break
         return AST.name_constant(name_location, None).node
 
     def parse_semicolon(self) -> Iterable[ast.AST]:
@@ -419,6 +418,10 @@ class Parser:
 
     def parse_attribute_expression(self, left: ast.AST) -> ast.AST:
         attribute_token = self.expect(TokenType.DOT)
+        if self.tokens.skip(TokenType.LESS):
+            self.parse_type_annotation(location_of(left), True)
+            self.expect(TokenType.GREATER)
+            return left
         name: str = self.expect(TokenType.IDENTIFIER).value
         return AST(left).attribute(attribute_token, name).node
 
@@ -463,12 +466,7 @@ class Parser:
         return AST.number_expression(self.expect(TokenType.NUMBER)).node
 
     def parse_name_expression(self) -> ast.AST:
-        name_token = self.expect(TokenType.IDENTIFIER)
-        if self.tokens.skip(TokenType.GENERIC_OPEN):
-            # Skip `.<Whatever>`.
-            self.parse_type_annotation(name_token, True)
-            self.expect(TokenType.GREATER)
-        return AST.name_expression(name_token).node
+        return AST.name_expression(self.expect(TokenType.IDENTIFIER)).node
 
     def parse_super_expression(self) -> ast.AST:
         super_token = self.expect(TokenType.SUPER)
@@ -485,8 +483,11 @@ class Parser:
         return AST.string_expression(self.expect(TokenType.STRING)).node
 
     def parse_new(self) -> ast.AST:
-        self.expect(TokenType.NEW)  # ignored
-        return self.parse_name_expression()
+        token = self.expect(TokenType.NEW)  # ignored
+        if self.tokens.skip(TokenType.LESS):
+            self.parse_type_annotation(token, True)
+            self.expect(TokenType.GREATER)
+        return self.parse_non_assignment_expression()
 
     def parse_compound_literal(self) -> ast.AST:
         token = self.expect(TokenType.BRACKET_OPEN)
@@ -494,7 +495,7 @@ class Parser:
         while not self.tokens.skip(TokenType.BRACKET_CLOSE):
             elements.append(self.parse_non_assignment_expression())
             self.tokens.skip(TokenType.COMMA)
-        return AST.list_(token, elements).node
+        return AST.list_(token, elements).starred(token).wrap_with(token, ASArray.__alias__).node
 
     def parse_map_literal(self) -> ast.AST:
         token = self.expect(TokenType.CURLY_BRACKET_OPEN)

@@ -268,6 +268,10 @@ class AST:
         self.node = make_ast(location, ast.Raise, exc=self.node, cause=None)
         return self
 
+    def starred(self, location: Location) -> AST:
+        self.node = make_ast(location, ast.Starred, value=self.node, ctx=ast.Load())
+        return self
+
     def wrap_with(self, location: Location, name: str) -> AST:
         self.node = AST.name(location, name).call(location, [self.node]).node
         return self
