@@ -56,6 +56,7 @@ binary_operations: Dict[TokenType, ast.AST] = {
     TokenType.DIVIDE: ast.Div(),
     TokenType.MINUS: ast.Sub(),
     TokenType.MULTIPLY: ast.Mult(),
+    TokenType.PERCENT: ast.Mod(),
     TokenType.PLUS: ast.Add(),
 }
 

@@ -64,6 +64,7 @@ expressions: List[Tuple[str, Any]] = [
     ('3 ^ 1 ^ 2', 0),
     ('new <String>["1", "2", "3"]', ASArray(ASString('1'), ASString('2'), ASString('3'))),
     ('new Array.<String>("1", "2", "3")', ASArray(ASString('1'), ASString('2'), ASString('3'))),
+    ('10 % 4', 2),
 
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),

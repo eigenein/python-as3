@@ -25,6 +25,7 @@ class TokenType(Enum):
     DOT = auto()
     QUESTION_MARK = auto()
     SEMICOLON = auto()
+    PERCENT = auto()
 
     # Literals.
     NUMBER = auto()

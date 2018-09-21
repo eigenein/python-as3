@@ -19,6 +19,7 @@ specification = re.compile(r'''
     (?P<WHITESPACE>[ \t\f\v]+) |
     
     # Normal tokens.
+    (?P<PERCENT>%) |
     (?P<BITWISE_XOR>\^) |
     (?P<QUESTION_MARK>\?) |
     (?P<LOGICAL_OR>\|\|) |

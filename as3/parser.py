@@ -397,7 +397,10 @@ class Parser:
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
 
     def parse_multiplicative_expression(self) -> ast.AST:
-        return self.parse_binary_operations(self.parse_unary_expression, TokenType.MULTIPLY, TokenType.DIVIDE)
+        return self.parse_binary_operations(
+            self.parse_unary_expression,
+            TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.PERCENT,
+        )
 
     def parse_unary_expression(self) -> ast.AST:
         if self.tokens.is_type(*constants.unary_operations):
