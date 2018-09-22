@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import operator
 import re
-from typing import Any, Callable, Dict, List, Tuple, Type
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Tuple, Type, Optional
 
 from as3 import ast_
 from as3.enums import TokenType
+
+
+@dataclass
+class Environment:
+    """http://dmitrysoshnikov.com/ecmascript/javascript-the-core-2nd-edition/#environment"""
+    values: Dict[str, Any] = field(default_factory={})
+    parent: Optional[Environment] = None
 
 
 def execute(node: ast_.AST, globals_: Dict[str, Any]) -> Any:
