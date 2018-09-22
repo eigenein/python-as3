@@ -4,9 +4,9 @@ from collections import deque
 from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple, TypeVar, cast
 
 from as3 import ast_, interpreter
-from as3.interpreter import undefined
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
+from as3.interpreter import undefined
 from as3.scanner import Token
 
 
@@ -82,7 +82,7 @@ class Parser:
         if not has_super_call(init):
             init.body.insert(0, cast(ast.stmt, AST.super_constructor_call(location_of(init)).node))
 
-        yield AST.class_(location=class_token, name=name, base=base, body=[init, *body]).node
+        return AST.class_(location=class_token, name=name, base=base, body=[init, *body]).node
 
     def parse_modifiers(self) -> Set[TokenType]:
         modifiers: Set[TokenType] = set()
@@ -152,7 +152,7 @@ class Parser:
             if not self.tokens.skip(TokenType.DOT):
                 break
         self.tokens.skip(TokenType.SEMICOLON)
-        yield AST \
+        return AST \
             .name(import_token, constants.import_key) \
             .call(import_token, args) \
             .expr() \
@@ -183,7 +183,7 @@ class Parser:
                 .lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value) \
                 .wrap_with(assign_token, descriptor_name) \
                 .node
-        yield builder.assign(assign_token, value).node
+        return builder.assign(assign_token, value).node
 
     def parse_type_annotation(self, generic_parameter: bool = False) -> object:
         """
@@ -193,9 +193,9 @@ class Parser:
         # Corner cases.
         if not generic_parameter and not self.tokens.skip(TokenType.COLON):
             return undefined
-        if self.tokens.is_type(TokenType.MULTIPLY):
+        if self.tokens.skip(TokenType.MULTIPLY):
             return undefined
-        if self.tokens.is_type(TokenType.VOID):
+        if self.tokens.skip(TokenType.VOID):
             return None
 
         # Standard types.
@@ -253,20 +253,20 @@ class Parser:
         # Add guard `return default_return_value`.
         # FIXME: node.body.append(cast(ast.stmt, AST(default_return_value).return_it(location_of(default_return_value)).node))
 
-        yield node
+        return node
 
-    def parse_break(self) -> Iterable[ast_.Break]:
-        # noinspection PyTypeChecker
+    def parse_break(self) -> ast_.Break:
+        # noinspection PyArgumentList
         return ast_.Break(token=self.expect(TokenType.BREAK))
 
-    def parse_while(self) -> Iterable[ast.AST]:
+    def parse_while(self) -> ast_.While:
         token = self.expect(TokenType.WHILE)
         self.expect(TokenType.PARENTHESIS_OPEN)
         test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         body = self.parse_statement()
         # noinspection PyArgumentList
-        yield ast_.While(token=token, test=test, body=body)
+        return ast_.While(token=token, test=test, body=body)
 
     def parse_try(self) -> ast_.TryFinally:
         # noinspection PyArgumentList

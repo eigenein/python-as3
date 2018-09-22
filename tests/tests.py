@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 from pytest import mark, param, raises
 
-from as3 import parse_expression, evaluate_expression
+from as3 import execute
 from as3.interpreter import undefined
-from as3.exceptions import ASSyntaxError
 
 
 @mark.parametrize('source, expected', [
@@ -69,7 +68,7 @@ from as3.exceptions import ASSyntaxError
     ('addr58:', None),
 ])
 def test_evaluate_expression(source: str, expected: Any):
-    actual = evaluate_expression(source, '<ast>', {
+    actual = execute(source, '<ast>', {
         'foo': {'bar': 42, 'baz': 2},
         'bar': lambda a, b: a + b,
         'baz': lambda: 42,
@@ -78,32 +77,21 @@ def test_evaluate_expression(source: str, expected: Any):
     assert actual == expected, f'actual: {actual!r}'
 
 
-@mark.parametrize('source', [
-    '2 +',
-    'abs(',
-    'abs((',
-    'math..abs',
-])
-def test_parse_expression_syntax_error(source: str):
-    with raises(ASSyntaxError):
-        parse_expression(source, '<ast>')
-
-
 @mark.parametrize('source, expected', [
-    ('var a;', {}),
-    ('var a = 1 + 1;', {}),
-    ('var a = 42;', {'a': 42}),
-    ('var a = 42; var b = 3', {'a': 42, 'b': 3}),
+    ('var a; a', undefined),
+    ('var a = 1 + 1; a', 2),
+    ('var a = 42; a', 42),
+    ('var a = 42; var b = 3; [a, b]', [42, 3]),
     ('var a = 42; a += 1;', {'a': 43}),
     ('var a = 42; a++;', {'a': 43}),
     ('var a = 42; a--;', {'a': 41}),
-    ('var a: *', {'a': undefined}),
-    ('foo(42);', {}),
+    ('var a: *; a', undefined),
+    ('foo(42)', 42),
     ('function bar() { return 42 }; var a = bar()', {'a': 42}),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
     ('var a; if (true) { a = 42 } else { a = 43 }', {'a': 42}),
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
-    ('{ { } }', {}),
+    ('{ { } }', None),
     ('class X { }', {}),
     ('class X { var a = 1; function X() { a = 42; } } var expected = new X().a;', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
@@ -135,10 +123,10 @@ def test_parse_expression_syntax_error(source: str):
         'var expected = new Y().a;',
         {'expected': 42},
     ),
-    ('while (false) {}', {}),
-    ('var foo = 42; while (false) { foo = 0 }', {'foo': 42}),
-    ('var foo = 42; while (true) { break; foo = 0 }', {'foo': 42}),
-    ('dict_[1] = 42', {'dict_': {1: 42}}),
+    ('while (false) {}', None),
+    ('var foo = 42; while (false) { foo = 0 }; foo', 42),
+    ('var foo = 42; while (true) { break; foo = 0 }; foo', 42),
+    ('dict_[1] = 42; dict_', {1: 42}),
     ('class X { static var foo = 42 } var bar = X.foo', {'bar': 42}),
     ('class X { static var foo = 42 } var bar = new X().foo', {'bar': 42}),
     ('class X { static var foo = 0; function bar() { foo = 42 } }; new X().bar(); var baz = X.foo', {'baz': 42}),
@@ -150,7 +138,7 @@ def test_parse_expression_syntax_error(source: str):
     ('var foo = 0; try { 1 / 0 } catch (e: FakeException) { foo = 43 } catch (e: *) { foo = 42 }', {'foo': 42}),
     ('var foo = 0; try { 1 / 0 } catch (e: *) { foo = 43 } finally { foo = 42 }', {'foo': 42}),
     ('var foo = 0; try { throw new FakeException() } catch (e: FakeException) { foo = 42 } catch (e: *) { foo = 43 }', {'foo': 42}),
-    ('addr58:', {}),
+    ('addr58:', None),
     ('§§push(43); §§push(42); var foo = §§pop(); var bar = §§pop()', {'foo': 42, 'bar': 43}),
     ('import flash.display.MovieClip', {}),
     ('var map: Object = new Object(); map.name1 = "Lee"', {'map': {'name1': 'Lee'}}),
@@ -170,17 +158,15 @@ def test_parse_expression_syntax_error(source: str):
     ('class X { var foo = 0; function X() { foo = 42 } }; var foo = new X().foo', {'foo': 42}),
     ('class X { var foo = 0; function X() { foo = 42; super() } }; var foo = new X().foo', {'foo': 42}),
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
-    ('new Vector.<*>()', {}),
+    ('new Vector.<*>()', []),
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
     param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
     param('class X { var foo }; var bar = "foo" in X()', {'bar': True}, marks=mark.xfail),
 ])
-def test_execute_script(source: str, expected: Dict[str, Any]):
+def test_execute_script(source: str, expected: Any):
     class FakeException(Exception):
         pass
-    globals_ = execute_script(source, foo=lambda x: x, dict_={}, FakeException=FakeException)
-    for key, value in expected.items():
-        assert globals_[key] == value, f'{key}: actual: {globals_[key]}'
+    assert execute(source, '<ast>', {'foo': lambda x: x, 'dict_': {}, 'FakeException': FakeException}) == expected
 
 
 @mark.parametrize('source', [
@@ -188,6 +174,6 @@ def test_execute_script(source: str, expected: Dict[str, Any]):
     param('{ var a = 42; } trace(a);', marks=mark.xfail),
     param('{ var a = 42; } a = 43;', marks=mark.xfail),
 ])
-def test_execute_script_name_error(source: str):
+def test_execute_name_error(source: str):
     with raises(NameError):
-        execute_script(source)
+        execute(source)

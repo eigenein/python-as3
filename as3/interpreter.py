@@ -2,43 +2,52 @@ from __future__ import annotations
 
 import operator
 import re
-from typing import Any, Callable, Dict, Tuple, Type, List
+from typing import Any, Callable, Dict, List, Tuple, Type
 
 from as3 import ast_
 from as3.enums import TokenType
 
 
-def evaluate(node: ast_.AST, globals_: Dict[str, Any]) -> Any:
+def execute(node: ast_.AST, globals_: Dict[str, Any]) -> Any:
     assert isinstance(node, ast_.AST)
+    if isinstance(node, ast_.Block):
+        return evaluate_block(node, globals_)
     if isinstance(node, ast_.Literal):
         return node.value
     if isinstance(node, ast_.CompoundLiteral):
-        return [evaluate(child, globals_) for child in node.value]
+        return [execute(child, globals_) for child in node.value]
     if isinstance(node, ast_.MapLiteral):
-        return {evaluate(key, globals_): evaluate(value, globals_) for key, value in node.value}
+        return {execute(key, globals_): execute(value, globals_) for key, value in node.value}
     if isinstance(node, ast_.UnaryOperation):
-        return unary_operations[node.token.type_](evaluate(node.value, globals_))
+        return unary_operations[node.token.type_](execute(node.value, globals_))
     if isinstance(node, ast_.BinaryOperation):
         if node.token.type_ in binary_operations:
-            return binary_operations[node.token.type_](evaluate(node.left, globals_), evaluate(node.right, globals_))
+            return binary_operations[node.token.type_](execute(node.left, globals_), execute(node.right, globals_))
     if isinstance(node, ast_.Conditional):
-        if evaluate(node.test, globals_):
-            return evaluate(node.positive_value, globals_)
+        if execute(node.test, globals_):
+            return execute(node.positive_value, globals_)
         else:
-            return evaluate(node.negative_value, globals_)
+            return execute(node.negative_value, globals_)
     if isinstance(node, ast_.Property):
-        return get_property(evaluate(node.value, globals_), evaluate(node.item, globals_))
+        return get_property(execute(node.value, globals_), execute(node.item, globals_))
     if isinstance(node, ast_.Name):
-        return globals_[node.identifier]  # FIXME: proper name lookup.
+        return globals_[node.identifier]  # FIXME: proper name resolution.
     if isinstance(node, ast_.Call):
-        return evaluate(node.value, globals_)(*evaluate_arguments(node.arguments, globals_))
+        return execute(node.value, globals_)(*evaluate_arguments(node.arguments, globals_))  # FIXME: `__call__` property.
     if isinstance(node, ast_.New):
-        return new(evaluate(node.value, globals_), evaluate_arguments(node.arguments, globals_))
+        return new(execute(node.value, globals_), evaluate_arguments(node.arguments, globals_))
     raise NotImplementedError(repr(node))
 
 
+def evaluate_block(node: ast_.Block, globals_: Dict[str, Any]) -> Any:
+    value = None
+    for statement in node.body:
+        value = execute(statement, globals_)
+    return value
+
+
 def evaluate_arguments(arguments: List[ast_.AST], globals_: Dict[str, Any]) -> List[Any]:
-    return [evaluate(argument, globals_) for argument in arguments]
+    return [execute(argument, globals_) for argument in arguments]
 
 
 def new(constructor: Callable, arguments: List[Any]) -> Any:
@@ -47,7 +56,7 @@ def new(constructor: Callable, arguments: List[Any]) -> Any:
     except KeyError:
         """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
         prototype = get_property(constructor, prototype_property)
-        this = {proto_property: prototype}
+        this = {proto_property: prototype, constructor_property: constructor}
         return constructor(this, *arguments) or this
     else:
         return constructor(*arguments)
@@ -123,5 +132,6 @@ mocked_imports = re.compile(r'''
 
 proto_property = '__proto__'
 prototype_property = 'prototype'
+constructor_property = 'constructor'
 
 undefined = object()
