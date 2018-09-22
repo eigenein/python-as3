@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import random
 import sys
 import traceback
 from pathlib import Path
@@ -16,8 +15,6 @@ from pygments.formatters.terminal import TerminalFormatter
 from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.lexers.python import Python3TracebackLexer
 from pygments.styles.native import NativeStyle
-
-from as3 import constants, examples, execute_script
 
 
 @click.command()
@@ -50,10 +47,7 @@ def run_shell(globals_: dict):
     session = PromptSession()
     style = style_from_pygments_cls(NativeStyle)
 
-    example, _ = random.choice([*examples.scripts, *examples.expressions])  # type: str, Any
     click.echo(f'{click.style("Welcome to as3 shell!", fg="green")}')
-    click.echo(f'{click.style("Try", fg="green")}: {click.style(example, fg="blue")}')
-    click.echo(f'{click.style("Use", fg="green")}: {click.style("trace(...)", fg="blue")} {click.style("to print something.", fg="green")}')
 
     while True:
         line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)

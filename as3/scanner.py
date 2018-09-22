@@ -6,9 +6,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Iterable, Dict
 
-from as3 import constants
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
 
@@ -64,14 +63,7 @@ specification = re.compile(r'''
 
 
 @dataclass
-class Location:
-    line_number: int
-    position: int
-
-
-@dataclass
-class Token(Location):
-    # I have to re-define these two fields because my IDE is complaining.
+class Token:
     line_number: int
     position: int
     type_: TokenType
@@ -96,6 +88,48 @@ def scan(source: str, filename: str = '<string>') -> Iterable[Token]:
             current_line_start_index = match.end()
             current_line_number += 1
             continue
-        if type_ == TokenType.IDENTIFIER and value in constants.keyword_to_token_type:
-            type_ = constants.keyword_to_token_type[value]
+        if type_ == TokenType.IDENTIFIER and value in keyword_to_token_type:
+            type_ = keyword_to_token_type[value]
         yield Token(type_=type_, value=value, line_number=current_line_number, position=position)
+
+
+keyword_to_token_type: Dict[str, TokenType] = {
+    'as': TokenType.AS,
+    'break': TokenType.BREAK,
+    'catch': TokenType.CATCH,
+    'class': TokenType.CLASS,
+    'const': TokenType.CONST,
+    'each': TokenType.EACH,
+    'else': TokenType.ELSE,
+    'extends': TokenType.EXTENDS,
+    'false': TokenType.FALSE,
+    'finally': TokenType.FINALLY,
+    'for': TokenType.FOR,
+    'function': TokenType.FUNCTION,
+    'if': TokenType.IF,
+    'get': TokenType.GET,
+    'implements': TokenType.IMPLEMENTS,
+    'import': TokenType.IMPORT,
+    'in': TokenType.IN,
+    'interface': TokenType.INTERFACE,
+    'internal': TokenType.INTERNAL,
+    'is': TokenType.IS,
+    'new': TokenType.NEW,
+    'null': TokenType.NULL,
+    'override': TokenType.OVERRIDE,
+    'package': TokenType.PACKAGE,
+    'private': TokenType.PRIVATE,
+    'protected': TokenType.PROTECTED,
+    'public': TokenType.PUBLIC,
+    'return': TokenType.RETURN,
+    'static': TokenType.STATIC,
+    'super': TokenType.SUPER,
+    'this': TokenType.THIS,
+    'throw': TokenType.THROW,
+    'true': TokenType.TRUE,
+    'try': TokenType.TRY,
+    'undefined': TokenType.UNDEFINED,
+    'var': TokenType.VAR,
+    'void': TokenType.VOID,
+    'while': TokenType.WHILE,
+}

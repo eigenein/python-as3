@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import ast
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, TypeVar, cast
+from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple, TypeVar, cast
 
-from as3 import constants
-from as3.ast_ import AST, has_super_call, location_of, make_ast, make_function
+from as3 import ast_, interpreter
+from as3.interpreter import undefined
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.scanner import Location, Token
-from as3.stdlib import ASArray, ASBoolean, ASInteger, ASNumber, ASUnsignedInteger
+from as3.scanner import Token
 
 
 class Parser:
@@ -20,26 +18,24 @@ class Parser:
     # Rules.
     # ------------------------------------------------------------------------------------------------------------------
 
-    def parse_script(self) -> ast.AST:
+    def parse_script(self) -> ast_.Block:
         """
         Parse *.as script.
         """
-        statements: List[ast.AST] = []
+        body: List[ast_.AST] = []
         while self.tokens:
-            statements.extend(self.switch({
-                TokenType.PACKAGE: self.parse_package,
-            }, else_=self.parse_statement))
-        return AST.script(statements).node
+            body.append(self.switch({TokenType.PACKAGE: self.parse_package}, else_=self.parse_statement))
+        return ast_.Block(body=body)
 
-    def parse_package(self) -> Iterable[ast.AST]:
+    def parse_package(self) -> ast_.AST:
         self.expect(TokenType.PACKAGE)
         if self.tokens.is_type(TokenType.IDENTIFIER):
             # TODO: for now just consume the name because we'll use the directory structure instead.
             for _ in self.parse_qualified_name():
                 pass
-        yield from self.parse_statement()
+        return self.parse_statement()
 
-    def parse_class(self) -> Iterable[ast.AST]:
+    def parse_class(self) -> Iterable[ast_.AST]:
         # Definition.
         self.parse_modifiers()
         class_token = self.expect(TokenType.CLASS, TokenType.INTERFACE)  # treat interface as a class with empty methods
@@ -100,8 +96,8 @@ class Parser:
             modifiers.add(TokenType.STATIC)
         return modifiers
 
-    def parse_statement(self) -> Iterable[ast.AST]:
-        yield from self.switch({  # type: ignore
+    def parse_statement(self) -> ast_.AST:
+        node = self.switch({
             TokenType.BREAK: self.parse_break,
             TokenType.CLASS: self.parse_class,
             TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
@@ -125,16 +121,19 @@ class Parser:
         while self.tokens.skip(TokenType.SEMICOLON):
             pass
 
-    def parse_code_block(self) -> Iterable[ast.AST]:
-        self.expect(TokenType.CURLY_BRACKET_OPEN)
-        while not self.tokens.is_type(TokenType.CURLY_BRACKET_CLOSE):
-            yield from self.parse_statement()
-        yield AST.pass_(self.expect(TokenType.CURLY_BRACKET_CLOSE)).node
+        return node
 
-    def parse_expression_statement(self) -> Iterable[ast.AST]:
-        value = self.parse_expression()
+    def parse_code_block(self) -> ast_.Block:
+        # noinspection PyArgumentList
+        node = ast_.Block(token=self.expect(TokenType.CURLY_BRACKET_OPEN))
+        while not self.tokens.is_type(TokenType.CURLY_BRACKET_CLOSE):
+            node.body.append(self.parse_statement())
+        return node
+
+    def parse_expression_statement(self) -> ast_.AST:
+        node = self.parse_expression()
         self.tokens.skip(TokenType.SEMICOLON)
-        yield AST.expression_statement(value).node
+        return node
 
     def parse_qualified_name(self) -> Iterable[str]:
         """
@@ -144,7 +143,7 @@ class Parser:
         while self.tokens.skip(TokenType.DOT):
             yield self.expect(TokenType.IDENTIFIER).value
 
-    def parse_import(self) -> Iterable[ast.AST]:
+    def parse_import(self) -> Iterable[ast_.AST]:
         import_token = self.expect(TokenType.IMPORT)
         args = []
         while True:
@@ -159,14 +158,15 @@ class Parser:
             .expr() \
             .node
 
-    def parse_if(self) -> Iterable[ast.AST]:
-        if_token = self.expect(TokenType.IF)
+    def parse_if(self) -> ast_.If:
+        # noinspection PyArgumentList
+        node = ast_.If(token=self.expect(TokenType.IF))
         self.expect(TokenType.PARENTHESIS_OPEN)
-        test = self.parse_non_assignment_expression()
+        node.test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = list(self.parse_statement())
-        or_else = list(self.parse_statement()) if self.tokens.skip(TokenType.ELSE) else []
-        yield make_ast(if_token, ast.If, test=test, body=body, orelse=or_else)
+        node.positive = self.parse_statement()
+        node.negative = self.parse_statement() if self.tokens.skip(TokenType.ELSE) else None
+        return node
 
     def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> Iterable[ast.AST]:
         self.expect(TokenType.VAR, TokenType.CONST)
@@ -174,7 +174,7 @@ class Parser:
         value = self.parse_type_annotation(name_token)
         if self.tokens.is_type(TokenType.ASSIGN):
             assign_token = next(self.tokens)
-            value = self.parse_non_assignment_expression()
+            value = self.parse_assignment_expression()
         builder = AST.identifier(name_token)
         if is_field:
             descriptor_name = constants.static_field_key if is_static else constants.field_key
@@ -185,25 +185,25 @@ class Parser:
                 .node
         yield builder.assign(assign_token, value).node
 
-    def parse_type_annotation(self, name_location: Location, generic_parameter: bool = False) -> ast.AST:
+    def parse_type_annotation(self, generic_parameter: bool = False) -> object:
         """
         Parse type annotation and return its _default value_.
         https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
         """
         # Corner cases.
         if not generic_parameter and not self.tokens.skip(TokenType.COLON):
-            return AST.name(name_location, 'undefined').node
+            return undefined
         if self.tokens.is_type(TokenType.MULTIPLY):
-            return AST.name(next(self.tokens), 'undefined').node
+            return undefined
         if self.tokens.is_type(TokenType.VOID):
-            return AST.name_constant(next(self.tokens), None).node
+            return None
 
         # Standard types.
         identifier_token = self.expect(TokenType.IDENTIFIER)
-        if identifier_token.value == ASBoolean.__alias__:
-            return AST.name_constant_expression(identifier_token, False, ASBoolean.__alias__).node
-        if identifier_token.value in (ASInteger.__alias__, ASUnsignedInteger.__alias__, ASNumber.__alias__):
-            return AST.number(identifier_token, 0).wrap_with(identifier_token, identifier_token.value).node
+        if identifier_token.value == 'Boolean':
+            return False
+        if identifier_token.value in ('int', 'uint', 'Number'):
+            return 0
 
         # `None` for other standard types and all user classes. Skip the rest of the annotation.
         while True:
@@ -211,21 +211,20 @@ class Parser:
                 break
             if not self.tokens.skip(TokenType.IDENTIFIER):
                 self.expect(TokenType.LESS)
-                self.parse_type_annotation(name_location, True)
+                self.parse_type_annotation(True)
                 self.expect(TokenType.GREATER)
-        return AST.name_constant(name_location, None).node
+        return ast_.Literal(value=None)
 
-    def parse_semicolon(self) -> Iterable[ast.AST]:
-        pass_token = self.expect(TokenType.SEMICOLON)
-        yield make_ast(pass_token, ast.Pass)
+    def parse_semicolon(self) -> ast_.Pass:
+        # noinspection PyArgumentList
+        return ast_.Pass(token=self.expect(TokenType.SEMICOLON))
 
-    def parse_return(self) -> Iterable[ast.AST]:
-        return_token = self.expect(TokenType.RETURN)
+    def parse_return(self) -> ast_.Return:
+        # noinspection PyArgumentList
+        node = ast_.Return(token=self.expect(TokenType.RETURN))
         if not self.tokens.skip(TokenType.SEMICOLON):
-            builder = AST(self.parse_expression())
-        else:
-            builder = AST.name_constant(return_token, None)
-        yield builder.return_it(return_token).node
+            node.value = self.parse_assignment_expression()
+        return node
 
     def parse_function_definition(self, is_static: bool = False, **_) -> Iterable[ast.FunctionDef]:
         function_token = self.expect(TokenType.FUNCTION)
@@ -240,7 +239,7 @@ class Parser:
             node.args.args.append(AST.argument(name_token, name_token.value).node)  # type: ignore
             default_value = self.parse_type_annotation(name_token)
             if self.tokens.skip(TokenType.ASSIGN):
-                node.args.defaults.append(self.parse_non_assignment_expression())  # type: ignore
+                node.args.defaults.append(self.parse_assignment_expression())  # type: ignore
             else:
                 node.args.defaults.append(cast(ast.expr, default_value))
             self.tokens.skip(TokenType.COMMA)
@@ -256,132 +255,113 @@ class Parser:
 
         yield node
 
-    def parse_break(self) -> Iterable[ast.AST]:
-        token = self.expect(TokenType.BREAK)
-        yield AST.break_(token).node
+    def parse_break(self) -> Iterable[ast_.Break]:
+        # noinspection PyTypeChecker
+        return ast_.Break(token=self.expect(TokenType.BREAK))
 
     def parse_while(self) -> Iterable[ast.AST]:
         token = self.expect(TokenType.WHILE)
         self.expect(TokenType.PARENTHESIS_OPEN)
-        test = self.parse_non_assignment_expression()
+        test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = list(self.parse_statement())
-        yield AST.while_(token, test, body).node
+        body = self.parse_statement()
+        # noinspection PyArgumentList
+        yield ast_.While(token=token, test=test, body=body)
 
-    def parse_try(self) -> Iterable[ast.AST]:
-        try_token = self.expect(TokenType.TRY)
-        try_body = list(self.parse_statement())
-        handlers: List[ast.AST] = []
+    def parse_try(self) -> ast_.TryFinally:
+        # noinspection PyArgumentList
+        node = ast_.TryFinally(token=self.expect(TokenType.TRY))
+        node.body = self.parse_statement()
         while self.tokens.is_type(TokenType.CATCH):
-            catch_token = next(self.tokens)
+            # noinspection PyArgumentList
+            except_node = ast_.Except(token=next(self.tokens))
             self.expect(TokenType.PARENTHESIS_OPEN)
-            name = self.expect(TokenType.IDENTIFIER).value
+            except_node.variable_name = self.expect(TokenType.IDENTIFIER).value
             self.expect(TokenType.COLON)
             if not self.tokens.is_type(TokenType.MULTIPLY):
-                type_ = self.parse_non_assignment_expression()
-            else:
-                type_ = AST.name(next(self.tokens), 'Exception').node
+                except_node.exception_type = self.parse_assignment_expression()
             self.expect(TokenType.PARENTHESIS_CLOSE)
-            catch_body = list(self.parse_statement())
-            handlers.append(AST.except_handler(catch_token, type_, name, catch_body).node)
-        final_body = list(self.parse_statement()) if self.tokens.skip(TokenType.FINALLY) else []
-        yield AST.try_(try_token, try_body, handlers, final_body).node
+            except_node.body = self.parse_statement()
+            node.excepts.append(except_node)
+        if self.tokens.skip(TokenType.FINALLY):
+            node.finally_ = self.parse_statement()
+        return node
 
-    def parse_throw(self) -> Iterable[ast.AST]:
+    def parse_throw(self) -> ast_.Throw:
         token = self.expect(TokenType.THROW)
-        yield AST(self.parse_non_assignment_expression()).throw(token).node
+        value = self.parse_assignment_expression()
+        # noinspection PyArgumentList
+        return ast_.Throw(token=token, value=value)
 
-    def parse_for(self) -> Iterable[ast.AST]:
-        for_token = self.expect(TokenType.FOR)
-        is_each = self.tokens.skip(TokenType.EACH) is not None
+    def parse_for(self) -> ast_.AbstractFor:
+        token = self.expect(TokenType.FOR)
+        ast_class = ast_.ForEach if self.tokens.skip(TokenType.EACH) else ast_.For
         self.expect(TokenType.PARENTHESIS_OPEN)
         self.expect(TokenType.VAR)
-        name_token = self.expect(TokenType.IDENTIFIER)
+        variable_name = self.expect(TokenType.IDENTIFIER).value
         self.expect(TokenType.IN)
-        iterated_value_builder = AST(self.parse_non_assignment_expression())
-        if is_each:
-            # `.values()`
-            iterated_value_builder.attribute(name_token, 'values').call(name_token)
+        value = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = list(self.parse_statement())
-        yield AST.for_each(for_token, name_token, iterated_value_builder.node, body).node
+        body = self.parse_statement()
+        return ast_class(token=token, variable_name=variable_name, value=value, body=body)
 
     # Expression rules.
     # Methods are ordered according to reversed precedence.
     # https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/operators.html#articlecontentAdobe_numberedheader_1
     # ------------------------------------------------------------------------------------------------------------------
 
-    def parse_expression(self) -> ast.AST:
+    def parse_expression(self) -> ast_.AST:
         return self.parse_label()
 
-    def parse_label(self) -> ast.AST:
+    def parse_label(self) -> ast_.AST:
         # For the sake of simplicity any expression is allowed as a label.
-        # Again, for the sake of simplicity any label is evaluated to `None`.
+        # Again, for the sake of simplicity any label is translated to `null`.
         left = self.parse_assignment_expression()
         if self.tokens.is_type(TokenType.COLON):
-            return AST.name_constant(next(self.tokens), None).node
+            # noinspection PyArgumentList
+            return ast_.Literal(token=next(self.tokens), value=None)
         return left
 
-    def parse_assignment_expression(self) -> ast.AST:
-        left = self.parse_non_assignment_expression()
-        return self.switch({
-            TokenType.ASSIGN: self.parse_chained_assignment_expression,
-            TokenType.ASSIGN_ADD: self.parse_augmented_assignment_expression,
-            TokenType.DECREMENT: self.parse_decrement,  # FIXME: unfortunately, decrement doesn't return a value.
-            TokenType.INCREMENT: self.parse_increment,  # FIXME: unfortunately, increment doesn't return a value.
-        }, else_=lambda **_: left, left=left)
+    def parse_assignment_expression(self) -> ast_.AST:
+        return self.parse_binary_operations(
+            self.parse_conditional_expression,
+            TokenType.ASSIGN,
+            TokenType.ASSIGN_ADD,
+            TokenType.INCREMENT,
+            TokenType.DECREMENT,
+        )
 
-    def parse_chained_assignment_expression(self, left: ast.AST) -> ast.AST:
-        assignment_token = self.expect(TokenType.ASSIGN)
-        builder = AST(left).assign(assignment_token, self.parse_non_assignment_expression())
-        while self.tokens.is_type(TokenType.ASSIGN):
-            assignment_token = next(self.tokens)
-            builder.assign(assignment_token, self.parse_non_assignment_expression())
-        return builder.node
+    # def parse_non_assignment_expression(self) -> ast.AST:
+    #     return self.parse_conditional_expression()
 
-    def parse_augmented_assignment_expression(self, left: ast.AST) -> ast.AST:
-        assignment_token = self.expect(*constants.augmented_assign_operations)
-        value = self.parse_non_assignment_expression()
-        return AST(left).aug_assign(assignment_token, value).node
-
-    def parse_increment(self, left: ast.AST) -> ast.AST:
-        token = self.expect(TokenType.INCREMENT)
-        return AST(left).increment(token).node
-
-    def parse_decrement(self, left: ast.AST) -> ast.AST:
-        token = self.expect(TokenType.DECREMENT)
-        return AST(left).decrement(token).node
-
-    def parse_non_assignment_expression(self) -> ast.AST:
-        return self.parse_conditional_expression()
-
-    def parse_conditional_expression(self) -> ast.AST:
-        builder = AST(self.parse_logical_or_expression())
+    def parse_conditional_expression(self) -> ast_.AST:
+        node = self.parse_logical_or_expression()
         if self.tokens.is_type(TokenType.QUESTION_MARK):
             token = next(self.tokens)
-            body = self.parse_conditional_expression()
+            positive_value = self.parse_conditional_expression()
             self.expect(TokenType.COLON)
-            or_else = self.parse_conditional_expression()
-            builder.if_expression(token, body, or_else)
-        return builder.node
+            negative_value = self.parse_conditional_expression()
+            # noinspection PyArgumentList
+            node = ast_.Conditional(token=token, test=node, positive_value=positive_value, negative_value=negative_value)
+        return node
 
-    def parse_logical_or_expression(self) -> ast.AST:
+    def parse_logical_or_expression(self) -> ast_.AST:
         return self.parse_binary_operations(self.parse_logical_and_expression, TokenType.LOGICAL_OR)
 
-    def parse_logical_and_expression(self) -> ast.AST:
+    def parse_logical_and_expression(self) -> ast_.AST:
         return self.parse_binary_operations(self.parse_bitwise_xor, TokenType.LOGICAL_AND)
 
-    def parse_bitwise_xor(self) -> ast.AST:
+    def parse_bitwise_xor(self) -> ast_.AST:
         return self.parse_binary_operations(self.parse_equality_expression, TokenType.BITWISE_XOR)
 
-    def parse_equality_expression(self) -> ast.AST:
+    def parse_equality_expression(self) -> ast_.AST:
         return self.parse_binary_operations(
             self.parse_relational_expression,
             TokenType.EQUALS,
             TokenType.NOT_EQUALS,
         )
 
-    def parse_relational_expression(self) -> ast.AST:
+    def parse_relational_expression(self) -> ast_.AST:
         return self.parse_binary_operations(
             self.parse_additive_expression,
             TokenType.AS,
@@ -393,22 +373,25 @@ class Parser:
             TokenType.LESS_OR_EQUAL,
         )
 
-    def parse_additive_expression(self) -> ast.AST:
+    def parse_additive_expression(self) -> ast_.AST:
         return self.parse_binary_operations(self.parse_multiplicative_expression, TokenType.PLUS, TokenType.MINUS)
 
-    def parse_multiplicative_expression(self) -> ast.AST:
+    def parse_multiplicative_expression(self) -> ast_.AST:
         return self.parse_binary_operations(
             self.parse_unary_expression,
             TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.PERCENT,
         )
 
-    def parse_unary_expression(self) -> ast.AST:
-        if self.tokens.is_type(*constants.unary_operations):
+    def parse_unary_expression(self) -> ast_.AST:
+        if self.tokens.is_type(*interpreter.unary_operations):
             token = next(self.tokens)
-            return AST(self.parse_unary_expression()).unary_operation(token).node
+            # noinspection PyArgumentList
+            return ast_.UnaryOperation(token=token, value=self.parse_unary_expression())
         return self.parse_primary_expression()
 
-    def parse_primary_expression(self) -> ast.AST:
+    def parse_primary_expression(self) -> ast_.AST:
+        if self.tokens.is_type(TokenType.NEW):
+            return self.parse_new()
         left = self.parse_terminal_or_parenthesized()
         cases = {
             TokenType.BRACKET_OPEN: self.parse_subscript,
@@ -419,59 +402,51 @@ class Parser:
             left = self.switch(cases, left=left)
         return left
 
-    def parse_attribute_expression(self, left: ast.AST) -> ast.AST:
-        attribute_token = self.expect(TokenType.DOT)
-        if self.tokens.skip(TokenType.LESS):
-            self.parse_type_annotation(location_of(left), True)
-            self.expect(TokenType.GREATER)
-            return left
+    def parse_attribute_expression(self, left: ast_.AST) -> ast_.AST:
+        token = self.expect(TokenType.DOT)
         name: str = self.expect(TokenType.IDENTIFIER).value
-        return AST(left).attribute(attribute_token, name).node
+        # noinspection PyArgumentList
+        return ast_.Property(token=token, value=left, item=ast_.Literal(value=name))
 
-    def parse_call_expression(self, left: ast.AST) -> ast.AST:
-        call_token = self.expect(TokenType.PARENTHESIS_OPEN)
-        args: List[ast.AST] = []
+    def parse_call_expression(self, left: ast_.AST) -> ast_.AST:
+        # noinspection PyArgumentList
+        node = ast_.Call(token=self.expect(TokenType.PARENTHESIS_OPEN), value=left)
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
-            args.append(self.parse_non_assignment_expression())
+            node.arguments.append(self.parse_assignment_expression())
             self.tokens.skip(TokenType.COMMA)
-        return AST(left).call(call_token, args).node
+        return node
 
-    def parse_subscript(self, left: ast.AST) -> ast.AST:
+    def parse_subscript(self, left: ast_.AST) -> ast_.AST:
         token = self.expect(TokenType.BRACKET_OPEN)
-        index = self.parse_non_assignment_expression()
+        item = self.parse_assignment_expression()
         self.expect(TokenType.BRACKET_CLOSE)
-        return AST(left).subscript(token, index).node
+        # noinspection PyArgumentList
+        return ast_.Property(token=token, value=left, item=item)
 
-    def parse_terminal_or_parenthesized(self) -> ast.AST:
+    def parse_terminal_or_parenthesized(self) -> ast_.AST:
+        # noinspection PyArgumentList
         return self.switch({
             TokenType.BRACKET_OPEN: self.parse_compound_literal,
             TokenType.CURLY_BRACKET_OPEN: self.parse_map_literal,
-            TokenType.FALSE: lambda: AST.name_constant_expression(next(self.tokens), False, ASBoolean.__alias__).node,
-            TokenType.IDENTIFIER: self.parse_name_expression,
-            TokenType.NEW: self.parse_new,
-            TokenType.NULL: lambda: AST.name_constant(next(self.tokens), None).node,
-            TokenType.NUMBER: self.parse_number_expression,
+            TokenType.FALSE: lambda: ast_.Literal(token=next(self.tokens), value=False),
+            TokenType.IDENTIFIER: lambda: ast_.Name.from_(next(self.tokens)),
+            TokenType.NULL: lambda: ast_.Literal(token=next(self.tokens), value=None),
+            TokenType.NUMBER: lambda: ast_.Literal.from_(next(self.tokens)),
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
-            TokenType.STRING: self.parse_string_expression,
+            TokenType.STRING: lambda: ast_.Literal.from_(next(self.tokens)),
             TokenType.SUPER: self.parse_super_expression,
-            TokenType.THIS: lambda: make_ast(self.expect(TokenType.THIS), ast.Name, id=constants.this_name, ctx=ast.Load()),
-            TokenType.TRUE: lambda: AST.name_constant_expression(next(self.tokens), True, ASBoolean.__alias__).node,
-            TokenType.UNDEFINED: lambda: AST.identifier(next(self.tokens)).node,
+            TokenType.THIS: lambda: ast_.Name.from_(next(self.tokens)),
+            TokenType.TRUE: lambda: ast_.Literal(token=next(self.tokens), value=True),
+            TokenType.UNDEFINED: lambda: ast_.Literal(token=next(self.tokens), value=undefined),
         })
 
-    def parse_parenthesized_expression(self) -> ast.AST:
+    def parse_parenthesized_expression(self) -> ast_.AST:
         self.expect(TokenType.PARENTHESIS_OPEN)
-        inner = self.parse_non_assignment_expression()
+        inner = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         return inner
 
-    def parse_number_expression(self) -> ast.AST:
-        return AST.number_expression(self.expect(TokenType.NUMBER)).node
-
-    def parse_name_expression(self) -> ast.AST:
-        return AST.name_expression(self.expect(TokenType.IDENTIFIER)).node
-
-    def parse_super_expression(self) -> ast.AST:
+    def parse_super_expression(self) -> ast_.AST:
         super_token = self.expect(TokenType.SUPER)
         builder = AST.identifier(super_token).call(super_token)
         if self.tokens.is_type(TokenType.PARENTHESIS_OPEN):
@@ -482,44 +457,64 @@ class Parser:
             return self.parse_attribute_expression(builder.node)
         self.raise_syntax_error(TokenType.PARENTHESIS_OPEN, TokenType.DOT)
 
-    def parse_string_expression(self) -> ast.AST:
-        return AST.string_expression(self.expect(TokenType.STRING)).node
+    def parse_new(self) -> ast_.AST:
+        # noinspection PyArgumentList
+        node = ast_.New(token=self.expect(TokenType.NEW))
 
-    def parse_new(self) -> ast.AST:
-        token = self.expect(TokenType.NEW)  # ignored
+        # Skip generic parameter before literal.
         if self.tokens.skip(TokenType.LESS):
-            self.parse_type_annotation(token, True)
+            self.parse_type_annotation(True)
             self.expect(TokenType.GREATER)
-        return self.parse_non_assignment_expression()
+            return self.parse_terminal_or_parenthesized()
 
-    def parse_compound_literal(self) -> ast.AST:
+        # Actual constructor.
+        node.value = self.parse_terminal_or_parenthesized()
+
+        # Skip yet another generic parameter.
+        if self.tokens.skip(TokenType.DOT):
+            self.expect(TokenType.LESS)
+            self.parse_type_annotation(True)
+            self.expect(TokenType.GREATER)
+
+        # Parse the call.
+        self.expect(TokenType.PARENTHESIS_OPEN)
+        while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
+            node.arguments.append(self.parse_assignment_expression())
+            self.tokens.skip(TokenType.COMMA)
+
+        return node
+
+    def parse_compound_literal(self) -> ast_.AST:
         token = self.expect(TokenType.BRACKET_OPEN)
-        elements: List[ast.AST] = []
+        value: List[ast_.AST] = []
         while not self.tokens.skip(TokenType.BRACKET_CLOSE):
-            elements.append(self.parse_non_assignment_expression())
+            value.append(self.parse_assignment_expression())
             self.tokens.skip(TokenType.COMMA)
-        return AST.list_(token, elements).starred(token).wrap_with(token, ASArray.__alias__).node
+        # noinspection PyArgumentList
+        return ast_.CompoundLiteral(token=token, value=value)
 
-    def parse_map_literal(self) -> ast.AST:
+    def parse_map_literal(self) -> ast_.AST:
         token = self.expect(TokenType.CURLY_BRACKET_OPEN)
-        keys: List[ast.AST] = []
-        values: List[ast.AST] = []
+        map_value: List[Tuple[ast_.AST, ast_.AST]] = []
         while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
-            keys.append(self.parse_non_assignment_expression())
+            key = self.parse_assignment_expression()
             self.expect(TokenType.COLON)
-            values.append(self.parse_non_assignment_expression())
+            value = self.parse_assignment_expression()
+            map_value.append((key, value))
             self.tokens.skip(TokenType.COMMA)
-        return AST.dict_expression(token, keys, values).node
+        # noinspection PyArgumentList
+        return ast_.MapLiteral(token=token, value=map_value)
 
     # Expression rule helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
-    def parse_binary_operations(self, child_parser: Callable[[], ast.AST], *types: TokenType) -> ast.AST:
-        builder = AST(child_parser())
+    def parse_binary_operations(self, child_parser: Callable[[], ast_.AST], *types: TokenType) -> ast_.AST:
+        node = child_parser()
         while self.tokens.is_type(*types):
             token = next(self.tokens)
-            builder.binary_operation(token, child_parser())
-        return builder.node
+            # noinspection PyArgumentList
+            node = ast_.BinaryOperation(token=token, left=node, right=child_parser())
+        return node
 
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
@@ -617,7 +612,7 @@ def filter_tokens(tokens: Iterable[Token]) -> Iterable[Token]:
     return (token for token in tokens if token.type_ != TokenType.COMMENT)
 
 
-def raise_syntax_error(message: str, location: Optional[Location] = None, filename: str = None) -> NoReturn:
+def raise_syntax_error(message: str, location: Optional[Token] = None, filename: str = None) -> NoReturn:
     """
     Raise syntax error and provide some help message.
     """
