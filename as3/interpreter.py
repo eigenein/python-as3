@@ -15,47 +15,55 @@ class Environment:
     values: Dict[str, Any] = field(default_factory={})
     parent: Optional[Environment] = None
 
+    def resolve_name(self, name: str) -> Environment:
+        environment = self
+        while environment is not None:
+            if name in environment.values:
+                return environment
+            environment = environment.parent
+        raise NameError(f'could not resolve `{name}`')
 
-def execute(node: ast_.AST, globals_: Dict[str, Any]) -> Any:
+
+def execute(node: ast_.AST, environment: Environment) -> Any:
     assert isinstance(node, ast_.AST)
     if isinstance(node, ast_.Block):
-        return evaluate_block(node, globals_)
+        return evaluate_block(node, environment)
     if isinstance(node, ast_.Literal):
         return node.value
     if isinstance(node, ast_.CompoundLiteral):
-        return [execute(child, globals_) for child in node.value]
+        return [execute(child, environment) for child in node.value]
     if isinstance(node, ast_.MapLiteral):
-        return {execute(key, globals_): execute(value, globals_) for key, value in node.value}
+        return {execute(key, environment): execute(value, environment) for key, value in node.value}
     if isinstance(node, ast_.UnaryOperation):
-        return unary_operations[node.token.type_](execute(node.value, globals_))
+        return unary_operations[node.token.type_](execute(node.value, environment))
     if isinstance(node, ast_.BinaryOperation):
         if node.token.type_ in binary_operations:
-            return binary_operations[node.token.type_](execute(node.left, globals_), execute(node.right, globals_))
+            return binary_operations[node.token.type_](execute(node.left, environment), execute(node.right, environment))
     if isinstance(node, ast_.Conditional):
-        if execute(node.test, globals_):
-            return execute(node.positive_value, globals_)
+        if execute(node.test, environment):
+            return execute(node.positive_value, environment)
         else:
-            return execute(node.negative_value, globals_)
+            return execute(node.negative_value, environment)
     if isinstance(node, ast_.Property):
-        return get_property(execute(node.value, globals_), execute(node.item, globals_))
+        return get_property(execute(node.value, environment), execute(node.item, environment))
     if isinstance(node, ast_.Name):
-        return globals_[node.identifier]  # FIXME: proper name resolution.
+        return environment.resolve_name(node.identifier).values[node.identifier]
     if isinstance(node, ast_.Call):
-        return execute(node.value, globals_)(*evaluate_arguments(node.arguments, globals_))  # FIXME: `__call__` property.
+        return execute(node.value, environment)(*evaluate_arguments(node.arguments, environment))  # FIXME: `__call__` property.
     if isinstance(node, ast_.New):
-        return new(execute(node.value, globals_), evaluate_arguments(node.arguments, globals_))
+        return new(execute(node.value, environment), evaluate_arguments(node.arguments, environment))
     raise NotImplementedError(repr(node))
 
 
-def evaluate_block(node: ast_.Block, globals_: Dict[str, Any]) -> Any:
+def evaluate_block(node: ast_.Block, environment: Environment) -> Any:
     value = None
     for statement in node.body:
-        value = execute(statement, globals_)
+        value = execute(statement, environment)
     return value
 
 
-def evaluate_arguments(arguments: List[ast_.AST], globals_: Dict[str, Any]) -> List[Any]:
-    return [execute(argument, globals_) for argument in arguments]
+def evaluate_arguments(arguments: List[ast_.AST], environment: Environment) -> List[Any]:
+    return [execute(argument, environment) for argument in arguments]
 
 
 def new(constructor: Callable, arguments: List[Any]) -> Any:
