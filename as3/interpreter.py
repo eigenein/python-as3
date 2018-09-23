@@ -13,14 +13,10 @@ from as3.exceptions import ASReturn, ASRuntimeError
 
 def execute(node: AST, with_environment: Environment) -> Any:
     assert isinstance(node, AST)
-    if isinstance(node, ast_.Literal):
-        return node.value
-    if isinstance(node, ast_.Block):
-        return execute_block(node, with_environment)
-    if isinstance(node, ast_.CompoundLiteral):
-        return [execute(child, with_environment) for child in node.value]
-    if isinstance(node, ast_.MapLiteral):
-        return {execute(key, with_environment): execute(value, with_environment) for key, value in node.value}
+    try:
+        return ast_handlers[type(node)](node, with_environment)
+    except KeyError:
+        pass  # TODO: `raise NotImplementedError(repr(node))`
     if isinstance(node, ast_.PostfixOperation):
         return postfix_operations[node.token.type_](node.value, with_environment)
     if isinstance(node, ast_.UnaryOperation):
@@ -196,6 +192,8 @@ def resolve_assignment_target(node: AST, with_environment: Environment) -> Tuple
 @dataclass
 class Environment:
     """http://dmitrysoshnikov.com/ecmascript/javascript-the-core-2nd-edition/#environment"""
+
+    # TODO: possibly replace with a prototype chain. Looks similar-ish.
     values: Dict[str, Any] = field(default_factory=dict)
     parent: Optional[Environment] = None
 
@@ -209,11 +207,6 @@ class Environment:
                 return environment
             environment = environment.parent
         raise ASRuntimeError(f'could not resolve `{name}`')  # FIXME: ReferenceError
-
-
-class ASUndefined:
-    def __repr__(self) -> str:
-        return 'undefined'
 
 
 # Tables.
@@ -258,6 +251,16 @@ native_constructors: Dict[Type, Callable] = {
     str: str,
 }
 
+ast_handlers: Dict[Type[AST], Callable[[AST, Environment], Any]] = {
+    ast_.Block: execute_block,
+    ast_.CompoundLiteral: lambda node, environment: [execute(child, environment) for child in node.value],
+    ast_.Literal: lambda node, environment: node.value,
+    ast_.MapLiteral: lambda node, environment: {
+        execute(key, environment): execute(value, environment)
+        for key, value in node.value
+    },
+}
+
 
 # Constants.
 # ----------------------------------------------------------------------------------------------------------------------
@@ -275,6 +278,11 @@ mocked_imports = re.compile(r'''
 
 # Runtime.
 # ----------------------------------------------------------------------------------------------------------------------
+
+class ASUndefined:
+    def __repr__(self) -> str:
+        return 'undefined'
+
 
 undefined = ASUndefined()
 
