@@ -3,14 +3,12 @@ from __future__ import annotations
 import operator
 import re
 from dataclasses import dataclass, field
-from types import FunctionType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
-from warnings import warn
 
 from as3 import ast_, stdlib
 from as3.ast_ import AST
 from as3.enums import TokenType
-from as3.exceptions import ASRuntimeError, ASReturn
+from as3.exceptions import ASReturn, ASRuntimeError
 
 
 def execute(node: AST, with_environment: Environment) -> Any:
@@ -52,6 +50,9 @@ def execute(node: AST, with_environment: Environment) -> Any:
         return define_class(node, with_environment)
     raise NotImplementedError(repr(node))
 
+
+# AST handlers.
+# ----------------------------------------------------------------------------------------------------------------------
 
 def execute_block(node: ast_.Block, with_environment: Environment) -> Any:
     value = None
@@ -114,6 +115,9 @@ def define_class(with_node: ast_.Class, with_environment: Environment) -> Callab
     return define_function(with_node.constructor, with_environment)
 
 
+# Property manipulation.
+# ----------------------------------------------------------------------------------------------------------------------
+
 def get_property(of_value: Any, of_name: str) -> Any:
     while of_value is not None:
         try:
@@ -127,13 +131,9 @@ def get_property(of_value: Any, of_name: str) -> Any:
 
 
 def get_own_property(of_value: Any, of_name: str) -> Any:
-    if isinstance(of_value, (list, str, float, set, int)):
-        warn(f'attempted to get property "{of_name}" of object ({of_value!r}), defaults to `undefined`', stacklevel=3)
-        return undefined
-    if isinstance(of_value, FunctionType):
-        # Constructors have useful properties.
-        return getattr(of_value, of_name, undefined)
-    return of_value[of_name]
+    if isinstance(of_value, dict):
+        return of_value[of_name]
+    return getattr(of_value, of_name, undefined)
 
 
 def set_property(of_value: Any, with_name: str, to_value: Any) -> Any:
@@ -141,6 +141,9 @@ def set_property(of_value: Any, with_name: str, to_value: Any) -> Any:
     of_value[with_name] = to_value
     return of_value
 
+
+# Operation wrappers.
+# ----------------------------------------------------------------------------------------------------------------------
 
 def binary_operation(operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, Environment], Any]:
     def execute_(left: AST, right: Any, with_environment: Environment) -> Any:
@@ -179,6 +182,9 @@ def postfix_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callab
     return execute_
 
 
+# Name resolution.
+# ----------------------------------------------------------------------------------------------------------------------
+
 def resolve_assignment_target(node: AST, with_environment: Environment) -> Tuple[Dict[str, Any], str]:
     if isinstance(node, ast_.Name):
         return with_environment.resolve(node.identifier).values, node.identifier
@@ -209,6 +215,9 @@ class ASUndefined:
     def __repr__(self) -> str:
         return 'undefined'
 
+
+# Tables.
+# ----------------------------------------------------------------------------------------------------------------------
 
 unary_operations: Dict[TokenType, Callable[[Any], Any]] = {
     TokenType.DECREMENT: unary_augmented_assignment(lambda value: value - 1),
@@ -249,6 +258,10 @@ native_constructors: Dict[Type, Callable] = {
     str: str,
 }
 
+
+# Constants.
+# ----------------------------------------------------------------------------------------------------------------------
+
 mocked_imports = re.compile(r'''
     flash\.(
         display\. |
@@ -258,6 +271,10 @@ mocked_imports = re.compile(r'''
         (utils\.(getTimer|setInterval|setTimeout))
     ).*
 ''', re.VERBOSE)
+
+
+# Runtime.
+# ----------------------------------------------------------------------------------------------------------------------
 
 undefined = ASUndefined()
 
