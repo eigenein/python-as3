@@ -36,7 +36,7 @@ class Parser:
                 pass
         return self.parse_statement_or_code_block()
 
-    def parse_class(self) -> Iterable[ast_.AST]:
+    def parse_class(self) -> ast_.Class:
         # Definition.
         self.parse_modifiers()
         class_token = self.expect(TokenType.CLASS, TokenType.INTERFACE)  # treat interface as a class with empty methods

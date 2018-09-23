@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from types import FunctionType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from warnings import warn
 
 from as3 import ast_, stdlib
 from as3.ast_ import AST
@@ -98,9 +99,10 @@ def define_function(with_node: ast_.Function, in_environment: Environment) -> Ca
             return e.value
         else:
             return with_node.default_return_value
-    # Just for a nicer look.
     function_.__name__ = function_.__qualname__ = with_node.name
-    # TODO: `new_function.__module__ = ...`
+    function_.__proto__ = lambda: undefined
+    # TODO: `function_.constructor` constructs a function with a provided source.
+    # TODO: `function_.__module__ = ...`
     in_environment.values[with_node.name] = function_
     return function_
 
@@ -118,8 +120,12 @@ def get_property(of_value: Any, of_name: str) -> Any:
 
 
 def get_own_property(of_value: Any, of_name: str) -> Any:
-    if isinstance(of_value, primitive_types):
-        return primitive_properties[type(of_value), of_name]
+    if isinstance(of_value, (list, str, float, set, int)):
+        warn(f'attempted to get property "{of_name}" of object ({of_value!r}), defaults to `undefined`', stacklevel=3)
+        return undefined
+    if isinstance(of_value, FunctionType):
+        # Constructors have useful properties.
+        return getattr(of_value, of_name, undefined)
     return of_value[of_name]
 
 
@@ -191,6 +197,11 @@ class Environment:
         raise ASRuntimeError(f'could not resolve `{name}`')  # FIXME: ReferenceError
 
 
+class ASUndefined:
+    def __repr__(self) -> str:
+        return 'undefined'
+
+
 unary_operations: Dict[TokenType, Callable[[Any], Any]] = {
     TokenType.DECREMENT: unary_augmented_assignment(lambda value: value - 1),
     TokenType.INCREMENT: unary_augmented_assignment(lambda value: value + 1),
@@ -211,25 +222,20 @@ binary_operations: Dict[TokenType, Callable[[AST, AST], Any]] = {
     TokenType.ASSIGN_ADD: binary_augmented_assignment(operator.add),
     TokenType.BITWISE_XOR: binary_operation(operator.xor),
     TokenType.DIVIDE: binary_operation(operator.truediv),
-    TokenType.EQUALS: binary_operation(operator.eq),
+    TokenType.EQUALS: binary_operation(lambda left, right: left == right and (not isinstance(left, dict) or left is right)),
     TokenType.IS: binary_operation(lambda left, right: isinstance(left, right)),  # FIXME: proper `isinstance`.
     TokenType.LOGICAL_AND: binary_operation(lambda left, right: bool(left and right)),
     TokenType.LOGICAL_OR: binary_operation(lambda left, right: bool(left or right)),
     TokenType.MINUS: binary_operation(operator.sub),
     TokenType.MULTIPLY: binary_operation(operator.mul),
-    TokenType.NOT_EQUALS: binary_operation(operator.ne),
+    TokenType.NOT_EQUALS: binary_operation(lambda left, right: left != right or (isinstance(left, dict) and left is not right)),
     TokenType.PERCENT: binary_operation(operator.mod),
     TokenType.PLUS: binary_operation(operator.add),
 }
 
-primitive_types: Tuple[Type, ...] = (list, str, float, set, int, FunctionType)
-
 primitive_constructors: Dict[Type, Callable] = {
     list: lambda *args: list(args),
     str: str,
-}
-
-primitive_properties: Dict[Tuple[Type, str], Any] = {
 }
 
 mocked_imports = re.compile(r'''
@@ -242,7 +248,7 @@ mocked_imports = re.compile(r'''
     ).*
 ''', re.VERBOSE)
 
-undefined = object()  # FIXME: it should also be a proper object.
+undefined = ASUndefined()
 
 global_environment = Environment(values={
     'Array': list,

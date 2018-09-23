@@ -163,3 +163,8 @@ class Function(AST):
     defaults: List[AST] = field(default_factory=list)
     default_return_value: Any = None
     body: AST = Pass()
+
+
+@dataclass
+class Class(AST):
+    name: str = underscore

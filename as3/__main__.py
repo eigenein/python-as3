@@ -13,7 +13,7 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments import highlight
 from pygments.formatters.terminal import TerminalFormatter
 from pygments.lexers.actionscript import ActionScript3Lexer
-from pygments.lexers.python import Python3Lexer, Python3TracebackLexer
+from pygments.lexers.python import Python3TracebackLexer
 from pygments.styles.native import NativeStyle
 
 from as3 import Environment, execute
@@ -61,7 +61,7 @@ def run_shell(environment: Environment):
             print_exception(e)
         else:
             if value is not None:
-                print(highlight(repr(value), Python3Lexer(), TerminalFormatter()))
+                print(highlight(repr(value), ActionScript3Lexer(), TerminalFormatter()))
 
 
 def print_exception(e: Exception):
