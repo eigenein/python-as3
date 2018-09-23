@@ -97,7 +97,7 @@ def test_execute_1(source: str, expected: Any) -> None:
     ('var foo = {1: 2}; foo == foo', True),
     ('{1: 2} != {1: 2}', True),
     ('var foo = {1: 2}; foo != foo', False),
-    ('class X { }', {}),
+    ('class X { }; new X()', {}),
     ('class X { var a = 1; function X() { a = 42; } } var expected = new X().a;', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
     ('function foo(bar: int = 42) { return bar } var expected = foo();', {'expected': 42}),

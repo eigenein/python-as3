@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ast import literal_eval
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
 
 from as3.scanner import Token
 
@@ -168,3 +168,7 @@ class Function(AST):
 @dataclass
 class Class(AST):
     name: str = underscore
+    base: AST = Literal(value=dict)  # `__proto__`
+    prototype: Dict[name, Any] = field(default_factory=dict)
+    fields: List[AST] = field(default_factory=list)
+    constructor: Function = null

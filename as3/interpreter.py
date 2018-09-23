@@ -48,6 +48,8 @@ def execute(node: AST, with_environment: Environment) -> Any:
         return define_function(node, with_environment)
     if isinstance(node, ast_.Return):
         raise ASReturn(execute(node.value, with_environment))
+    if isinstance(node, ast_.Class):
+        return define_class(node, with_environment)
     raise NotImplementedError(repr(node))
 
 
@@ -60,12 +62,12 @@ def execute_block(node: ast_.Block, with_environment: Environment) -> Any:
 
 def new(with_constructor: Any, with_arguments: List[Any], with_environment: Environment) -> Any:
     try:
-        native_constructor: Callable = primitive_constructors[with_constructor]
+        native_constructor: Callable = native_constructors[with_constructor]
     except KeyError:
         """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
         prototype = get_property(with_constructor, 'prototype')
         this = {'__proto__': prototype, 'constructor': with_constructor}
-        return call(with_constructor, with_arguments, with_environment.push(this=this)) or this
+        return call(with_constructor, with_arguments, with_environment) or this
     else:
         return call(native_constructor, with_arguments, with_environment)
 
@@ -100,11 +102,16 @@ def define_function(with_node: ast_.Function, in_environment: Environment) -> Ca
         else:
             return with_node.default_return_value
     function_.__name__ = function_.__qualname__ = with_node.name
-    function_.__proto__ = lambda: undefined
+    function_.__proto__ = None
+    function_.prototype = {}
     # TODO: `function_.constructor` constructs a function with a provided source.
     # TODO: `function_.__module__ = ...`
     in_environment.values[with_node.name] = function_
     return function_
+
+
+def define_class(with_node: ast_.Class, with_environment: Environment) -> Callable:
+    return define_function(with_node.constructor, with_environment)
 
 
 def get_property(of_value: Any, of_name: str) -> Any:
@@ -130,6 +137,7 @@ def get_own_property(of_value: Any, of_name: str) -> Any:
 
 
 def set_property(of_value: Any, with_name: str, to_value: Any) -> Any:
+    # FIXME: prototype chain.
     of_value[with_name] = to_value
     return of_value
 
@@ -216,7 +224,7 @@ postfix_operations: Dict[TokenType, Callable[[Any], Any]] = {
 }
 
 binary_operations: Dict[TokenType, Callable[[AST, AST], Any]] = {
-    # FIXME: proper `isinstance`.
+    # FIXME: proper `isinstance` with prototype chain.
     TokenType.ASSIGN: binary_augmented_assignment(lambda _, right: right),
     TokenType.AS: binary_operation(lambda left, right: left if isinstance(left, right) else None),
     TokenType.ASSIGN_ADD: binary_augmented_assignment(operator.add),
@@ -233,7 +241,10 @@ binary_operations: Dict[TokenType, Callable[[AST, AST], Any]] = {
     TokenType.PLUS: binary_operation(operator.add),
 }
 
-primitive_constructors: Dict[Type, Callable] = {
+native_constructors: Dict[Type, Callable] = {
+    dict: dict,
+    float: float,
+    int: int,
     list: lambda *args: list(args),
     str: str,
 }

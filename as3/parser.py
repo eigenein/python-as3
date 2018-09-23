@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple, cast
+from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple
 
 from as3 import ast_, interpreter
 from as3.enums import TokenType
@@ -39,51 +39,33 @@ class Parser:
     def parse_class(self) -> ast_.Class:
         # Definition.
         self.parse_modifiers()
-        class_token = self.expect(TokenType.CLASS, TokenType.INTERFACE)  # treat interface as a class with empty methods
-        name = self.expect(TokenType.IDENTIFIER).value
-        base: Optional[ast.AST] = self.parse_primary_expression() if self.tokens.skip(TokenType.EXTENDS) else None
+        # noinspection PyArgumentList
+        node = ast_.Class(token=self.expect(TokenType.CLASS, TokenType.INTERFACE))  # treat interface as a class with empty methods
+        node.name = self.expect(TokenType.IDENTIFIER).value
+        if self.tokens.skip(TokenType.EXTENDS):
+            node.base = self.parse_primary_expression()
         if self.tokens.skip(TokenType.IMPLEMENTS):
+            # Skip interfaces.
             self.parse_primary_expression()
 
         # Body.
-        init: Optional[ast.FunctionDef] = None
-        body: List[ast.AST] = []
         self.expect(TokenType.CURLY_BRACKET_OPEN)
         while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
             # Parse definition.
             modifiers = self.parse_modifiers()
-            statements: ast_.AST = self.switch({
+            statement: ast_.AST = self.switch({
                 TokenType.CONST: self.parse_variable_definition,
                 TokenType.FUNCTION: self.parse_function_definition,
                 TokenType.VAR: self.parse_variable_definition,
-            }, is_static=(TokenType.STATIC in modifiers), is_field=True)
-
-            # Post-process methods.
-            for statement in statements:
-                if isinstance(statement, ast.FunctionDef):
-                    # Method should have `__this__` argument.
-                    statement.args.args.insert(0, cast(ast.arg, AST.this_arg(location_of(statement)).node))
-                    if statement.name == name:
-                        # Constructor should be named `__init__`.
-                        init = statement
-                        init.name = constants.init_name
-                        # Append later on.
-                        continue
-                body.append(statement)
+            })
+            if isinstance(statement, ast_.Function) and statement.name == node.name:
+                node.constructor = statement
 
             # Skip all semicolons.
             while self.tokens.skip(TokenType.SEMICOLON):
                 pass
 
-        # Create a default constructor if not defined.
-        init = init or make_function(
-            class_token, constants.init_name, arguments=[cast(ast.arg, AST.this_arg(class_token).node)])
-
-        # ActionScript calls `super()` implicitly if not called explicitly.
-        if not has_super_call(init):
-            init.body.insert(0, cast(ast.stmt, AST.super_constructor_call(location_of(init)).node))
-
-        return AST.class_(location=class_token, name=name, base=base, body=[init, *body]).node
+        return node
 
     def parse_modifiers(self) -> Set[TokenType]:
         modifiers: Set[TokenType] = set()
@@ -171,7 +153,7 @@ class Parser:
         node.negative = self.parse_statement_or_code_block() if self.tokens.skip(TokenType.ELSE) else None
         return node
 
-    def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> ast_.Variable:
+    def parse_variable_definition(self) -> ast_.Variable:
         token = self.expect(TokenType.VAR, TokenType.CONST)
         name_token = self.expect(TokenType.IDENTIFIER)
         value = ast_.Literal(value=self.parse_type_annotation())
@@ -223,7 +205,7 @@ class Parser:
             node.value = self.parse_assignment_expression()
         return node
 
-    def parse_function_definition(self, is_static: bool = False, **_) -> ast_.Function:
+    def parse_function_definition(self) -> ast_.Function:
         # noinspection PyArgumentList
         node = ast_.Function(token=self.expect(TokenType.FUNCTION))
         is_property = self.tokens.skip(TokenType.GET) is not None  # TODO
