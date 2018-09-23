@@ -11,3 +11,8 @@ class ASSyntaxError(Exception):
 class ASRuntimeError(Exception):
     def __init__(self, exception_object: Any) -> None:
         self.exception_object = exception_object
+
+
+class ASReturn(Exception):
+    def __init__(self, value: Any) -> None:
+        self.value = value

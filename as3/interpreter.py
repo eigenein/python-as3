@@ -3,20 +3,21 @@ from __future__ import annotations
 import operator
 import re
 from dataclasses import dataclass, field
+from types import FunctionType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from as3 import ast_, stdlib
 from as3.ast_ import AST
 from as3.enums import TokenType
-from as3.exceptions import ASRuntimeError
+from as3.exceptions import ASRuntimeError, ASReturn
 
 
 def execute(node: AST, with_environment: Environment) -> Any:
     assert isinstance(node, AST)
-    if isinstance(node, ast_.Block):
-        return evaluate_block(node, with_environment)
     if isinstance(node, ast_.Literal):
         return node.value
+    if isinstance(node, ast_.Block):
+        return execute_block(node, with_environment)
     if isinstance(node, ast_.CompoundLiteral):
         return [execute(child, with_environment) for child in node.value]
     if isinstance(node, ast_.MapLiteral):
@@ -27,11 +28,11 @@ def execute(node: AST, with_environment: Environment) -> Any:
         return unary_operations[node.token.type_](node.value, with_environment)
     if isinstance(node, ast_.BinaryOperation):
         return binary_operations[node.token.type_](node.left, execute(node.right, with_environment), with_environment)
-    if isinstance(node, ast_.Conditional):
+    if isinstance(node, ast_.If):
         if execute(node.test, with_environment):
-            return execute(node.positive_value, with_environment)
+            return execute(node.positive, with_environment)
         else:
-            return execute(node.negative_value, with_environment)
+            return execute(node.negative, with_environment)
     if isinstance(node, ast_.Property):
         return get_property(execute(node.value, with_environment), execute(node.item, with_environment))
     if isinstance(node, ast_.Name):
@@ -41,11 +42,15 @@ def execute(node: AST, with_environment: Environment) -> Any:
     if isinstance(node, ast_.New):
         return new(execute(node.value, with_environment), node.arguments, with_environment)
     if isinstance(node, ast_.Variable):
-        return define_variable(node.name, node.value, with_environment)
+        return define_variable(node, with_environment)
+    if isinstance(node, ast_.Function):
+        return define_function(node, with_environment)
+    if isinstance(node, ast_.Return):
+        raise ASReturn(execute(node.value, with_environment))
     raise NotImplementedError(repr(node))
 
 
-def evaluate_block(node: ast_.Block, with_environment: Environment) -> Any:
+def execute_block(node: ast_.Block, with_environment: Environment) -> Any:
     value = None
     for statement in node.body:
         value = execute(statement, with_environment)
@@ -65,12 +70,39 @@ def new(with_constructor: Any, with_arguments: List[Any], with_environment: Envi
 
 
 def call(value: Any, with_arguments: List[AST], with_environment: Environment) -> Any:
-    # FIXME: `__call__` property.
     return value(*(execute(argument, with_environment) for argument in with_arguments))
 
 
-def define_variable(with_name: str, with_value: AST, in_environment: Environment) -> None:
-    in_environment.values[with_name] = execute(with_value, in_environment)
+def define_variable(with_node: ast_.Variable, in_environment: Environment) -> None:
+    in_environment.values[with_node.name] = execute(with_node.value, in_environment)
+
+
+def define_function(with_node: ast_.Function, in_environment: Environment) -> Callable:
+    def function_(*args: Any, **kwargs: Any) -> Any:
+        environment = in_environment.push()
+        # Explicitly passed values.
+        for argument, name in zip(args, with_node.parameter_names):
+            environment.values[name] = argument
+        environment.values.update(kwargs)
+        # Defaults.
+        for name, default_value in zip(with_node.parameter_names, with_node.defaults):
+            if name not in environment.values:
+                environment.values[name] = execute(default_value, in_environment)
+        # Fill the rest with `undefined`.
+        for name in with_node.parameter_names:
+            if name not in environment.values:
+                environment.values[name] = undefined
+        try:
+            execute(with_node.body, environment)
+        except ASReturn as e:
+            return e.value
+        else:
+            return with_node.default_return_value
+    # Just for a nicer look.
+    function_.__name__ = function_.__qualname__ = with_node.name
+    # TODO: `new_function.__module__ = ...`
+    in_environment.values[with_node.name] = function_
+    return function_
 
 
 def get_property(of_value: Any, of_name: str) -> Any:
@@ -190,7 +222,7 @@ binary_operations: Dict[TokenType, Callable[[AST, AST], Any]] = {
     TokenType.PLUS: binary_operation(operator.add),
 }
 
-primitive_types = (list, str, float, set, int)
+primitive_types: Tuple[Type, ...] = (list, str, float, set, int, FunctionType)
 
 primitive_constructors: Dict[Type, Callable] = {
     list: lambda *args: list(args),

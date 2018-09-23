@@ -107,13 +107,6 @@ class ForEach(AbstractFor):
 
 
 @dataclass
-class Conditional(AST):
-    test: AST = null
-    positive_value: AST = null
-    negative_value: AST = null
-
-
-@dataclass
 class UnaryOperation(AST):
     value: AST = null
 
@@ -161,3 +154,12 @@ class New(AST):
 class Variable(AST):
     name: str = underscore
     value: AST = null
+
+
+@dataclass
+class Function(AST):
+    name: str = underscore
+    parameter_names: List[str] = field(default_factory=list)
+    defaults: List[AST] = field(default_factory=list)
+    default_return_value: Any = None
+    body: AST = Pass()

@@ -223,33 +223,23 @@ class Parser:
             node.value = self.parse_assignment_expression()
         return node
 
-    def parse_function_definition(self, is_static: bool = False, **_) -> Iterable[ast.FunctionDef]:
-        function_token = self.expect(TokenType.FUNCTION)
-        is_property = self.tokens.skip(TokenType.GET) is not None
-        name = self.expect(TokenType.IDENTIFIER).value
-        node = make_function(function_token, name=name, is_class_method=is_static, is_property=is_property)
+    def parse_function_definition(self, is_static: bool = False, **_) -> ast_.Function:
+        # noinspection PyArgumentList
+        node = ast_.Function(token=self.expect(TokenType.FUNCTION))
+        is_property = self.tokens.skip(TokenType.GET) is not None  # TODO
+        node.name = self.expect(TokenType.IDENTIFIER).value
 
-        # Parse arguments.
         self.expect(TokenType.PARENTHESIS_OPEN)
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
-            name_token = self.expect(TokenType.IDENTIFIER)
-            node.args.args.append(AST.argument(name_token, name_token.value).node)  # type: ignore
-            default_value = self.parse_type_annotation(name_token)
+            node.parameter_names.append(self.expect(TokenType.IDENTIFIER).value)
+            default_value = ast_.Literal(value=self.parse_type_annotation())
             if self.tokens.skip(TokenType.ASSIGN):
-                node.args.defaults.append(self.parse_assignment_expression())  # type: ignore
-            else:
-                node.args.defaults.append(cast(ast.expr, default_value))
+                default_value = self.parse_assignment_expression()
+            node.defaults.append(default_value)
             self.tokens.skip(TokenType.COMMA)
 
-        # Skip return type.
-        default_return_value = self.parse_type_annotation(function_token)
-
-        # Parse body.
-        node.body.extend(cast(List[ast.stmt], self.parse_statement_or_code_block()))
-
-        # Add guard `return default_return_value`.
-        # FIXME: node.body.append(cast(ast.stmt, AST(default_return_value).return_it(location_of(default_return_value)).node))
-
+        node.default_return_value = self.parse_type_annotation()
+        node.body = self.parse_statement_or_code_block()
         return node
 
     def parse_break(self) -> ast_.Break:
@@ -333,11 +323,11 @@ class Parser:
         node = self.parse_logical_or_expression()
         if self.tokens.is_type(TokenType.QUESTION_MARK):
             token = next(self.tokens)
-            positive_value = self.parse_conditional_expression()
+            positive = self.parse_conditional_expression()
             self.expect(TokenType.COLON)
-            negative_value = self.parse_conditional_expression()
+            negative = self.parse_conditional_expression()
             # noinspection PyArgumentList
-            node = ast_.Conditional(token=token, test=node, positive_value=positive_value, negative_value=negative_value)
+            node = ast_.If(token=token, test=node, positive=positive, negative=negative)
         return node
 
     def parse_logical_or_expression(self) -> ast_.AST:
