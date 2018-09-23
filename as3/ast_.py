@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from ast import literal_eval
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Any
 
-from as3 import interpreter
 from as3.scanner import Token
 
 underscore = '_'
@@ -17,7 +16,7 @@ class AST:
 
 @dataclass
 class Literal(AST):
-    value: object = interpreter.undefined
+    value: Any = None
 
     @staticmethod
     def from_(token: Token) -> Literal:
@@ -25,7 +24,7 @@ class Literal(AST):
         return Literal(token=token, value=literal_eval(token.value))
 
 
-undefined = Literal(value=interpreter.undefined)
+null = Literal()
 
 
 @dataclass
@@ -40,14 +39,14 @@ class Pass(AST):
 
 @dataclass
 class If(AST):
-    test: AST = undefined
+    test: AST = null
     positive: AST = Pass()
     negative: AST = Pass()
 
 
 @dataclass
 class Return(AST):
-    value: AST = undefined
+    value: AST = null
 
 
 @dataclass
@@ -57,7 +56,7 @@ class Break(AST):
 
 @dataclass
 class While(AST):
-    test: AST = undefined
+    test: AST = null
     body: AST = Pass()
 
 
@@ -87,13 +86,13 @@ class Except(AST):
 
 @dataclass
 class Throw(AST):
-    value: AST = undefined
+    value: AST = null
 
 
 @dataclass
 class AbstractFor(AST):
     variable_name: str = underscore
-    value: AST = undefined
+    value: AST = null
     body: AST = Pass()
 
 
@@ -109,32 +108,37 @@ class ForEach(AbstractFor):
 
 @dataclass
 class Conditional(AST):
-    test: AST = undefined
-    positive_value: AST = undefined
-    negative_value: AST = undefined
+    test: AST = null
+    positive_value: AST = null
+    negative_value: AST = null
 
 
 @dataclass
 class UnaryOperation(AST):
-    value: AST = undefined
+    value: AST = null
+
+
+@dataclass
+class PostfixOperation(AST):
+    value: AST = null
 
 
 @dataclass
 class Property(AST):
-    value: AST = undefined
-    item: AST = undefined
+    value: AST = null
+    item: AST = null
 
 
 @dataclass
 class Call(AST):
-    value: AST = undefined
+    value: AST = null
     arguments: List[AST] = field(default_factory=list)
 
 
 @dataclass
 class BinaryOperation(AST):
-    left: AST = undefined
-    right: AST = undefined
+    left: AST = null
+    right: AST = null
 
 
 @dataclass
@@ -149,5 +153,11 @@ class MapLiteral(AST):
 
 @dataclass
 class New(AST):
-    value: AST = undefined
+    value: AST = null
     arguments: List[AST] = field(default_factory=list)
+
+
+@dataclass
+class Variable(AST):
+    name: str = underscore
+    value: AST = null

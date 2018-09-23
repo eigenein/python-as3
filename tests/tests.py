@@ -6,7 +6,7 @@ from typing import Any
 from pytest import mark, param, raises
 
 from as3 import execute
-from as3.interpreter import undefined
+from as3.interpreter import undefined, Environment
 
 
 @mark.parametrize('source, expected', [
@@ -67,12 +67,12 @@ from as3.interpreter import undefined
     # For the sake of simplicity a label is evaluated to `None`.
     ('addr58:', None),
 ])
-def test_evaluate_expression(source: str, expected: Any):
-    actual = execute(source, '<ast>', {
+def test_execute_1(source: str, expected: Any) -> None:
+    actual = execute(source, '<ast>', Environment(values={
         'foo': {'bar': 42, 'baz': 2},
         'bar': lambda a, b: a + b,
         'baz': lambda: 42,
-    })
+    }))
     assert type(actual) == type(expected), f'actual: {actual!r}'
     assert actual == expected, f'actual: {actual!r}'
 
@@ -82,16 +82,17 @@ def test_evaluate_expression(source: str, expected: Any):
     ('var a = 1 + 1; a', 2),
     ('var a = 42; a', 42),
     ('var a = 42; var b = 3; [a, b]', [42, 3]),
-    ('var a = 42; a += 1;', {'a': 43}),
-    ('var a = 42; a++;', {'a': 43}),
-    ('var a = 42; a--;', {'a': 41}),
+    ('var a = 42; a += 1; a', 43),
+    ('var a = 42; [a++, a]', [42, 43]),
+    ('var a = 42; [a--, a]', [42, 41]),
+    ('var a = 42; [++a, a]', [43, 43]),
+    ('var a = 42; [--a, a]', [41, 41]),
     ('var a: *; a', undefined),
     ('foo(42)', 42),
-    ('function bar() { return 42 }; var a = bar()', {'a': 42}),
+    ('function bar() { return 42 }; var a = bar(); a', 42),
     ('function bar() { function baz() { return 42 }; return baz; }; var b = bar()()', {'b': 42}),
     ('var a; if (true) { a = 42 } else { a = 43 }', {'a': 42}),
     ('var a; if (false) a = 43; else a = 42;', {'a': 42}),
-    ('{ { } }', None),
     ('class X { }', {}),
     ('class X { var a = 1; function X() { a = 42; } } var expected = new X().a;', {'expected': 42}),
     ('function foo(bar: int) { return bar } var expected = foo(42);', {'expected': 42}),
@@ -160,13 +161,17 @@ def test_evaluate_expression(source: str, expected: Any):
     ('function bar() return 42; var expected = bar()', {'expected': 42}),
     ('new Vector.<*>()', []),
     param('var a = 42; { var a = 43; } ', {'a': 42}, marks=mark.xfail),
-    param('var a = b = 42;', {'a': 42, 'b': 42}, marks=mark.xfail),
+    ('var b; var a = b = 42; [a, b]', [42, 42]),
     param('class X { var foo }; var bar = "foo" in X()', {'bar': True}, marks=mark.xfail),
 ])
-def test_execute_script(source: str, expected: Any):
+def test_execute_2(source: str, expected: Any) -> None:
     class FakeException(Exception):
         pass
-    assert execute(source, '<ast>', {'foo': lambda x: x, 'dict_': {}, 'FakeException': FakeException}) == expected
+    assert execute(source, '<ast>', Environment(values={
+        'foo': lambda x: x,
+        'dict_': {},
+        'FakeException': FakeException,
+    })) == expected
 
 
 @mark.parametrize('source', [

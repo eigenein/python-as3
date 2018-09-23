@@ -4,7 +4,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
 import click
 from prompt_toolkit import PromptSession
@@ -13,8 +13,11 @@ from prompt_toolkit.styles import style_from_pygments_cls
 from pygments import highlight
 from pygments.formatters.terminal import TerminalFormatter
 from pygments.lexers.actionscript import ActionScript3Lexer
-from pygments.lexers.python import Python3TracebackLexer
+from pygments.lexers.python import Python3Lexer, Python3TracebackLexer
 from pygments.styles.native import NativeStyle
+
+from as3 import Environment, execute
+from as3.exceptions import ASRuntimeError, ASSyntaxError
 
 
 @click.command()
@@ -30,36 +33,46 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
     """
     Execute ActionScript files.
     """
-    globals_: Dict[str, Any] = {constants.packages_path_key: Path(packages_path)}
+    environment = Environment()
     for script in scripts:
         path = Path(script)
         # noinspection PyBroadException
         try:
-            globals_.update(execute_script(path.open('rt', encoding='utf-8').read(), str(path), **globals_))
-        except Exception as _:
-            print_exception()
+            execute(path.open('rt', encoding='utf-8').read(), str(path), environment)
+        except Exception as e:
+            print_exception(e)
             sys.exit(1)
     if shell:
-        run_shell(globals_)
+        run_shell(environment)
 
 
-def run_shell(globals_: dict):
+def run_shell(environment: Environment):
     session = PromptSession()
     style = style_from_pygments_cls(NativeStyle)
 
-    click.echo(f'{click.style("Welcome to as3 shell!", fg="green")}')
+    click.echo(f'{click.style("Welcome to as3 shell!", fg="yellow")}')
 
     while True:
         line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)
         # noinspection PyBroadException
         try:
-            globals_.update(execute_script(line, '<shell>', **globals_))
-        except Exception as _:
-            print_exception()
+            value = execute(line, '<shell>', environment)
+        except Exception as e:
+            print_exception(e)
+        else:
+            if value is not None:
+                print(highlight(repr(value), Python3Lexer(), TerminalFormatter()))
 
 
-def print_exception():
-    print(highlight(traceback.format_exc(), Python3TracebackLexer(), TerminalFormatter()))
+def print_exception(e: Exception):
+    if isinstance(e, ASSyntaxError):
+        click.echo(f'{click.style("Error:", fg="red", bold=True)} {e}')
+    elif isinstance(e, ASRuntimeError):
+        # TODO: proper traceback.
+        click.echo(f'{click.style("Runtime error:", fg="red", bold=True)} {e}')
+    else:
+        click.echo(f'{click.style("Internal interpreter error:", fg="red", bold=True)}')
+        click.echo(highlight(traceback.format_exc(), Python3TracebackLexer(), TerminalFormatter()))
 
 
 if __name__ == '__main__':

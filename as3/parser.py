@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple, TypeVar, cast
+from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, NoReturn, Optional, Set, Tuple, cast
 
 from as3 import ast_, interpreter
 from as3.enums import TokenType
@@ -24,6 +24,7 @@ class Parser:
         """
         body: List[ast_.AST] = []
         while self.tokens:
+            # FIXME: allow package at any level.
             body.append(self.switch({TokenType.PACKAGE: self.parse_package}, else_=self.parse_statement))
         return ast_.Block(body=body)
 
@@ -33,7 +34,7 @@ class Parser:
             # TODO: for now just consume the name because we'll use the directory structure instead.
             for _ in self.parse_qualified_name():
                 pass
-        return self.parse_statement()
+        return self.parse_statement_or_code_block()
 
     def parse_class(self) -> Iterable[ast_.AST]:
         # Definition.
@@ -51,11 +52,11 @@ class Parser:
         while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
             # Parse definition.
             modifiers = self.parse_modifiers()
-            statements: List[ast.AST] = list(self.switch({
+            statements: ast_.AST = self.switch({
                 TokenType.CONST: self.parse_variable_definition,
                 TokenType.FUNCTION: self.parse_function_definition,
                 TokenType.VAR: self.parse_variable_definition,
-            }, is_static=(TokenType.STATIC in modifiers), is_field=True))
+            }, is_static=(TokenType.STATIC in modifiers), is_field=True)
 
             # Post-process methods.
             for statement in statements:
@@ -96,11 +97,13 @@ class Parser:
             modifiers.add(TokenType.STATIC)
         return modifiers
 
+    def parse_statement_or_code_block(self) -> ast_.AST:
+        return self.switch({TokenType.CURLY_BRACKET_OPEN: self.parse_code_block}, else_=self.parse_statement)
+
     def parse_statement(self) -> ast_.AST:
         node = self.switch({
             TokenType.BREAK: self.parse_break,
             TokenType.CLASS: self.parse_class,
-            TokenType.CURLY_BRACKET_OPEN: self.parse_code_block,
             TokenType.FOR: self.parse_for,
             TokenType.FUNCTION: self.parse_function_definition,
             TokenType.IF: self.parse_if,
@@ -126,8 +129,8 @@ class Parser:
     def parse_code_block(self) -> ast_.Block:
         # noinspection PyArgumentList
         node = ast_.Block(token=self.expect(TokenType.CURLY_BRACKET_OPEN))
-        while not self.tokens.is_type(TokenType.CURLY_BRACKET_CLOSE):
-            node.body.append(self.parse_statement())
+        while not self.tokens.skip(TokenType.CURLY_BRACKET_CLOSE):
+            node.body.append(self.parse_statement_or_code_block())
         return node
 
     def parse_expression_statement(self) -> ast_.AST:
@@ -164,35 +167,29 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_OPEN)
         node.test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        node.positive = self.parse_statement()
-        node.negative = self.parse_statement() if self.tokens.skip(TokenType.ELSE) else None
+        node.positive = self.parse_statement_or_code_block()
+        node.negative = self.parse_statement_or_code_block() if self.tokens.skip(TokenType.ELSE) else None
         return node
 
-    def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> Iterable[ast.AST]:
-        self.expect(TokenType.VAR, TokenType.CONST)
-        assign_token = name_token = self.expect(TokenType.IDENTIFIER)
-        value = self.parse_type_annotation(name_token)
-        if self.tokens.is_type(TokenType.ASSIGN):
-            assign_token = next(self.tokens)
+    def parse_variable_definition(self, is_static: bool = False, is_field: bool = False, **_) -> ast_.Variable:
+        token = self.expect(TokenType.VAR, TokenType.CONST)
+        name_token = self.expect(TokenType.IDENTIFIER)
+        value = ast_.Literal(value=self.parse_type_annotation())
+        if self.tokens.skip(TokenType.ASSIGN):
             value = self.parse_assignment_expression()
-        builder = AST.identifier(name_token)
-        if is_field:
-            descriptor_name = constants.static_field_key if is_static else constants.field_key
-            # `Field(lambda __this__: value)`
-            value = AST \
-                .lambda_(location_of(value), [cast(ast.arg, AST.this_arg(name_token).node)], value) \
-                .wrap_with(assign_token, descriptor_name) \
-                .node
-        return builder.assign(assign_token, value).node
+        # noinspection PyArgumentList
+        return ast_.Variable(token=token, name=name_token.value, value=value)
 
-    def parse_type_annotation(self, generic_parameter: bool = False) -> object:
+    def parse_type_annotation(self) -> Any:
         """
         Parse type annotation and return its _default value_.
         https://www.adobe.com/devnet/actionscript/learning/as3-fundamentals/data-types.html
         """
-        # Corner cases.
-        if not generic_parameter and not self.tokens.skip(TokenType.COLON):
-            return undefined
+        if self.tokens.skip(TokenType.COLON):
+            return self.parse_type()
+        return undefined
+
+    def parse_type(self) -> Any:
         if self.tokens.skip(TokenType.MULTIPLY):
             return undefined
         if self.tokens.skip(TokenType.VOID):
@@ -211,7 +208,7 @@ class Parser:
                 break
             if not self.tokens.skip(TokenType.IDENTIFIER):
                 self.expect(TokenType.LESS)
-                self.parse_type_annotation(True)
+                self.parse_type()
                 self.expect(TokenType.GREATER)
         return ast_.Literal(value=None)
 
@@ -248,7 +245,7 @@ class Parser:
         default_return_value = self.parse_type_annotation(function_token)
 
         # Parse body.
-        node.body.extend(cast(List[ast.stmt], self.parse_statement()))
+        node.body.extend(cast(List[ast.stmt], self.parse_statement_or_code_block()))
 
         # Add guard `return default_return_value`.
         # FIXME: node.body.append(cast(ast.stmt, AST(default_return_value).return_it(location_of(default_return_value)).node))
@@ -264,14 +261,14 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_OPEN)
         test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = self.parse_statement()
+        body = self.parse_statement_or_code_block()
         # noinspection PyArgumentList
         return ast_.While(token=token, test=test, body=body)
 
     def parse_try(self) -> ast_.TryFinally:
         # noinspection PyArgumentList
         node = ast_.TryFinally(token=self.expect(TokenType.TRY))
-        node.body = self.parse_statement()
+        node.body = self.parse_statement_or_code_block()
         while self.tokens.is_type(TokenType.CATCH):
             # noinspection PyArgumentList
             except_node = ast_.Except(token=next(self.tokens))
@@ -281,10 +278,10 @@ class Parser:
             if not self.tokens.is_type(TokenType.MULTIPLY):
                 except_node.exception_type = self.parse_assignment_expression()
             self.expect(TokenType.PARENTHESIS_CLOSE)
-            except_node.body = self.parse_statement()
+            except_node.body = self.parse_statement_or_code_block()
             node.excepts.append(except_node)
         if self.tokens.skip(TokenType.FINALLY):
-            node.finally_ = self.parse_statement()
+            node.finally_ = self.parse_statement_or_code_block()
         return node
 
     def parse_throw(self) -> ast_.Throw:
@@ -302,7 +299,7 @@ class Parser:
         self.expect(TokenType.IN)
         value = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
-        body = self.parse_statement()
+        body = self.parse_statement_or_code_block()
         return ast_class(token=token, variable_name=variable_name, value=value, body=body)
 
     # Expression rules.
@@ -327,8 +324,6 @@ class Parser:
             self.parse_conditional_expression,
             TokenType.ASSIGN,
             TokenType.ASSIGN_ADD,
-            TokenType.INCREMENT,
-            TokenType.DECREMENT,
         )
 
     # def parse_non_assignment_expression(self) -> ast.AST:
@@ -387,7 +382,14 @@ class Parser:
             token = next(self.tokens)
             # noinspection PyArgumentList
             return ast_.UnaryOperation(token=token, value=self.parse_unary_expression())
-        return self.parse_primary_expression()
+        return self.parse_postfix()
+
+    def parse_postfix(self) -> ast_.AST:
+        left = self.parse_primary_expression()
+        while self.tokens.is_type(*interpreter.postfix_operations):
+            # noinspection PyArgumentList
+            left = ast_.PostfixOperation(token=next(self.tokens), value=left)
+        return left
 
     def parse_primary_expression(self) -> ast_.AST:
         if self.tokens.is_type(TokenType.NEW):
@@ -463,7 +465,7 @@ class Parser:
 
         # Skip generic parameter before literal.
         if self.tokens.skip(TokenType.LESS):
-            self.parse_type_annotation(True)
+            self.parse_type()
             self.expect(TokenType.GREATER)
             return self.parse_terminal_or_parenthesized()
 
@@ -473,7 +475,7 @@ class Parser:
         # Skip yet another generic parameter.
         if self.tokens.skip(TokenType.DOT):
             self.expect(TokenType.LESS)
-            self.parse_type_annotation(True)
+            self.parse_type()
             self.expect(TokenType.GREATER)
 
         # Parse the call.
@@ -519,10 +521,9 @@ class Parser:
     # Parser helpers.
     # ------------------------------------------------------------------------------------------------------------------
 
-    TParserReturn = TypeVar('TParserReturn')
-    TParser = Callable[..., TParserReturn]
+    TParser = Callable[..., ast_.AST]
 
-    def switch(self, cases: Dict[TokenType, TParser], else_: TParser = None, **kwargs) -> TParserReturn:
+    def switch(self, cases: Dict[TokenType, TParser], else_: Optional[TParser] = None, **kwargs) -> ast_.AST:
         """
         Behaves like a `switch` (`case`) operator and tries to match the current token against specified token types.
         If match is found, then the corresponding parser is called.
