@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Type
 
 from as3 import ast_, stdlib
 from as3.ast_ import AST
@@ -16,35 +16,7 @@ def execute(node: AST, with_environment: Environment) -> Any:
     try:
         return ast_handlers[type(node)](node, with_environment)
     except KeyError:
-        pass  # TODO: `raise NotImplementedError(repr(node))`
-    if isinstance(node, ast_.PostfixOperation):
-        return postfix_operations[node.token.type_](node.value, with_environment)
-    if isinstance(node, ast_.UnaryOperation):
-        return unary_operations[node.token.type_](node.value, with_environment)
-    if isinstance(node, ast_.BinaryOperation):
-        return binary_operations[node.token.type_](node.left, execute(node.right, with_environment), with_environment)
-    if isinstance(node, ast_.If):
-        if execute(node.test, with_environment):
-            return execute(node.positive, with_environment)
-        else:
-            return execute(node.negative, with_environment)
-    if isinstance(node, ast_.Property):
-        return get_property(execute(node.value, with_environment), execute(node.item, with_environment))
-    if isinstance(node, ast_.Name):
-        return get_own_property(with_environment.resolve(node.identifier).values, node.identifier)
-    if isinstance(node, ast_.Call):
-        return call(execute(node.value, with_environment), node.arguments, with_environment)
-    if isinstance(node, ast_.New):
-        return new(execute(node.value, with_environment), node.arguments, with_environment)
-    if isinstance(node, ast_.Variable):
-        return define_variable(node, with_environment)
-    if isinstance(node, ast_.Function):
-        return define_function(node, with_environment)
-    if isinstance(node, ast_.Return):
-        raise ASReturn(execute(node.value, with_environment))
-    if isinstance(node, ast_.Class):
-        return define_class(node, with_environment)
-    raise NotImplementedError(repr(node))
+        raise NotImplementedError(repr(node))
 
 
 # AST handlers.
@@ -55,6 +27,10 @@ def execute_block(node: ast_.Block, with_environment: Environment) -> Any:
     for statement in node.body:
         value = execute(statement, with_environment)
     return value
+
+
+def return_(node: ast_.Return, with_environment: Environment) -> NoReturn:
+    raise ASReturn(execute(node.value, with_environment))
 
 
 def new(with_constructor: Any, with_arguments: List[Any], with_environment: Environment) -> Any:
@@ -253,12 +229,24 @@ native_constructors: Dict[Type, Callable] = {
 
 ast_handlers: Dict[Type[AST], Callable[[AST, Environment], Any]] = {
     ast_.Block: execute_block,
-    ast_.CompoundLiteral: lambda node, environment: [execute(child, environment) for child in node.value],
-    ast_.Literal: lambda node, environment: node.value,
-    ast_.MapLiteral: lambda node, environment: {
-        execute(key, environment): execute(value, environment)
+    ast_.CompoundLiteral: lambda node, env: [execute(child, env) for child in node.value],
+    ast_.Literal: lambda node, env: node.value,
+    ast_.MapLiteral: lambda node, env: {
+        execute(key, env): execute(value, env)
         for key, value in node.value
     },
+    ast_.PostfixOperation: lambda node, env: postfix_operations[node.token.type_](node.value, env),
+    ast_.UnaryOperation: lambda node, env: unary_operations[node.token.type_](node.value, env),
+    ast_.BinaryOperation: lambda node, env: binary_operations[node.token.type_](node.left, execute(node.right, env), env),
+    ast_.If: lambda node, env: execute(node.positive, env) if execute(node.test, env) else execute(node.negative, env),
+    ast_.Property: lambda node, env: get_property(execute(node.value, env), execute(node.item, env)),
+    ast_.Name: lambda node, env: get_own_property(env.resolve(node.identifier).values, node.identifier),
+    ast_.Call: lambda node, env: call(execute(node.value, env), node.arguments, env),
+    ast_.New: lambda node, env: new(execute(node.value, env), node.arguments, env),
+    ast_.Variable: lambda node, env: define_variable(node, env),
+    ast_.Function: lambda node, env: define_function(node, env),
+    ast_.Return: lambda node, env: return_,
+    ast_.Class: lambda node, env: define_class(node, env),
 }
 
 
