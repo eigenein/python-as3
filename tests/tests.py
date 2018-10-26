@@ -5,8 +5,8 @@ from typing import Any
 
 from pytest import mark, param, raises
 
-from as3 import execute
-from as3.interpreter import undefined, Environment
+from as3 import execute, Environment
+from as3.runtime import undefined
 
 
 @mark.parametrize('source, expected', [

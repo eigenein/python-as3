@@ -6,7 +6,7 @@ from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, NoRetur
 from as3 import ast_, interpreter
 from as3.enums import TokenType
 from as3.exceptions import ASSyntaxError
-from as3.interpreter import undefined
+from as3.runtime import undefined
 from as3.scanner import Token
 
 

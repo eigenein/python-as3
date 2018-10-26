@@ -16,8 +16,9 @@ from pygments.lexers.actionscript import ActionScript3Lexer
 from pygments.lexers.python import Python3TracebackLexer
 from pygments.styles.native import NativeStyle
 
-from as3 import Environment, execute
+from as3 import execute
 from as3.exceptions import ASRuntimeError, ASSyntaxError
+from as3.runtime import Environment
 
 
 @click.command()

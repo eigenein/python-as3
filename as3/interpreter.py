@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import operator
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, NoReturn, Tuple, Type
 
-from as3 import ast_, stdlib
+from as3 import ast_
 from as3.ast_ import AST
 from as3.enums import TokenType
 from as3.exceptions import ASReturn, ASRuntimeError
+from as3.runtime import Environment, undefined
 
 
 def execute(node: AST, with_environment: Environment) -> Any:
@@ -165,26 +165,6 @@ def resolve_assignment_target(node: AST, with_environment: Environment) -> Tuple
     raise ASRuntimeError(f'{node} cannot be assigned to')
 
 
-@dataclass
-class Environment:
-    """http://dmitrysoshnikov.com/ecmascript/javascript-the-core-2nd-edition/#environment"""
-
-    # TODO: possibly replace with a prototype chain. Looks similar-ish.
-    values: Dict[str, Any] = field(default_factory=dict)
-    parent: Optional[Environment] = None
-
-    def push(self, **values: Any) -> Environment:
-        return Environment(parent=self, values=values)
-
-    def resolve(self, name: str) -> Environment:
-        environment = self
-        while environment is not None:
-            if name in environment.values:
-                return environment
-            environment = environment.parent
-        raise ASRuntimeError(f'could not resolve `{name}`')  # FIXME: ReferenceError
-
-
 # Tables.
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -262,27 +242,3 @@ mocked_imports = re.compile(r'''
         (utils\.(getTimer|setInterval|setTimeout))
     ).*
 ''', re.VERBOSE)
-
-
-# Runtime.
-# ----------------------------------------------------------------------------------------------------------------------
-
-class ASUndefined:
-    def __repr__(self) -> str:
-        return 'undefined'
-
-
-undefined = ASUndefined()
-
-global_environment = Environment(values={
-    'Array': list,
-    'Boolean': bool,
-    'int': int,
-    'Math': stdlib.Math,
-    'Number': float,
-    'Object': dict,
-    'String': str,
-    'trace': print,
-    'uint': int,
-    'Vector': list,
-})
