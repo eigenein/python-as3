@@ -128,7 +128,7 @@ class Parser:
         while self.tokens.skip(TokenType.DOT):
             yield self.expect(TokenType.IDENTIFIER).value
 
-    def parse_import(self) -> Iterable[ast_.AST]:
+    def parse_import(self) -> ast_.AST:
         import_token = self.expect(TokenType.IMPORT)
         args = []
         while True:
@@ -150,13 +150,14 @@ class Parser:
         node.test = self.parse_assignment_expression()
         self.expect(TokenType.PARENTHESIS_CLOSE)
         node.positive = self.parse_statement_or_code_block()
-        node.negative = self.parse_statement_or_code_block() if self.tokens.skip(TokenType.ELSE) else None
+        if self.tokens.skip(TokenType.ELSE):
+            node.negative = self.parse_statement_or_code_block()
         return node
 
     def parse_variable_definition(self) -> ast_.Variable:
         token = self.expect(TokenType.VAR, TokenType.CONST)
         name_token = self.expect(TokenType.IDENTIFIER)
-        value = ast_.Literal(value=self.parse_type_annotation())
+        value: ast_.AST = ast_.Literal(value=self.parse_type_annotation())
         if self.tokens.skip(TokenType.ASSIGN):
             value = self.parse_assignment_expression()
         # noinspection PyArgumentList
@@ -192,7 +193,7 @@ class Parser:
                 self.expect(TokenType.LESS)
                 self.parse_type()
                 self.expect(TokenType.GREATER)
-        return ast_.Literal(value=None)
+        return None
 
     def parse_semicolon(self) -> ast_.Pass:
         # noinspection PyArgumentList
@@ -214,7 +215,7 @@ class Parser:
         self.expect(TokenType.PARENTHESIS_OPEN)
         while not self.tokens.skip(TokenType.PARENTHESIS_CLOSE):
             node.parameter_names.append(self.expect(TokenType.IDENTIFIER).value)
-            default_value = ast_.Literal(value=self.parse_type_annotation())
+            default_value: ast_.AST = ast_.Literal(value=self.parse_type_annotation())
             if self.tokens.skip(TokenType.ASSIGN):
                 default_value = self.parse_assignment_expression()
             node.defaults.append(default_value)
@@ -247,7 +248,7 @@ class Parser:
             self.expect(TokenType.PARENTHESIS_OPEN)
             except_node.variable_name = self.expect(TokenType.IDENTIFIER).value
             self.expect(TokenType.COLON)
-            if not self.tokens.is_type(TokenType.MULTIPLY):
+            if not self.tokens.skip(TokenType.MULTIPLY):
                 except_node.exception_type = self.parse_assignment_expression()
             self.expect(TokenType.PARENTHESIS_CLOSE)
             except_node.body = self.parse_statement_or_code_block()
@@ -364,8 +365,6 @@ class Parser:
         return left
 
     def parse_primary_expression(self) -> ast_.AST:
-        if self.tokens.is_type(TokenType.NEW):
-            return self.parse_new()
         left = self.parse_terminal_or_parenthesized()
         cases = {
             TokenType.BRACKET_OPEN: self.parse_subscript,
@@ -404,6 +403,7 @@ class Parser:
             TokenType.CURLY_BRACKET_OPEN: self.parse_map_literal,
             TokenType.FALSE: lambda: ast_.Literal(token=next(self.tokens), value=False),
             TokenType.IDENTIFIER: lambda: ast_.Name.from_(next(self.tokens)),
+            TokenType.NEW: self.parse_new,
             TokenType.NULL: lambda: ast_.Literal(token=next(self.tokens), value=None),
             TokenType.NUMBER: lambda: ast_.Literal.from_(next(self.tokens)),
             TokenType.PARENTHESIS_OPEN: self.parse_parenthesized_expression,
@@ -591,7 +591,6 @@ def raise_syntax_error(message: str, location: Optional[Token] = None, filename:
     """
     if filename:
         message = f'{filename}: {message}'
-    message = f'syntax error: {message}'
     if location:
         raise ASSyntaxError(f'{message} at line {location.line_number} position {location.position}')
     else:

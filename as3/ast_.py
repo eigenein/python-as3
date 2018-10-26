@@ -169,6 +169,6 @@ class Function(AST):
 class Class(AST):
     name: str = underscore
     base: AST = Literal(value=dict)  # `__proto__`
-    prototype: Dict[name, Any] = field(default_factory=dict)
+    prototype: Dict[str, Any] = field(default_factory=dict)
     fields: List[AST] = field(default_factory=list)
-    constructor: Function = null
+    constructor: Function = Function()

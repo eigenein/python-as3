@@ -8,6 +8,7 @@ from typing import Tuple
 
 import click
 from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments_cls
 from pygments import highlight
@@ -17,7 +18,7 @@ from pygments.lexers.python import Python3TracebackLexer
 from pygments.styles.native import NativeStyle
 
 from as3 import execute
-from as3.exceptions import ASRuntimeError, ASSyntaxError
+from as3.exceptions import ASSyntaxError
 from as3.runtime import Environment
 
 
@@ -37,7 +38,6 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
     environment = Environment()
     for script in scripts:
         path = Path(script)
-        # noinspection PyBroadException
         try:
             execute(path.open('rt', encoding='utf-8').read(), str(path), environment)
         except Exception as e:
@@ -54,25 +54,25 @@ def run_shell(environment: Environment):
     click.echo(f'{click.style("Welcome to as3 shell!", fg="yellow")}')
 
     while True:
-        line = session.prompt('>>> ', lexer=PygmentsLexer(ActionScript3Lexer), style=style)
-        # noinspection PyBroadException
+        line = session.prompt(
+            '>>> ',
+            lexer=PygmentsLexer(ActionScript3Lexer),
+            style=style,
+            auto_suggest=AutoSuggestFromHistory(),
+        )
         try:
             value = execute(line, '<shell>', environment)
         except Exception as e:
             print_exception(e)
         else:
-            if value is not None:
-                print(highlight(repr(value), ActionScript3Lexer(), TerminalFormatter()))
+            print(highlight(repr(value), ActionScript3Lexer(), TerminalFormatter()))
 
 
 def print_exception(e: Exception):
     if isinstance(e, ASSyntaxError):
-        click.echo(f'{click.style("Error:", fg="red", bold=True)} {e}')
-    elif isinstance(e, ASRuntimeError):
-        # TODO: proper traceback.
-        click.echo(f'{click.style("Runtime error:", fg="red", bold=True)} {e}')
+        click.echo(f'{click.style("Syntax error:", fg="red", bold=True)} {e}')
     else:
-        click.echo(f'{click.style("Internal interpreter error:", fg="red", bold=True)}')
+        click.echo(f'{click.style("Runtime error:", fg="red", bold=True)}')
         click.echo(highlight(traceback.format_exc(), Python3TracebackLexer(), TerminalFormatter()))
 
 
