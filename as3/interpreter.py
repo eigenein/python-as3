@@ -181,8 +181,6 @@ def resolve_assignment_target(node: AST, with_environment: dict) -> Tuple[dict, 
         return resolve_property(with_environment, node.identifier)
     if isinstance(node, ast_.Property):
         # FIXME: what if it's not a `dict`? E.g. a function object. Perhaps return it's `__dict__`.
-        # FIXME: what if it's in a prototype? Then, we need to resolve the property like in `get_property`.
-        # FIXME: seems like I need a generic name resolver which is able to work on both objects and environments.
         return execute(node.value, with_environment), execute(node.item, with_environment)
     raise ASReferenceError(f'{node} cannot be assigned to')
 
