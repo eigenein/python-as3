@@ -19,7 +19,6 @@ from pygments.styles.native import NativeStyle
 
 from as3 import execute
 from as3.exceptions import ASSyntaxError
-from as3.runtime import Environment
 
 
 @click.command()
@@ -35,7 +34,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
     """
     Execute ActionScript files.
     """
-    environment = Environment()
+    environment = {}
     for script in scripts:
         path = Path(script)
         try:
@@ -47,7 +46,7 @@ def main(shell: bool, packages_path: str, scripts: Tuple[str]):
         run_shell(environment)
 
 
-def run_shell(environment: Environment):
+def run_shell(environment: dict):
     session = PromptSession()
     style = style_from_pygments_cls(NativeStyle)
 

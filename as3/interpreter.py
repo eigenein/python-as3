@@ -8,12 +8,12 @@ from as3 import ast_
 from as3.ast_ import AST
 from as3.enums import TokenType
 from as3.exceptions import ASReferenceError, ASReturn
-from as3.runtime import Environment, undefined
+from as3.runtime import push_environment, resolve_property, undefined
 
 sentinel = object()
 
 
-def execute(node: AST, with_environment: Environment) -> Any:
+def execute(node: AST, with_environment: dict) -> Any:
     assert isinstance(node, AST)
     try:
         return ast_handlers[type(node)](node, with_environment)
@@ -24,66 +24,66 @@ def execute(node: AST, with_environment: Environment) -> Any:
 # AST handlers.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def execute_block(node: ast_.Block, with_environment: Environment) -> Any:
+def execute_block(node: ast_.Block, with_environment: dict) -> Any:
     return_value = undefined
     for statement in node.body:
         return_value = execute(statement, with_environment)
     return return_value
 
 
-def execute_for(node: ast_.AbstractFor, with_environment: Environment) -> Any:
-    environment = with_environment.push()
+def execute_for(node: ast_.AbstractFor, with_environment: dict) -> Any:
+    environment = push_environment(with_environment)
     return_value = undefined
     iterable = execute(node.value, with_environment)
     if isinstance(node, ast_.ForEach):
         iterable = iterable.values()
     for value in iterable:
-        environment.values[node.variable_name] = value
+        environment[node.variable_name] = value
         return_value = execute(node.body, environment)
     return return_value
 
 
-def return_(node: ast_.Return, with_environment: Environment) -> NoReturn:
+def return_(node: ast_.Return, with_environment: dict) -> NoReturn:
     raise ASReturn(execute(node.value, with_environment))
 
 
-def new(with_constructor: Any, with_arguments: List[Any], with_environment: Environment) -> Any:
+def new(with_constructor: Any, with_arguments: List[Any], with_environment: dict) -> Any:
     try:
         native_constructor: Callable = native_constructors[with_constructor]
     except KeyError:
         """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
-        prototype = get_property(with_constructor, 'prototype')
-        this = {'__proto__': prototype, 'constructor': with_constructor}
+        where, name = resolve_property(with_constructor, 'prototype')
+        this = {'__proto__': where[name], 'constructor': with_constructor}
         return call(with_constructor, with_arguments, with_environment) or this
     else:
         return call(native_constructor, with_arguments, with_environment)
 
 
-def call(value: Any, with_arguments: List[AST], with_environment: Environment) -> Any:
+def call(value: Any, with_arguments: List[AST], with_environment: dict) -> Any:
     return value(*(execute(argument, with_environment) for argument in with_arguments))
 
 
-def define_variable(with_node: ast_.Variable, in_environment: Environment) -> Any:
+def define_variable(with_node: ast_.Variable, in_environment: dict) -> Any:
     value = execute(with_node.value, in_environment)
-    in_environment.values[with_node.name] = value
+    in_environment[with_node.name] = value
     return value
 
 
-def define_function(with_node: ast_.Function, in_environment: Environment) -> Callable:
+def define_function(with_node: ast_.Function, in_environment: dict) -> Callable:
     def function_(*args: Any, **kwargs: Any) -> Any:
-        environment = in_environment.push()
+        environment = push_environment(in_environment)
         # Explicitly passed values.
         for argument, name in zip(args, with_node.parameter_names):
-            environment.values[name] = argument
-        environment.values.update(kwargs)
+            environment[name] = argument
+        environment.update(kwargs)
         # Defaults.
         for name, default_value in zip(with_node.parameter_names, with_node.defaults):
-            if name not in environment.values:
-                environment.values[name] = execute(default_value, in_environment)
+            if name not in environment:
+                environment[name] = execute(default_value, in_environment)
         # Fill the rest with `undefined`.
         for name in with_node.parameter_names:
-            if name not in environment.values:
-                environment.values[name] = undefined
+            if name not in environment:
+                environment[name] = undefined
         try:
             execute(with_node.body, environment)
         except ASReturn as e:
@@ -93,77 +93,79 @@ def define_function(with_node: ast_.Function, in_environment: Environment) -> Ca
     function_.__name__ = function_.__qualname__ = with_node.name
     function_.__proto__ = None  # type: ignore
     function_.prototype = {}  # type: ignore
-    in_environment.values[with_node.name] = function_
+    in_environment[with_node.name] = function_
     return function_
 
 
-def define_class(with_node: ast_.Class, with_environment: Environment) -> Callable:
+def define_class(with_node: ast_.Class, with_environment: dict) -> Callable:
     return define_function(with_node.constructor, with_environment)
 
 
-def execute_assignment(left: AST, right: Any, with_environment: Environment) -> Any:
+def execute_assignment(left: AST, right: Any, with_environment: dict) -> Any:
     value, name = resolve_assignment_target(left, with_environment)
     value[name] = right
     return right
 
 
-# Property manipulation.
+# Names.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def get_property(of_value: Any, of_name: str, default: Any = undefined) -> Any:
-    while of_value is not None:
-        value = get_own_property(of_value, of_name, sentinel)
-        if value is not sentinel:
-            return value
-        of_value = get_own_property(of_value, '__proto__', None)
-    return default
+def get_name(with_node: ast_.Name, with_environment: dict) -> Any:
+    where, name = resolve_property(with_environment, with_node.identifier)
+    return where[name]
 
 
-def get_own_property(of_value: Any, of_name: str, default: Any = undefined) -> Any:
+def get_property(of_value: Any, of_name: str) -> Any:
     try:
-        return of_value[of_name]
-    except (KeyError, TypeError):
-        pass
+        where, name = resolve_property(of_value, of_name)
+    except ASReferenceError:
+        return undefined
+    else:
+        return where[name]
+
+
+def has_property(value: Any, of_name: str) -> bool:
     try:
-        return getattr(of_value, of_name)
-    except (AttributeError, TypeError):
-        pass
-    return default
+        resolve_property(value, of_name)
+    except ASReferenceError:
+        return False
+    else:
+        return True
 
 
 # Operation wrappers.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def binary_operation(operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, Environment], Any]:
-    def execute_(left: AST, right: Any, with_environment: Environment) -> Any:
+def binary_operation(operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, dict], Any]:
+    def execute_(left: AST, right: Any, with_environment: dict) -> Any:
         return operation(execute(left, with_environment), right)
     return execute_
 
 
-def binary_augmented_assignment(with_operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, Environment], Any]:
-    def execute_(left: AST, right: Any, with_environment: Environment) -> Any:
+def binary_augmented_assignment(with_operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, dict], Any]:
+    def execute_(left: AST, right: Any, with_environment: dict) -> Any:
         value, name = resolve_assignment_target(left, with_environment)
         value[name] = with_operation(value[name], right)
         return value[name]
     return execute_
 
 
-def unary_operation(operation: Callable[[Any], Any]) -> Callable[[AST, Environment], Any]:
-    def execute_(on_argument: AST, with_environment: Environment) -> Any:
+def unary_operation(operation: Callable[[Any], Any]) -> Callable[[AST, dict], Any]:
+    def execute_(on_argument: AST, with_environment: dict) -> Any:
         return operation(execute(on_argument, with_environment))
     return execute_
 
 
-def unary_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, Environment], Any]:
-    def execute_(on_argument: AST, with_environment: Environment) -> Any:
+def unary_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, dict], Any]:
+    def execute_(on_argument: AST, with_environment: dict) -> Any:
         value, name = resolve_assignment_target(on_argument, with_environment)
         value[name] = with_operation(value[name])
         return value[name]
     return execute_
 
 
-def postfix_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, Environment], Any]:
-    def execute_(on_argument: AST, with_environment: Environment) -> Any:
+def postfix_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, dict], Any]:
+    def execute_(on_argument: AST, with_environment: dict) -> Any:
         value, name = resolve_assignment_target(on_argument, with_environment)
         old_value = value[name]
         value[name] = with_operation(value[name])
@@ -174,9 +176,9 @@ def postfix_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callab
 # Name resolution.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def resolve_assignment_target(node: AST, with_environment: Environment) -> Tuple[Dict[str, Any], str]:
+def resolve_assignment_target(node: AST, with_environment: dict) -> Tuple[dict, str]:
     if isinstance(node, ast_.Name):
-        return with_environment.resolve(node.identifier).values, node.identifier
+        return resolve_property(with_environment, node.identifier)
     if isinstance(node, ast_.Property):
         # FIXME: what if it's not a `dict`? E.g. a function object. Perhaps return it's `__dict__`.
         # FIXME: what if it's in a prototype? Then, we need to resolve the property like in `get_property`.
@@ -188,7 +190,7 @@ def resolve_assignment_target(node: AST, with_environment: Environment) -> Tuple
 # Tables.
 # ----------------------------------------------------------------------------------------------------------------------
 
-unary_operations: Dict[TokenType, Callable[[AST, Environment], Any]] = {
+unary_operations: Dict[TokenType, Callable[[AST, dict], Any]] = {
     TokenType.DECREMENT: unary_augmented_assignment(lambda value: value - 1),
     TokenType.INCREMENT: unary_augmented_assignment(lambda value: value + 1),
     TokenType.LOGICAL_NOT: unary_operation(operator.not_),
@@ -196,19 +198,19 @@ unary_operations: Dict[TokenType, Callable[[AST, Environment], Any]] = {
     TokenType.PLUS: unary_operation(operator.pos),
 }
 
-postfix_operations: Dict[TokenType, Callable[[AST, Environment], Any]] = {
+postfix_operations: Dict[TokenType, Callable[[AST, dict], Any]] = {
     TokenType.DECREMENT: postfix_augmented_assignment(lambda value: value - 1),
     TokenType.INCREMENT: postfix_augmented_assignment(lambda value: value + 1),
 }
 
-binary_operations: Dict[TokenType, Callable[[AST, AST, Environment], Any]] = {
+binary_operations: Dict[TokenType, Callable[[AST, AST, dict], Any]] = {
     TokenType.ASSIGN: execute_assignment,
     TokenType.AS: binary_operation(lambda left, right: left if isinstance(left, right) else None),
     TokenType.ASSIGN_ADD: binary_augmented_assignment(operator.add),
     TokenType.BITWISE_XOR: binary_operation(operator.xor),
     TokenType.DIVIDE: binary_operation(operator.truediv),
     TokenType.EQUALS: binary_operation(lambda left, right: left == right and (not isinstance(left, dict) or left is right)),
-    TokenType.IN: binary_operation(lambda left, right: get_property(right, left, sentinel) is not sentinel),
+    TokenType.IN: binary_operation(lambda left, right: has_property(right, left)),
     TokenType.IS: binary_operation(lambda left, right: isinstance(left, right)),  # FIXME: proper `isinstance`.
     TokenType.LOGICAL_AND: binary_operation(lambda left, right: bool(left and right)),
     TokenType.LOGICAL_OR: binary_operation(lambda left, right: bool(left or right)),
@@ -227,7 +229,7 @@ native_constructors: Dict[Type, Callable] = {
     str: str,
 }
 
-ast_handlers: Dict[Type[AST], Callable[[AST, Environment], Any]] = {
+ast_handlers: Dict[Type[AST], Callable[[AST, dict], Any]] = {
     ast_.BinaryOperation: lambda node, env: binary_operations[node.token.type_](node.left, execute(node.right, env), env),
     ast_.Block: execute_block,
     ast_.Call: lambda node, env: call(execute(node.value, env), node.arguments, env),
@@ -239,7 +241,7 @@ ast_handlers: Dict[Type[AST], Callable[[AST, Environment], Any]] = {
     ast_.If: lambda node, env: execute(node.positive, env) if execute(node.test, env) else execute(node.negative, env),
     ast_.Literal: lambda node, env: node.value,
     ast_.MapLiteral: lambda node, env: {execute(key, env): execute(value, env) for key, value in node.value},
-    ast_.Name: lambda node, env: get_own_property(env.resolve(node.identifier).values, node.identifier),
+    ast_.Name: get_name,
     ast_.New: lambda node, env: new(execute(node.value, env), node.arguments, env),
     ast_.PostfixOperation: lambda node, env: postfix_operations[node.token.type_](node.value, env),
     ast_.Property: lambda node, env: get_property(execute(node.value, env), execute(node.item, env)),

@@ -1,34 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Any, Tuple
 
 from as3 import stdlib
 from as3.exceptions import ASReferenceError
-
-
-# TODO: still looks similar to a property resolution where parent is `__proto__`.
-# TODO: perhaps make name resolution generic.
-@dataclass
-class Environment:
-    """http://dmitrysoshnikov.com/ecmascript/javascript-the-core-2nd-edition/#environment"""
-
-    values: Dict[str, Any] = field(default_factory=dict)
-    parent: Optional[Environment] = None
-
-    def __post_init__(self):
-        self.values['__environment__'] = self
-
-    def push(self, **values: Any) -> Environment:
-        return Environment(parent=self, values=values)
-
-    def resolve(self, name: str) -> Environment:
-        environment: Optional[Environment] = self
-        while environment is not None:
-            if name in environment.values:
-                return environment
-            environment = environment.parent
-        raise ASReferenceError(f'could not resolve `{name}`')
 
 
 class ASUndefined:
@@ -36,9 +11,45 @@ class ASUndefined:
         return 'undefined'
 
 
+def resolve_property(where: Any, name: str) -> Tuple[dict, str]:
+    where_, name_ = where, name
+    while where is not None:
+        try:
+            # First try find it in own properties.
+            return resolve_own_property(where, name_)
+        except ASReferenceError:
+            try:
+                container, name = resolve_own_property(where, '__proto__')
+            except ASReferenceError:
+                break  # no prototype
+            else:
+                where = container[name]  # go to the prototype
+    raise ASReferenceError(f'property `{name_!r}` is not found in the prototype chain of `{where_!r}`')
+
+
+def resolve_own_property(where: Any, name: str) -> Tuple[dict, str]:
+    try:
+        where[name]
+    except (TypeError, KeyError):
+        pass
+    else:
+        return where, name
+    try:
+        getattr(where, name)
+    except AttributeError:
+        pass
+    else:
+        return where.__dict__, name
+    raise ASReferenceError(f'property `{name!r}` is not found in `{where!r}`')
+
+
+def push_environment(environment: dict) -> dict:
+    return {'__proto__': environment}
+
+
 undefined = ASUndefined()
 
-global_environment = Environment(values={
+global_environment = {
     'Array': list,
     'Boolean': bool,
     'Exception': Exception,
@@ -51,4 +62,4 @@ global_environment = Environment(values={
     'trace': print,
     'uint': int,
     'Vector': list,
-})
+}

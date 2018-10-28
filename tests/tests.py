@@ -7,7 +7,7 @@ from pytest import mark, param, raises
 
 from as3 import execute
 from as3.exceptions import ASReferenceError
-from as3.runtime import Environment, undefined
+from as3.runtime import undefined
 
 
 @mark.parametrize('source, expected', [
@@ -50,11 +50,12 @@ def test_math(source: str, expected: Any):
 
 
 @mark.parametrize('source, expected', [
+    ('foo.missing', undefined),
     ('foo.baz + foo.baz * foo.baz', 6),
     ('(foo.baz + foo.baz) * foo.baz', 8),
 ])
 def test_get_property(source: str, expected: Any):
-    assert execute(source, environment=Environment({'foo': {'bar': 42, 'baz': 2}})) == expected
+    assert execute(source, environment={'foo': {'baz': 2}}) == expected
 
 
 @mark.parametrize('source, expected', [
@@ -62,10 +63,10 @@ def test_get_property(source: str, expected: Any):
     ('baz()', 42),
 ])
 def test_call_function(source: str, expected: Any):
-    assert execute(source, environment=Environment({
+    assert execute(source, environment={
         'bar': lambda a, b: a + b,
         'baz': lambda: 42,
-    })) == expected
+    }) == expected
 
 
 @mark.parametrize('source, expected', [
@@ -198,7 +199,7 @@ def test_augmented_assignment(source: str, expected: Any):
     ('for (var i in {2: 1, 3: 2, 4: 3}) foo += i; foo', 9),
 ])
 def test_for(source: str, expected: Any):
-    environment = Environment({'foo': 0})
+    environment = {'foo': 0}
     assert execute(source, environment=environment) == expected
 
 
@@ -235,7 +236,7 @@ def test_function_return(source: str, expected: Any):
     ('var map: Object = new Object(); map.name1 = "Lee"; map', {'name1': 'Lee'}),
 ])
 def test_assign_property(source: str, expected: Any):
-    assert execute(source, environment=Environment({'dict_': {}})) == expected
+    assert execute(source, environment={'dict_': {}}) == expected
 
 
 @mark.parametrize('source', [
@@ -308,4 +309,4 @@ def test_reference_error(source: str):
 def test_execute_deprecated(source: str, expected: Any) -> None:
     class FakeException(Exception):
         pass
-    assert execute(source, '<ast>', Environment(values={'FakeException': FakeException})) == expected
+    assert execute(source, '<ast>', {'FakeException': FakeException}) == expected
