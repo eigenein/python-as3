@@ -17,7 +17,7 @@ def test_empty():
     assert list(scan('')) == []
 
 
-@mark.parametrize('input_, expected', [
+@mark.parametrize('source, expected', [
     # Positive cases.
     make_test_params('just_some_identifier', TokenType.IDENTIFIER),
     make_test_params('package', TokenType.PACKAGE),
@@ -73,13 +73,13 @@ def test_empty():
     # Expected failures.
     make_test_params('>>>', TokenType.UNSIGNED_RIGHT_SHIFT, True),
 ])
-def test_single_token(input_: str, expected: Token):
-    tokens = list(scan(input_))
+def test_single_token(source: str, expected: Token):
+    tokens = list(scan(source))
     assert len(tokens) == 1
     assert tokens[0] == expected
 
 
-@mark.parametrize('input_, expected', [
+@mark.parametrize('source, expected', [
     (
         'a = 42;',
         [
@@ -105,8 +105,8 @@ def test_single_token(input_: str, expected: Token):
         ],
     ),
 ])
-def test_multiple_tokens(input_: str, expected: List[Token]):
-    assert list(scan(input_)) == expected
+def test_multiple_tokens(source: str, expected: List[Token]):
+    assert list(scan(source)) == expected
 
 
 def test_scanner_get_elemental_penetration():

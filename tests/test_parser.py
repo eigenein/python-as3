@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pytest import mark, raises
 
-from as3 import Parser, scan
+from as3 import parse
 from as3.exceptions import ASSyntaxError
 
 
@@ -12,6 +12,6 @@ from as3.exceptions import ASSyntaxError
     'abs((',
     'math..abs',
 ])
-def test_parse_expression_syntax_error(source: str):
+def test_parse_syntax_error(source: str):
     with raises(ASSyntaxError):
-        Parser(scan(source), '<ast>').parse_expression()
+        parse(source)
