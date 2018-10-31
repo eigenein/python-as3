@@ -6,9 +6,6 @@ from pathlib import Path
 
 import requests
 
-from as3 import import_qualified_name
-from as3.stdlib import ASObject
-
 packages_path = Path('tests/scripts')
 import_cache = {}
 

@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import math
 import operator
 import re
-from typing import Any, Callable, Dict, List, NoReturn, Type, TypeVar
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, NoReturn, Type
 
 from as3 import ast_
 from as3.ast_ import AST
 from as3.enums import TokenType
 from as3.exceptions import ASReferenceError, ASReturn
-from as3.runtime import ResolvedTarget, push_environment, resolve_property, undefined
-
-T = TypeVar('T')
-
-sentinel = object()
 
 
 def execute(node: AST, with_environment: dict) -> Any:
@@ -51,7 +48,7 @@ def return_(node: ast_.Return, with_environment: dict) -> NoReturn:
 
 def new(with_constructor: Any, with_arguments: List[Any], with_environment: dict) -> Any:
     try:
-        native_constructor: Callable = native_constructors[with_constructor]
+        native_constructor: dict = native_constructors[with_constructor]
     except KeyError:
         """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
         where, name = resolve_property(with_constructor, 'prototype')
@@ -61,8 +58,9 @@ def new(with_constructor: Any, with_arguments: List[Any], with_environment: dict
         return call(native_constructor, with_arguments, with_environment)
 
 
-def call(value: Any, with_arguments: List[AST], with_environment: dict) -> Any:
-    return value(*(execute(argument, with_environment) for argument in with_arguments))
+def call(value: dict, with_arguments: List[AST], with_environment: dict) -> Any:
+    return resolve_property(value, '__call__').value(
+        *(execute(argument, with_environment) for argument in with_arguments))
 
 
 def define_variable(with_node: ast_.Variable, in_environment: dict) -> Any:
@@ -71,7 +69,7 @@ def define_variable(with_node: ast_.Variable, in_environment: dict) -> Any:
     return value
 
 
-def define_function(with_node: ast_.Function, in_environment: dict) -> Callable:
+def define_function(with_node: ast_.Function, in_environment: dict) -> dict:
     def function_(*args: Any, **kwargs: Any) -> Any:
         environment = push_environment(in_environment)
         # Explicitly passed values.
@@ -93,13 +91,16 @@ def define_function(with_node: ast_.Function, in_environment: dict) -> Callable:
         else:
             return with_node.default_return_value
     function_.__name__ = function_.__qualname__ = with_node.name
-    function_.__proto__ = None  # type: ignore
-    function_.prototype = {}  # type: ignore
-    in_environment[with_node.name] = function_
-    return function_
+    function_object = make_function_object(function_)
+    in_environment[with_node.name] = function_object
+    return function_object
 
 
-def define_class(with_node: ast_.Class, with_environment: dict) -> Callable:
+def make_function_object(callable_: Callable) -> dict:
+    return {'__call__': callable_, '__proto__': None, 'prototype': {}}
+
+
+def define_class(with_node: ast_.Class, with_environment: dict) -> dict:
     return define_function(with_node.constructor, with_environment)
 
 
@@ -110,6 +111,23 @@ def execute_assignment(left: AST, right: Any, with_environment: dict) -> Any:
 
 # Names.
 # ----------------------------------------------------------------------------------------------------------------------
+
+@dataclass
+class ResolvedTarget:
+    where: dict
+    name: str
+
+    @property
+    def value(self) -> Any:
+        try:
+            return self.where[self.name]
+        except KeyError:
+            raise RuntimeError(f'attempted to get property `{self.name}` of `{self.where}`')
+
+    @value.setter
+    def value(self, value: Any):
+        self.where[self.name] = value
+
 
 def get_name(with_node: ast_.Name, with_environment: dict) -> Any:
     return resolve_property(with_environment, with_node.identifier).value
@@ -131,6 +149,42 @@ def has_property(value: Any, of_name: str) -> bool:
         return False
     else:
         return True
+
+
+def resolve_property(where: Any, name: str) -> ResolvedTarget:
+    where_, name_ = where, name
+    while where is not None:
+        try:
+            # First try find it in own properties.
+            return resolve_own_property(where, name_)
+        except ASReferenceError:
+            try:
+                resolved_proto = resolve_own_property(where, '__proto__')
+            except ASReferenceError:
+                break  # no prototype
+            else:
+                where = resolved_proto.value  # go to the prototype
+    raise ASReferenceError(f'property `{name_!r}` is not found in the prototype chain of `{where_!r}`')
+
+
+def resolve_own_property(where: Any, name: str) -> ResolvedTarget:
+    try:
+        where[name]
+    except (TypeError, KeyError):
+        pass
+    else:
+        return ResolvedTarget(where=where, name=name)
+    try:
+        where.__dict__[name]  # TODO: handle native types
+    except (AttributeError, KeyError):
+        pass
+    else:
+        return ResolvedTarget(where=where.__dict__, name=name)
+    raise ASReferenceError(f'property `{name!r}` is not found in `{where!r}`')
+
+
+def push_environment(environment: dict) -> dict:
+    return {'__proto__': environment}
 
 
 # Operation wrappers.
@@ -221,12 +275,13 @@ binary_operations: Dict[TokenType, Callable[[AST, AST, dict], Any]] = {
     TokenType.PLUS: binary_operation(operator.add),
 }
 
+# TODO: should be generalized to native properties.
 native_constructors: Dict[Type, Callable] = {
-    dict: dict,
-    float: float,
-    int: int,
-    list: lambda *args: list(args),
-    str: str,
+    dict: {'__call__': dict},
+    float: {'__call__': float},
+    int: {'__call__': int},
+    list: {'__call__': lambda *args: list(args)},
+    str: {'__call__': str},
 }
 
 ast_handlers: Dict[Type[AST], Callable[[AST, dict], Any]] = {
@@ -254,6 +309,15 @@ ast_handlers: Dict[Type[AST], Callable[[AST, dict], Any]] = {
 # Constants.
 # ----------------------------------------------------------------------------------------------------------------------
 
+class ASUndefined:
+    def __repr__(self) -> str:
+        return 'undefined'
+
+
+sentinel = object()
+
+undefined = ASUndefined()
+
 mocked_imports = re.compile(r'''
     flash\.(
         display\. |
@@ -263,3 +327,21 @@ mocked_imports = re.compile(r'''
         (utils\.(getTimer|setInterval|setTimeout))
     ).*
 ''', re.VERBOSE)
+
+global_environment = {
+    'Array': list,
+    'Boolean': bool,
+    'Exception': Exception,
+    'int': int,
+    'Math': {
+        'abs': make_function_object(abs),
+        'acos': make_function_object(math.acos),
+    },
+    'Number': float,
+    'Object': dict,
+    'ReferenceError': ASReferenceError,
+    'String': str,
+    'trace': print,
+    'uint': int,
+    'Vector': list,
+}

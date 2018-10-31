@@ -7,7 +7,7 @@ from pytest import mark, param, raises
 
 from as3 import execute
 from as3.exceptions import ASReferenceError
-from as3.runtime import undefined
+from as3.interpreter import make_function_object, undefined
 
 
 @mark.parametrize('source, expected', [
@@ -43,7 +43,7 @@ def test_new_string():
 
 @mark.parametrize('source, expected', [
     ('Math.abs(-2)', 2),
-    ('Math.acos', math.acos),
+    ('Math.acos', make_function_object(math.acos)),
 ])
 def test_math(source: str, expected: Any):
     assert execute(source) == expected
@@ -64,8 +64,8 @@ def test_get_property(source: str, expected: Any):
 ])
 def test_call_function(source: str, expected: Any):
     assert execute(source, environment={
-        'bar': lambda a, b: a + b,
-        'baz': lambda: 42,
+        'bar': make_function_object(lambda a, b: a + b),
+        'baz': make_function_object(lambda: 42),
     }) == expected
 
 
