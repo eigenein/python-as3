@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import operator
 import re
-from typing import Any, Callable, Dict, List, NoReturn, Tuple, Type
+from typing import Any, Callable, Dict, List, NoReturn, Type, TypeVar
 
 from as3 import ast_
 from as3.ast_ import AST
 from as3.enums import TokenType
 from as3.exceptions import ASReferenceError, ASReturn
-from as3.runtime import push_environment, resolve_property, undefined
+from as3.runtime import ResolvedTarget, push_environment, resolve_property, undefined
+
+T = TypeVar('T')
 
 sentinel = object()
 
@@ -102,8 +104,7 @@ def define_class(with_node: ast_.Class, with_environment: dict) -> Callable:
 
 
 def execute_assignment(left: AST, right: Any, with_environment: dict) -> Any:
-    value, name = resolve_assignment_target(left, with_environment)
-    value[name] = right
+    resolve_assignment_target(left, with_environment).value = right
     return right
 
 
@@ -111,17 +112,16 @@ def execute_assignment(left: AST, right: Any, with_environment: dict) -> Any:
 # ----------------------------------------------------------------------------------------------------------------------
 
 def get_name(with_node: ast_.Name, with_environment: dict) -> Any:
-    where, name = resolve_property(with_environment, with_node.identifier)
-    return where[name]
+    return resolve_property(with_environment, with_node.identifier).value
 
 
 def get_property(of_value: Any, of_name: str) -> Any:
     try:
-        where, name = resolve_property(of_value, of_name)
+        resolved_target = resolve_property(of_value, of_name)
     except ASReferenceError:
         return undefined
     else:
-        return where[name]
+        return resolved_target.value
 
 
 def has_property(value: Any, of_name: str) -> bool:
@@ -144,9 +144,9 @@ def binary_operation(operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST
 
 def binary_augmented_assignment(with_operation: Callable[[Any, Any], Any]) -> Callable[[AST, AST, dict], Any]:
     def execute_(left: AST, right: Any, with_environment: dict) -> Any:
-        value, name = resolve_assignment_target(left, with_environment)
-        value[name] = with_operation(value[name], right)
-        return value[name]
+        resolved_target = resolve_assignment_target(left, with_environment)
+        resolved_target.value = with_operation(resolved_target.value, right)
+        return resolved_target.value
     return execute_
 
 
@@ -158,30 +158,32 @@ def unary_operation(operation: Callable[[Any], Any]) -> Callable[[AST, dict], An
 
 def unary_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, dict], Any]:
     def execute_(on_argument: AST, with_environment: dict) -> Any:
-        value, name = resolve_assignment_target(on_argument, with_environment)
-        value[name] = with_operation(value[name])
-        return value[name]
+        resolved_target = resolve_assignment_target(on_argument, with_environment)
+        resolved_target.value = with_operation(resolved_target.value)
+        return resolved_target.value
     return execute_
 
 
 def postfix_augmented_assignment(with_operation: Callable[[Any], Any]) -> Callable[[AST, dict], Any]:
     def execute_(on_argument: AST, with_environment: dict) -> Any:
-        value, name = resolve_assignment_target(on_argument, with_environment)
-        old_value = value[name]
-        value[name] = with_operation(value[name])
+        resolved_target = resolve_assignment_target(on_argument, with_environment)
+        old_value = resolved_target.value
+        resolved_target.value = with_operation(old_value)
         return old_value
     return execute_
 
 
-# Name resolution.
+# Assignment.
 # ----------------------------------------------------------------------------------------------------------------------
 
-def resolve_assignment_target(node: AST, with_environment: dict) -> Tuple[dict, str]:
+def resolve_assignment_target(node: AST, with_environment: dict) -> ResolvedTarget:
     if isinstance(node, ast_.Name):
         return resolve_property(with_environment, node.identifier)
     if isinstance(node, ast_.Property):
-        # FIXME: what if it's not a `dict`? E.g. a function object. Perhaps return it's `__dict__`.
-        return execute(node.value, with_environment), execute(node.item, with_environment)
+        return ResolvedTarget(
+            where=execute(node.value, with_environment),
+            name=execute(node.item, with_environment),
+        )
     raise ASReferenceError(f'{node} cannot be assigned to')
 
 

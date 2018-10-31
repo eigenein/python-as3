@@ -1,9 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 from as3 import stdlib
 from as3.exceptions import ASReferenceError
+
+
+@dataclass
+class ResolvedTarget:
+    where: dict
+    name: str
+
+    @property
+    def value(self) -> Any:
+        return self.where[self.name]
+
+    @value.setter
+    def value(self, value: Any):
+        self.where[self.name] = value
 
 
 class ASUndefined:
@@ -11,7 +26,7 @@ class ASUndefined:
         return 'undefined'
 
 
-def resolve_property(where: Any, name: str) -> Tuple[dict, str]:
+def resolve_property(where: Any, name: str) -> ResolvedTarget:
     where_, name_ = where, name
     while where is not None:
         try:
@@ -19,27 +34,27 @@ def resolve_property(where: Any, name: str) -> Tuple[dict, str]:
             return resolve_own_property(where, name_)
         except ASReferenceError:
             try:
-                container, name = resolve_own_property(where, '__proto__')
+                resolved_proto = resolve_own_property(where, '__proto__')
             except ASReferenceError:
                 break  # no prototype
             else:
-                where = container[name]  # go to the prototype
+                where = resolved_proto.value  # go to the prototype
     raise ASReferenceError(f'property `{name_!r}` is not found in the prototype chain of `{where_!r}`')
 
 
-def resolve_own_property(where: Any, name: str) -> Tuple[dict, str]:
+def resolve_own_property(where: Any, name: str) -> ResolvedTarget:
     try:
         where[name]
     except (TypeError, KeyError):
         pass
     else:
-        return where, name
+        return ResolvedTarget(where=where, name=name)
     try:
         getattr(where, name)
     except AttributeError:
         pass
     else:
-        return where.__dict__, name
+        return ResolvedTarget(where=where.__dict__, name=name)
     raise ASReferenceError(f'property `{name!r}` is not found in `{where!r}`')
 
 
