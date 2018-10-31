@@ -14,7 +14,8 @@ def parse(source: str, filename: str = filename_) -> ast_.Block:
 
 
 def execute(source: str, filename: str = filename_, environment: Optional[dict] = None) -> Any:
-    environment = environment or {}
+    if environment is None:
+        environment = {}
     environment['__proto__'] = interpreter.global_environment
     return interpreter.execute(parse(source, filename), environment)
 

@@ -40,7 +40,7 @@ class Parser:
         # Definition.
         self.parse_modifiers()
         # noinspection PyArgumentList
-        node = ast_.Class(token=self.expect(TokenType.CLASS, TokenType.INTERFACE))  # treat interface as a class with empty methods
+        node = ast_.Class(token=self.expect(TokenType.CLASS, TokenType.INTERFACE))
         node.name = self.expect(TokenType.IDENTIFIER).value
         if self.tokens.skip(TokenType.EXTENDS):
             node.base = self.parse_primary_expression()
@@ -56,14 +56,13 @@ class Parser:
             statement: ast_.AST = self.switch({
                 TokenType.CONST: self.parse_variable_definition,
                 TokenType.FUNCTION: self.parse_function_definition,
+                TokenType.SEMICOLON: self.parse_semicolon,
                 TokenType.VAR: self.parse_variable_definition,
             })
             if isinstance(statement, ast_.Function) and statement.name == node.name:
                 node.constructor = statement
-
-            # Skip all semicolons.
-            while self.tokens.skip(TokenType.SEMICOLON):
-                pass
+            elif isinstance(statement, ast_.Variable):
+                node.variables.append(statement)
 
         return node
 
@@ -101,10 +100,6 @@ class Parser:
             TokenType.VAR: self.parse_variable_definition,
             TokenType.WHILE: self.parse_while,
         }, else_=self.parse_expression_statement)
-
-        # Skip all semicolons.
-        while self.tokens.skip(TokenType.SEMICOLON):
-            pass
 
         return node
 
@@ -195,9 +190,9 @@ class Parser:
                 self.expect(TokenType.GREATER)
         return None
 
-    def parse_semicolon(self) -> ast_.Pass:
+    def parse_semicolon(self) -> ast_.Block:
         # noinspection PyArgumentList
-        return ast_.Pass(token=self.expect(TokenType.SEMICOLON))
+        return ast_.Block(token=self.expect(TokenType.SEMICOLON))
 
     def parse_return(self) -> ast_.Return:
         # noinspection PyArgumentList

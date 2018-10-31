@@ -247,9 +247,28 @@ def test_reference_error(source: str):
         execute(source)
 
 
+def test_simple_class():
+    object_ = execute('class X { }; new X()')
+    assert isinstance(object_, dict)
+    assert object_['__proto__'] == {}
+    assert object_['__proto__'] is object_['constructor']['prototype']
+
+
+def test_class_constructor():
+    assert execute('var expected; class X { function X() { expected = 42 } }; new X(); expected') == 42
+
+
+def test_get_missing_class_field():
+    assert execute('class X { }; new X().a') is undefined
+
+
+@mark.xfail
+def test_initialized_class_field():
+    assert execute('class X { var a = 42 }; new X().a') == 42
+
+
 # FIXME: these constructs should be implemented and grouped into tests.
 @mark.parametrize('source, expected', [
-    # ('class X { }; new X()', {}),
     # ('class X { var a = 1; function X() { a = 42; } } var expected = new X().a;', {'expected': 42}),
     # ('class X { var bar; function X(foo: int) { bar = foo } }; var a = new X(42).bar', {'a': 42}),
     # ('class X { var a = 43 } class Y extends X { var a = 42 } var expected = new Y().a', {'expected': 42}),

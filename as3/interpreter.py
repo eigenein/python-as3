@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, NoReturn, Type
 
 from as3 import ast_
-from as3.ast_ import AST
+from as3.ast_ import AST, Function
 from as3.enums import TokenType
 from as3.exceptions import ASReferenceError, ASReturn
 
@@ -47,20 +47,22 @@ def return_(node: ast_.Return, with_environment: dict) -> NoReturn:
 
 
 def new(with_constructor: Any, with_arguments: List[Any], with_environment: dict) -> Any:
-    try:
-        native_constructor: dict = native_constructors[with_constructor]
-    except KeyError:
-        """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
-        where, name = resolve_property(with_constructor, 'prototype')
-        this = {'__proto__': where[name], 'constructor': with_constructor}
-        return call(with_constructor, with_arguments, with_environment) or this
-    else:
-        return call(native_constructor, with_arguments, with_environment)
+    """https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new#Description"""
+    this = {
+        '__proto__': resolve_own_property(with_constructor, 'prototype').value,
+        'constructor': with_constructor,
+    }
+    # TODO: need to initialize fields somehow.
+    return_value = call(with_constructor, with_arguments, push_environment(with_environment, this=this))
+    return this if return_value is None else return_value
 
 
 def call(value: dict, with_arguments: List[AST], with_environment: dict) -> Any:
-    return resolve_property(value, '__call__').value(
-        *(execute(argument, with_environment) for argument in with_arguments))
+    # TODO: the main question here is how to resolve names in methods.
+    return resolve_own_property(value, '__call__').value(*(
+        execute(argument, with_environment)
+        for argument in with_arguments
+    ))
 
 
 def define_variable(with_node: ast_.Variable, in_environment: dict) -> Any:
@@ -100,8 +102,10 @@ def make_function_object(callable_: Callable) -> dict:
     return {'__call__': callable_, '__proto__': None, 'prototype': {}}
 
 
-def define_class(with_node: ast_.Class, with_environment: dict) -> dict:
-    return define_function(with_node.constructor, with_environment)
+def define_class(with_node: ast_.Class, in_environment: dict) -> dict:
+    class_object = define_function(with_node.constructor or Function(), in_environment)
+    in_environment[with_node.name] = class_object
+    return class_object
 
 
 def execute_assignment(left: AST, right: Any, with_environment: dict) -> Any:
@@ -169,22 +173,22 @@ def resolve_property(where: Any, name: str) -> ResolvedTarget:
 
 def resolve_own_property(where: Any, name: str) -> ResolvedTarget:
     try:
+        own_properties[where][name]
+    except (TypeError, KeyError):
+        pass
+    else:
+        return ResolvedTarget(where=own_properties[where], name=name)
+    try:
         where[name]
     except (TypeError, KeyError):
         pass
     else:
         return ResolvedTarget(where=where, name=name)
-    try:
-        where.__dict__[name]  # TODO: handle native types
-    except (AttributeError, KeyError):
-        pass
-    else:
-        return ResolvedTarget(where=where.__dict__, name=name)
     raise ASReferenceError(f'property `{name!r}` is not found in `{where!r}`')
 
 
-def push_environment(environment: dict) -> dict:
-    return {'__proto__': environment}
+def push_environment(environment: dict, **kwargs: Any) -> dict:
+    return {'__proto__': environment, **kwargs}
 
 
 # Operation wrappers.
@@ -275,13 +279,12 @@ binary_operations: Dict[TokenType, Callable[[AST, AST, dict], Any]] = {
     TokenType.PLUS: binary_operation(operator.add),
 }
 
-# TODO: should be generalized to native properties.
-native_constructors: Dict[Type, Callable] = {
-    dict: {'__call__': dict},
-    float: {'__call__': float},
-    int: {'__call__': int},
-    list: {'__call__': lambda *args: list(args)},
-    str: {'__call__': str},
+own_properties: dict = {
+    dict: {'__call__': dict, 'prototype': {}},
+    float: {'__call__': float, 'prototype': 0.0},
+    int: {'__call__': int, 'prototype': 0},
+    list: {'__call__': lambda *args: list(args), 'prototype': []},
+    str: {'__call__': str, 'prototype': ''},
 }
 
 ast_handlers: Dict[Type[AST], Callable[[AST, dict], Any]] = {

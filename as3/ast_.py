@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ast import literal_eval
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Any, Dict
+from typing import Any, List, Optional, Tuple
 
 from as3.scanner import Token
 
@@ -33,15 +33,10 @@ class Block(AST):
 
 
 @dataclass
-class Pass(AST):
-    pass
-
-
-@dataclass
 class If(AST):
     test: AST = null
-    positive: AST = Pass()
-    negative: AST = Pass()
+    positive: AST = Block()
+    negative: AST = Block()
 
 
 @dataclass
@@ -57,13 +52,13 @@ class Break(AST):
 @dataclass
 class While(AST):
     test: AST = null
-    body: AST = Pass()
+    body: AST = Block()
 
 
 @dataclass
 class TryFinally(AST):
-    body: AST = Pass()
-    finally_: AST = Pass()
+    body: AST = Block()
+    finally_: AST = Block()
     excepts: List[AST] = field(default_factory=list)
 
 
@@ -81,7 +76,7 @@ class Name(AST):
 class Except(AST):
     variable_name: str = underscore
     exception_type: AST = Name(identifier='Exception')
-    body: AST = Pass()
+    body: AST = Block()
 
 
 @dataclass
@@ -93,7 +88,7 @@ class Throw(AST):
 class AbstractFor(AST):
     variable_name: str = underscore
     value: AST = null
-    body: AST = Pass()
+    body: AST = Block()
 
 
 @dataclass
@@ -162,13 +157,12 @@ class Function(AST):
     parameter_names: List[str] = field(default_factory=list)
     defaults: List[AST] = field(default_factory=list)
     default_return_value: Any = None
-    body: AST = Pass()
+    body: AST = Block()
 
 
 @dataclass
 class Class(AST):
     name: str = underscore
-    base: AST = Literal(value=dict)  # `__proto__`
-    prototype: Dict[str, Any] = field(default_factory=dict)
-    fields: List[AST] = field(default_factory=list)
-    constructor: Function = Function()
+    base: AST = Literal(value=dict)
+    variables: List[Variable] = field(default_factory=list)
+    constructor: Optional[Function] = None
